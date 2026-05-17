@@ -89,33 +89,33 @@ The platform operates on a decoupled client-server architecture:
 
 ```mermaid
 graph TD
-    A[React 18 / Vite Frontend] -->|1. Image Upload| B[Flask Backend /api/vision/analyze]
-    A -->|2. Coordinates Drop| C[Flask Backend /api/spatial/analyze]
+    A["React 18 / Vite Frontend"] -->|1. Image Upload| B["Flask Backend /api/vision/analyze"]
+    A -->|2. Coordinates Drop| C["Flask Backend /api/spatial/analyze"]
     
-    B -->|Image Processing| D[YOLOv8-seg Engine]
+    B -->|Image Processing| D["YOLOv8-seg Engine"]
     D -->|Feature Segments| A
     
-    C -->|ThreadPoolExecutor| E[Parallel Data Harvester]
-    E -->|1. Overpass API| F[OSM Infrastructure Data]
-    E -->|2. Elevation API| G[Google Terrain / Slope]
-    E -->|3. Maps API| H[Neighborhood Amenities]
-    E -->|4. Earth Engine| I[GEE Flood & NDVI]
-    E -->|5. Open-Meteo| J[Soil Moisture]
-    E -->|6. Nominatim| K[Administrative Subdivisions]
-    E -->|7. Solar API| L[Google Solar Insights]
+    C -->|ThreadPoolExecutor| E["Parallel Data Harvester"]
+    E -->|1. Overpass API| F["OSM Infrastructure Data"]
+    E -->|2. Elevation API| G["Google Terrain / Slope"]
+    E -->|3. Maps API| H["Neighborhood Amenities"]
+    E -->|4. Earth Engine| I["GEE Flood & NDVI"]
+    E -->|5. Open-Meteo| J["Soil Moisture"]
+    E -->|6. Nominatim| K["Administrative Subdivisions"]
+    E -->|7. Solar API| L["Google Solar Insights"]
     
-    F & G & H & I & J & K & L --> M[Sanitization & Zone Classification]
-    M --> N{Cache Check}
-    N -->|Cache Hit| O[Return Response]
-    N -->|Cache Miss| P[Gemini 2.5 Flash Synthesis]
-    P -->|Synthesized JSON Report| Q[24h In-Memory Cache]
+    F & G & H & I & J & K & L --> M["Sanitization & Zone Classification"]
+    M --> N{"Cache Check"}
+    N -->|Cache Hit| O["Return Response"]
+    N -->|Cache Miss| P["Gemini 2.5 Flash Synthesis"]
+    P -->|Synthesized JSON Report| Q["24h In-Memory Cache"]
     Q --> O
     O -->|Payload & AI Report| A
     
-    A -->|3. Document Export| R[@react-pdf/renderer]
-    R -->|Offline-Safe Helvetica PDF| S[Downloadable PDF Dossier]
+    A -->|3. Document Export| R["@react-pdf/renderer"]
+    R -->|Offline-Safe Helvetica PDF| S["Downloadable PDF Dossier"]
     
-    A -->|4. Interactive Q&A| T[Flask Backend /api/spatial/chat]
+    A -->|4. Interactive Q&A| T["Flask Backend /api/spatial/chat"]
     T -->|Contextual Response| A
 ```
 
