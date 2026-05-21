@@ -32,6 +32,8 @@ from .gemini_synth import synthesize_with_gemini, answer_questions_with_gemini_s
 from .maps import fetch_maps_data
 from .overpass import fetch_overpass_data
 from .shapely_engine import compute_risks
+from .soil import fetch_soil_data
+from .zones import compute_zone_risks
 
 bp = Blueprint("spatial", __name__)
 
@@ -47,13 +49,11 @@ _CACHE_TTL_SECONDS = 86_400  # 24 hours
 
 
 def _risk_label(score: int) -> str:
-    if score >= 85:
-        return "CRITICAL"
-    if score >= 65:
-        return "HIGH"
-    if score >= 40:
-        return "MEDIUM"
-    return "LOW"
+    if score >= 80:
+        return "SAFE"
+    if score >= 50:
+        return "MODERATE WARNINGS"
+    return "CRITICAL / HIGH RISK"
 
 
 def _build_fallback_report(payload: dict, reason: str) -> dict:
@@ -87,15 +87,27 @@ def _build_fallback_report(payload: dict, reason: str) -> dict:
         dist_grid_value = float(dist_grid) if dist_grid is not None else None
     except (TypeError, ValueError):
         dist_grid_value = None
+
+    # Zero out grid penalty for Urban/Commercial zones or Urban Mask
+    zone_label = str(payload.get("_zone_tier_label", ""))
+    soil_type = str(payload.get("soil_type", ""))
+    is_urban_or_commercial = "Commercial" in zone_label or "Urban" in zone_label or soil_type == "Urban/Built-Up"
+    
+    if is_urban_or_commercial:
+        dist_grid_value = 0  # Assume grid is present
+    
     add_flag(dist_grid_value is not None and dist_grid_value >= 400, 6, "Infrastructure: Far from power grid")
 
-    score = max(1, min(100, int(round(score))))
+    # Invert score: 100 is perfect, 0 is unbuildable.
+    # The flags above compute 'penalty' points, so we subtract from 100.
+    score = max(0, min(100, 100 - int(round(score))))
     label = _risk_label(score)
 
     place = payload.get("place_name") or payload.get("neighborhood") or payload.get("ward") or "this location"
     exec_summary = (
         f"Basic report only (Gemini unavailable: {reason}). "
-        f"Top risks near {place}: {flags[0] if flags else 'No critical flags from available public data'}.")
+        f"Top risks near {place}: {flags[0] if flags else 'No critical flags from available public data'}."
+    )
 
     # Rough cost heuristics (very approximate; for display only)
     grid_cost = 0
@@ -110,10 +122,10 @@ def _build_fallback_report(payload: dict, reason: str) -> dict:
     total_due_diligence = 500 + recommended_survey_cost
 
     return {
-        "overall_risk_score": score,
-        "overall_risk_label": label,
+        "land_feasibility_score": score,
+        "land_feasibility_label": label,
         "executive_summary": exec_summary[:240],
-        "investment_verdict": "PROCEED WITH CAUTION" if label in {"MEDIUM", "HIGH"} else "SAFE TO PROCEED TO DUE DILIGENCE",
+        "investment_verdict": "PROCEED WITH CAUTION" if label in {"MODERATE", "HIGH RISK"} else "SAFE TO PROCEED TO DUE DILIGENCE",
         "estimated_land_value_context": "Gemini synthesis unavailable — land value context not generated.",
         "sections": [
             {
@@ -324,21 +336,6 @@ def _sanitize_payload(payload: dict) -> dict:
     else:
         s['_slope_assessment'] = f"STEEP ({slope_val}%): Raft/piled foundation required. Premium KES 1,500,000-3,000,000+. Structural engineer mandatory."
 
-    # ── Soil type injection from known Nairobi geology ───────────────────────
-    combined = ' '.join([
-        str(s.get('county') or ''), str(s.get('ward') or ''),
-        str(s.get('place_name') or ''), str(s.get('neighborhood') or '')
-    ]).lower()
-
-    if any(kw in combined for kw in ['westlands', 'pangani', 'ruiru', 'kasarani', 'roysambu', 'kahawa', 'juja', 'githurai', 'thika road']):
-        s['_soil_type_inference'] = "KNOWN: Black cotton (vertisol) — HIGH shrink-swell. Raft/piled foundation MANDATORY. KES 800,000-1,500,000 premium."
-    elif any(kw in combined for kw in ['karen', 'langata', 'lavington', 'kilimani', 'dagoretti', 'ngong']):
-        s['_soil_type_inference'] = "KNOWN: Red laterite (murram) — MODERATE bearing. Strip/pad foundation adequate. Standard NCA soil investigation still required."
-    elif any(kw in combined for kw in ['kiambu', 'limuru', 'tigoni', 'kikuyu', 'lari']):
-        s['_soil_type_inference'] = "KNOWN: Volcanic clay — high excavation cost but good bearing once past topsoil. Standard foundation."
-    elif any(kw in combined for kw in ['athi river', 'mlolongo', 'syokimau', 'kitengela', 'mavoko']):
-        s['_soil_type_inference'] = "KNOWN: Alluvial deposits — VARIABLE bearing. Soil test MANDATORY. Risk of differential settlement. Budget KES 500,000-1,200,000 foundation."
-
     return s
 
 
@@ -515,9 +512,11 @@ def analyze():
         "weather":      lambda: fetch_weather_risk(lat, lng),
         "admin":        lambda: fetch_admin_context(lat, lng),
         "solar":        lambda: fetch_solar_data(lat, lng),
+        "soil":         lambda: fetch_soil_data(lat, lng),
+        "zones":        lambda: compute_zone_risks(lat, lng),
     }
 
-    with ThreadPoolExecutor(max_workers=7) as pool:
+    with ThreadPoolExecutor(max_workers=9) as pool:
         futures = {pool.submit(fn): key for key, fn in tasks.items()}
         for fut in as_completed(futures):
             key = futures[fut]
@@ -537,6 +536,10 @@ def analyze():
                     admin_data = result
                 elif key == "solar":
                     solar_data = result
+                elif key == "soil":
+                    soil_data = result
+                elif key == "zones":
+                    zones_data = result
             except Exception as exc:
                 print(f"[Terra AI] {key} fetch failed (non-fatal): {exc}")
 
@@ -552,6 +555,8 @@ def analyze():
         "solar_success": solar_data.get("solar_available", False),
         "admin_success": bool(admin_data.get("county")),
         "weather_success": weather_data.get("soil_moisture") is not None,
+        "soil_success": soil_data.get("data_source") in ("isric_soilgrids", "isric_soilgrids_nearby_sample"),
+        "zones_success": isinstance(zones_data.get("demolition_risk"), bool),
     }
 
     # ── Merge analysis payload ────────────────────────────────────────────────
@@ -576,15 +581,23 @@ def analyze():
         "subcounty": admin_data.get("subcounty", ""),
         "ward": admin_data.get("ward", ""),
 
-        # Elevation / slope
+        # Elevation / slope (slope from GEE Terrain.slope; fallback to 5-pt calc)
         "elevation_m": elevation_data.get("elevation_m"),
-        "slope_percent": elevation_data.get("slope_percent"),
+        "slope_percent": gee_data.get("slope_percent") or elevation_data.get("slope_percent"),
         "aspect_degrees": gee_data.get("aspect_degrees"),
+        # Sinkhole detection (3x3 grid, Step 1.2B)
+        "is_topographical_sinkhole": elevation_data.get("is_topographical_sinkhole", False),
+        "sinkhole_center_elev": elevation_data.get("sinkhole_center_elev"),
+        "sinkhole_surrounding_avg": elevation_data.get("sinkhole_surrounding_avg"),
 
         # Flood / water
         "flood_history": elevation_data.get("flood_history", False),
         "seasonal_water": gee_data.get("seasonal_water", False),
         "wetland_risk": gee_data.get("wetland_risk", False),
+
+        # CHIRPS Long-term Historical Rainfall (Step 1.5)
+        "chirps_max_rainfall_mm": gee_data.get("chirps_max_rainfall_mm"),
+        "chirps_rainfall_index": gee_data.get("chirps_rainfall_index", "Unknown"),
 
         # GEE vegetation / land cover
         "ndvi_score": gee_data.get("ndvi_score"),
@@ -593,13 +606,33 @@ def analyze():
         "land_cover_label": gee_data.get("land_cover_label"),
         "tree_cover_flag": gee_data.get("tree_cover_flag", False),
 
-        # Weather / soil
+        # Weather / surface soil moisture
         "soil_moisture": weather_data.get("soil_moisture"),
         "high_moisture_risk": weather_data.get("high_moisture_risk", False),
 
-        # Riparian / legal
+        # ISRIC SoilGrids — geotechnical soil data
+        "soil_type": soil_data.get("soil_type"),
+        "soil_clay_pct": soil_data.get("clay_pct"),
+        "soil_cec_cmolc_kg": soil_data.get("cec_cmolc_kg"),
+        "soil_silt_pct": soil_data.get("silt_pct"),
+        "soil_bulk_density_kg_dm3": soil_data.get("bulk_density_kg_dm3"),
+        "soil_foundation_warning": soil_data.get("foundation_warning"),
+        "soil_foundation_premium_kes": soil_data.get("foundation_premium_kes", 0),
+        "soil_data_source": soil_data.get("data_source", "fallback"),
+
+        # Demolition & KCAA Zone Risks (Step 1.4)
+        "demolition_risk": zones_data.get("demolition_risk", False),
+        "demolition_warning": zones_data.get("demolition_warning", ""),
+        "nearest_highway_m": zones_data.get("nearest_highway_m"),
+        "nearest_railway_m": zones_data.get("nearest_railway_m"),
+        "aviation_height_restriction": zones_data.get("aviation_height_restriction", False),
+        "aviation_height_warning": zones_data.get("aviation_warning", ""),
+        "kcaa_zone_name": zones_data.get("kcaa_zone_name"),
+
+        # Riparian / legal (HydroSHEDS, Step 1.3)
         "riparian_breach": spatial_risks["riparian_breach"],
         "nearest_waterway_m": spatial_risks["nearest_waterway_m"],
+        "riparian_data_source": spatial_risks.get("riparian_data_source", "osm"),
         "road_reserve_risk": spatial_risks["road_reserve_risk"],
         "nearest_road_m": spatial_risks["nearest_road_m"],
 
@@ -635,7 +668,7 @@ def analyze():
         "data_quality": data_quality,
     }
 
-    print(f"[Terra AI] Payload assembled ({sum(data_quality.values())}/7 sources OK). Running sanitization middleware…")
+    print(f"[Terra AI] Payload assembled ({sum(data_quality.values())}/9 sources OK). Running sanitization middleware.")
 
     # ── Data sanitization middleware ─────────────────────────────────────────
     analysis_payload = _sanitize_payload(analysis_payload)

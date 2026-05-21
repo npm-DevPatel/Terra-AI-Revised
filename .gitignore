@@ -38,3 +38,9 @@ __pycache__/
 
 # ML model weights (large binary — re-download as needed)
 backend/yolov8n-seg.pt
+
+# Ignore docs
+docs/
+
+# Datasets
+datasets/

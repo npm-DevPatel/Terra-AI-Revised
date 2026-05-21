@@ -1,36 +1,125 @@
 """
-Shapely-based spatial risk engine — port of terra_ai_demo1/server/services/turfEngine.js
+Shapely spatial risk engine — Terra AI
 
-Key conversions from Turf.js:
-  - turf.lineString + turf.buffer(30, 'meters')  →  LineString.buffer(30 / DEG_PER_METER)
-  - turf.booleanPointInPolygon                   →  Point.within(polygon)
-  - turf.nearestPointOnLine + turf.distance       →  nearest_points(line, point)
-  - turf.distance(a, b, 'meters')                →  haversine_meters(a, b)
+Step 1.3 upgrade: HydroSHEDS Africa HydroRIVERS shapefile replaces OSM waterway
+proximity for riparian setback calculation.
 
-Coordinate convention throughout: (lon, lat) for Shapely (GIS standard).
+Shapefile location: datasets/HydroRIVERS_v10_af.shp  (project root)
+Loaded once at module import, filtered to Nairobi bounding box to keep memory light.
+On each coordinate drop: precise distance to nearest HydroSHEDS river line.
+Flag: riparian_breach = True if distance < 30 m
+Label: "CRITICAL Statutory NEMA Riparian Breach"
+
+All other spatial checks (road reserve, grid, aviation, amenities, etc.) remain as before.
 """
 
 import math
+import os
+from functools import lru_cache
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import nearest_points
 
-# 1 degree of latitude ≈ 111,320 m.  For small distances this approximation
-# is accurate enough (within 0.5% error at 50 m scale).
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
 METERS_PER_DEG = 111_320.0
 
-# Hardcoded Nairobi-area airports with CORRECTED coordinates.
-# Section 3C fix: the previous entries had JKIA and Wilson swapped.
-#   JKIA (Jomo Kenyatta International): -1.3192, 36.9275 — east of Nairobi
-#   Wilson Airport (Langata):           -1.3217, 36.8155 — west of Nairobi
+# Riparian setback per EMCA Cap 387 & NEMA guidelines
+RIPARIAN_SETBACK_M = 30.0
+
+# Nairobi + peri-urban bounding box for HydroSHEDS pre-filter
+_NAIROBI_BOUNDS = {
+    "lat_min": -1.80,
+    "lat_max": -0.90,
+    "lon_min":  36.50,
+    "lon_max":  37.20,
+}
+
+# Path to HydroRIVERS shapefile (relative to project root)
+_REPO_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")
+)
+_HYDRO_SHP = os.path.join(_REPO_ROOT, "datasets", "HydroRIVERS_v10_af.shp")
+
+# Hardcoded Nairobi-area airports (JKIA + Wilson)
 _NAIROBI_AIRPORTS = [
     {"lat": -1.3192, "lng": 36.9275, "restrict_km": 5.0},   # JKIA (Embakasi)
     {"lat": -1.3217, "lng": 36.8155, "restrict_km": 3.0},   # Wilson Airport (Langata)
 ]
 
 
+# ---------------------------------------------------------------------------
+# HydroSHEDS loader (lazy, cached, module-level singleton)
+# ---------------------------------------------------------------------------
+
+_hydro_lines: list[LineString] | None = None
+_hydro_load_attempted: bool = False
+
+
+def _load_hydro_rivers() -> list[LineString]:
+    """
+    Load HydroRIVERS shapefile once and cache Shapely LineString objects
+    pre-filtered to the Nairobi bounding box.
+
+    Returns an empty list if the shapefile is missing or geopandas is unavailable.
+    """
+    global _hydro_lines, _hydro_load_attempted
+
+    if _hydro_load_attempted:
+        return _hydro_lines or []
+
+    _hydro_load_attempted = True
+
+    if not os.path.exists(_HYDRO_SHP):
+        print(
+            f"[Terra AI] HydroSHEDS shapefile not found at {_HYDRO_SHP}. "
+            "Riparian check will fall back to OSM waterways."
+        )
+        _hydro_lines = []
+        return []
+
+    try:
+        import geopandas as gpd
+        from shapely.geometry import box
+
+        bbox = box(
+            _NAIROBI_BOUNDS["lon_min"],
+            _NAIROBI_BOUNDS["lat_min"],
+            _NAIROBI_BOUNDS["lon_max"],
+            _NAIROBI_BOUNDS["lat_max"],
+        )
+
+        print("[Terra AI] Loading HydroSHEDS Africa shapefile (Nairobi clip)…")
+        gdf = gpd.read_file(_HYDRO_SHP, bbox=bbox, engine="pyogrio")
+        print(f"[Terra AI] HydroSHEDS loaded: {len(gdf)} river segments in Nairobi bounds.")
+
+        lines: list[LineString] = []
+        for geom in gdf.geometry:
+            if geom is None:
+                continue
+            # May be MultiLineString — flatten
+            if geom.geom_type == "LineString":
+                lines.append(geom)
+            elif geom.geom_type == "MultiLineString":
+                lines.extend(geom.geoms)
+
+        _hydro_lines = lines
+        return lines
+
+    except Exception as exc:
+        print(f"[Terra AI] HydroSHEDS load failed (non-fatal): {exc}. Falling back to OSM.")
+        _hydro_lines = []
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
 def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Haversine distance in metres between two WGS-84 points."""
-    R = 6_371_000  # Earth radius in metres
+    R = 6_371_000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlam = math.radians(lon2 - lon1)
@@ -46,29 +135,91 @@ def _way_coords(way: dict) -> list[tuple[float, float]] | None:
     return [(node["lon"], node["lat"]) for node in geom]
 
 
+# ---------------------------------------------------------------------------
+# Riparian check — HydroSHEDS preferred, OSM fallback
+# ---------------------------------------------------------------------------
+
+def _check_riparian(
+    lat: float,
+    lng: float,
+    pin: Point,
+    osm_waterways: list[dict],
+) -> tuple[bool, float | None]:
+    """
+    Returns (riparian_breach, nearest_waterway_m).
+
+    Priority:
+      1. HydroSHEDS shapefile (precise geospatial dataset)
+      2. OSM waterways from Overpass (fallback if shapefile missing/failed)
+    """
+    hydro_lines = _load_hydro_rivers()
+
+    # ── HydroSHEDS path ──────────────────────────────────────────────────
+    if hydro_lines:
+        min_dist_m: float = float("inf")
+        breach = False
+        for line in hydro_lines:
+            try:
+                near_pt, _ = nearest_points(line, pin)
+                dist_m = _haversine_m(lat, lng, near_pt.y, near_pt.x)
+                if dist_m < min_dist_m:
+                    min_dist_m = dist_m
+                if dist_m < RIPARIAN_SETBACK_M:
+                    breach = True
+            except Exception:
+                continue
+        nearest = round(min_dist_m) if min_dist_m < float("inf") else None
+        return breach, nearest
+
+    # ── OSM fallback ─────────────────────────────────────────────────────
+    if not osm_waterways:
+        return False, None
+
+    min_dist_m = float("inf")
+    breach = False
+    for way in osm_waterways:
+        coords = _way_coords(way)
+        if not coords:
+            continue
+        try:
+            line = LineString(coords)
+            near_pt, _ = nearest_points(line, pin)
+            dist_m = _haversine_m(lat, lng, near_pt.y, near_pt.x)
+            if dist_m < min_dist_m:
+                min_dist_m = dist_m
+            buf_deg = RIPARIAN_SETBACK_M / METERS_PER_DEG
+            if pin.within(line.buffer(buf_deg)):
+                breach = True
+        except Exception as exc:
+            print(f"[Shapely] OSM waterway fallback error: {exc}")
+    nearest = round(min_dist_m) if min_dist_m < float("inf") else None
+    return breach, nearest
+
+
+# ---------------------------------------------------------------------------
+# Main compute_risks entry point
+# ---------------------------------------------------------------------------
+
 def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
     """
     Run all spatial risk checks for the given pin coordinates.
 
-    Args:
-        lat, lng: Pin coordinates in WGS-84.
-        overpass_data: Categorised Overpass response from overpass.fetch_overpass_data().
-
-    Returns:
-        dict with keys:
-            riparian_breach, nearest_waterway_m,
-            road_reserve_risk, nearest_road_m,
-            distance_to_grid_m,
-            aviation_risk, nearest_airport_km,
-            protected_land_risk, landuse_zone,
-            nearest_school_km, nearest_market_km,
-            water_connection_nearby, nearest_cliff_m
+    Returns dict with keys:
+        riparian_breach, nearest_waterway_m,
+        riparian_data_source,           ← "hydrosheds" or "osm"
+        road_reserve_risk, nearest_road_m,
+        distance_to_grid_m,
+        aviation_risk, nearest_airport_km,
+        protected_land_risk, landuse_zone,
+        nearest_school_km, nearest_market_km,
+        water_connection_nearby, nearest_cliff_m
     """
-    pin = Point(lng, lat)  # Shapely convention: (x=lon, y=lat)
+    pin = Point(lng, lat)
 
     result = {
         "riparian_breach": False,
         "nearest_waterway_m": None,
+        "riparian_data_source": "none",
         "road_reserve_risk": False,
         "nearest_road_m": None,
         "distance_to_grid_m": None,
@@ -82,32 +233,26 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
         "nearest_cliff_m": None,
     }
 
-    # ── 1. RIPARIAN BUFFER CHECK (30 m per Kenya EMCA) ───────────────────────
-    waterways = overpass_data.get("waterways", [])
-    if waterways:
-        min_dist_m = float("inf")
-        for way in waterways:
-            coords = _way_coords(way)
-            if not coords:
-                continue
-            try:
-                line = LineString(coords)
-                # Nearest point on the line, measure haversine distance
-                near_pt, _ = nearest_points(line, pin)
-                dist_m = _haversine_m(lat, lng, near_pt.y, near_pt.x)
-                if dist_m < min_dist_m:
-                    min_dist_m = dist_m
-                # Buffer the line by 30 m converted to degrees
-                buf_deg = 30 / METERS_PER_DEG
-                buffer_poly = line.buffer(buf_deg)
-                if pin.within(buffer_poly):
-                    result["riparian_breach"] = True
-            except Exception as exc:
-                print(f"[Shapely] Waterway error: {exc}")
-        if min_dist_m < float("inf"):
-            result["nearest_waterway_m"] = round(min_dist_m)
+    # ── 1. RIPARIAN (HydroSHEDS → OSM fallback) ──────────────────────────
+    try:
+        osm_waterways = overpass_data.get("waterways", [])
+        breach, nearest_m = _check_riparian(lat, lng, pin, osm_waterways)
+        result["riparian_breach"] = breach
+        result["nearest_waterway_m"] = nearest_m
 
-    # ── 2. ROAD RESERVE CHECK (15 m per Kenya Roads Act) ────────────────────
+        hydro_available = bool(_load_hydro_rivers())
+        result["riparian_data_source"] = "hydrosheds" if hydro_available else "osm"
+
+        if breach:
+            print(
+                f"[Terra AI] CRITICAL: Riparian breach detected — "
+                f"{nearest_m} m from nearest HydroSHEDS river "
+                f"(setback: {RIPARIAN_SETBACK_M} m)"
+            )
+    except Exception as exc:
+        print(f"[Shapely] Riparian check error: {exc}")
+
+    # ── 2. ROAD RESERVE CHECK (15 m per Kenya Roads Act) ────────────────
     highways = overpass_data.get("highways", [])
     if highways:
         min_dist_m = float("inf")
@@ -122,16 +267,19 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
                 if dist_m < min_dist_m:
                     min_dist_m = dist_m
                 buf_deg = 15 / METERS_PER_DEG
-                buffer_poly = line.buffer(buf_deg)
-                if pin.within(buffer_poly):
+                if pin.within(line.buffer(buf_deg)):
                     result["road_reserve_risk"] = True
             except Exception as exc:
                 print(f"[Shapely] Highway error: {exc}")
         if min_dist_m < float("inf"):
             result["nearest_road_m"] = round(min_dist_m)
 
-    # ── 3. POWER GRID DISTANCE ────────────────────────────────────────────────
-    grid_features = overpass_data.get("power_lines", []) + overpass_data.get("substations", []) + overpass_data.get("power_poles", [])
+    # ── 3. POWER GRID DISTANCE ───────────────────────────────────────────
+    grid_features = (
+        overpass_data.get("power_lines", [])
+        + overpass_data.get("substations", [])
+        + overpass_data.get("power_poles", [])
+    )
     if grid_features:
         min_dist_m = float("inf")
         for feat in grid_features:
@@ -154,8 +302,7 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
         if min_dist_m < float("inf"):
             result["distance_to_grid_m"] = round(min_dist_m)
 
-    # ── 4. AVIATION / KCAA CHECK ──────────────────────────────────────────────
-    # Check hardcoded Nairobi airports first
+    # ── 4. AVIATION / KCAA CHECK ─────────────────────────────────────────
     for airport in _NAIROBI_AIRPORTS:
         dist_km = _haversine_m(lat, lng, airport["lat"], airport["lng"]) / 1000
         prev = result["nearest_airport_km"]
@@ -164,7 +311,6 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
         if dist_km <= airport["restrict_km"]:
             result["aviation_risk"] = True
 
-    # Also check any OSM aerodromes found within 5 km
     for aerodrome in overpass_data.get("aerodromes", []):
         try:
             if aerodrome.get("type") == "node":
@@ -183,7 +329,7 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
         except Exception as exc:
             print(f"[Shapely] Aerodrome error: {exc}")
 
-    # ── 5. PROTECTED LAND CHECK ────────────────────────────────────────────────
+    # ── 5. PROTECTED LAND CHECK ──────────────────────────────────────────
     raw_elements = overpass_data.get("raw_elements", [])
     protected_areas = [
         e for e in raw_elements
@@ -203,11 +349,10 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
         except Exception:
             pass
 
-    # ── 6. LAND USE ZONE DETECTION ───────────────────────────────────────────
+    # ── 6. LAND USE ZONE DETECTION ───────────────────────────────────────
     landuse_elements = [e for e in raw_elements if "landuse" in e.get("tags", {})]
     landuse_zone = "Not mapped"
     if landuse_elements:
-        # Find the landuse element the pin sits within
         for el in landuse_elements:
             coords = _way_coords(el)
             if coords and len(coords) >= 3:
@@ -222,7 +367,7 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
             landuse_zone = landuse_elements[0].get("tags", {}).get("landuse", "Not mapped")
     result["landuse_zone"] = landuse_zone
 
-    # ── 7. AMENITY DISTANCES ──────────────────────────────────────────────────
+    # ── 7. AMENITY DISTANCES ─────────────────────────────────────────────
     for amenity_type, result_key in [
         ("school", "nearest_school_km"),
         ("marketplace", "nearest_market_km"),
@@ -236,7 +381,7 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
             min_d = min(_haversine_m(lat, lng, n["lat"], n["lon"]) for n in amenity_nodes)
             result[result_key] = round(min_d / 1000, 2)
 
-    # ── 8. WATER CONNECTION NEARBY ────────────────────────────────────────────
+    # ── 8. WATER CONNECTION NEARBY ───────────────────────────────────────
     water_infra = [
         e for e in raw_elements
         if e.get("tags", {}).get("amenity") == "water_point"
@@ -250,7 +395,7 @@ def compute_risks(lat: float, lng: float, overpass_data: dict) -> dict:
                 result["water_connection_nearby"] = True
                 break
 
-    # ── 9. CLIFF / ESCARPMENT CHECK ───────────────────────────────────────────
+    # ── 9. CLIFF / ESCARPMENT CHECK ──────────────────────────────────────
     cliff_elements = [
         e for e in raw_elements
         if e.get("tags", {}).get("natural") in ("cliff", "escarpment")

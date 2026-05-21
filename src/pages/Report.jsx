@@ -42,9 +42,9 @@ import TerraReportDocument from '../components/pdf/TerraReportDocument';
 
 // ─── Risk level helpers ────────────────────────────────────────
 function riskColor(score) {
-  if (score >= 65) return { text: 'text-red-600',   bg: 'bg-red-50',    bar: 'bg-red-500' };
-  if (score >= 40) return { text: 'text-amber-600', bg: 'bg-amber-50',  bar: 'bg-amber-500' };
-  return               { text: 'text-emerald-600',  bg: 'bg-emerald-50', bar: 'bg-emerald-500' };
+  if (score >= 80) return { text: 'text-emerald-600',  bg: 'bg-emerald-50', bar: 'bg-emerald-500' };
+  if (score >= 50) return { text: 'text-amber-600', bg: 'bg-amber-50',  bar: 'bg-amber-500' };
+  return               { text: 'text-red-600',   bg: 'bg-red-50',    bar: 'bg-red-500' };
 }
 
 const SECTION_ICONS = {
@@ -351,8 +351,8 @@ export default function Report() {
   const coords   = payload.coordinates ?? {};
 
   // From report (Gemini structured output)
-  const score    = typeof report.overall_risk_score === 'number' ? report.overall_risk_score : 0;
-  const label    = String(report.overall_risk_label ?? '—');
+  const score    = typeof report.land_feasibility_score === 'number' ? report.land_feasibility_score : 0;
+  const label    = String(report.land_feasibility_label ?? '—');
   const rawSummary = String(report.executive_summary ?? '');
   // Detect fallback report (Gemini API failure) — don't dump raw JSON
   const isFallback = rawSummary.startsWith('Basic report only');
@@ -428,11 +428,14 @@ export default function Report() {
                 <span className={clsx('text-7xl font-black leading-none', scoreText)}>{score}</span>
                 <span className="text-terra-muted text-2xl mb-2">/100</span>
               </div>
+              <p className="text-xs text-slate-400 mt-2 font-medium italic mb-2">
+                (100 = Ideal, 0 = Unbuildable)
+              </p>
               <div className="mb-1">
                 <span className={clsx('text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border',
-                  score >= 65 ? 'bg-red-50 border-red-200 text-red-700'
-                  : score >= 40 ? 'bg-amber-50 border-amber-200 text-amber-700'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-700')}>
+                  score >= 80 ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  : score >= 50 ? 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-red-50 border-red-200 text-red-700')}>
                   {label}
                 </span>
               </div>

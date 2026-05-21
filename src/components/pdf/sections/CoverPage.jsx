@@ -1,5 +1,5 @@
 import React from 'react';
-import { Page, View, Text, StyleSheet, Svg, Rect, Path } from '@react-pdf/renderer';
+import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { S, COLORS, fmt } from '../pdfStyles';
 
 const styles = StyleSheet.create({
@@ -26,21 +26,31 @@ const styles = StyleSheet.create({
 
 export default function CoverPage({ payload, report, coordinates, date }) {
   const place  = [payload?.place_name, payload?.ward, payload?.county].filter(Boolean).join(', ') || 'Kenya';
-  const score  = typeof report?.overall_risk_score === 'number' ? report.overall_risk_score : 0;
-  const label  = String(report?.overall_risk_label ?? '—');
+  const score  = typeof report?.land_feasibility_score === 'number' ? report.land_feasibility_score : 0;
+  const label  = String(report?.land_feasibility_label ?? '—');
   const verdict = report?.investment_verdict ? String(report.investment_verdict) : null;
   const lat = coordinates?.lat;
   const lng = coordinates?.lng;
-  const scoreColor = score >= 65 ? COLORS.red500 : score >= 40 ? COLORS.amber500 : COLORS.emerald500;
+  const getRiskColors = (score) => {
+    if (score >= 80) return COLORS.emerald500;
+    if (score >= 50) return COLORS.amber500;
+    return COLORS.red500;
+  };
+  const scoreColor = getRiskColors(score);
 
   return (
     <Page size="A4" style={styles.page}>
       <View style={styles.bgStripe} />
       <View style={styles.emeraldAccent} />
-      <Svg style={{ position: 'absolute', top: 0, left: 0, width: 595, height: 842, opacity: 0.03 }}>
-        {[0,1,2,3,4,5,6,7].map(i => <Path key={'v'+i} d={'M ' + (i*85) + ' 0 L ' + (i*85) + ' 842'} stroke={COLORS.white} strokeWidth={1} />)}
-        {[0,1,2,3,4,5,6,7,8,9,10,11].map(i => <Path key={'h'+i} d={'M 0 ' + (i*75) + ' L 595 ' + (i*75)} stroke={COLORS.white} strokeWidth={1} />)}
-      </Svg>
+      {/* Decorative grid — replaced with View-based approach to avoid react-pdf SVG wrap warning */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.04 }}>
+        {[0,1,2,3,4,5,6].map(i => (
+          <View key={'v'+i} style={{ position: 'absolute', top: 0, bottom: 0, left: i * 85, width: 1, backgroundColor: COLORS.white }} />
+        ))}
+        {[0,1,2,3,4,5,6,7,8,9].map(i => (
+          <View key={'h'+i} style={{ position: 'absolute', left: 0, right: 0, top: i * 84, height: 1, backgroundColor: COLORS.white }} />
+        ))}
+      </View>
       <View style={styles.body}>
         <View>
           <View style={styles.logoRow}>
@@ -55,7 +65,7 @@ export default function CoverPage({ payload, report, coordinates, date }) {
           <Text style={styles.subTitle}>{place}</Text>
           <View style={styles.scoreBadge}>
             <View>
-              <Text style={{ color: COLORS.slate400, fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Overall Risk Score</Text>
+              <Text style={{ color: COLORS.slate400, fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Land Feasibility Score</Text>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
                 <Text style={{ color: scoreColor, fontSize: 42, fontFamily: 'Helvetica-Bold', lineHeight: 1 }}>{score}</Text>
                 <Text style={{ color: COLORS.slate400, fontSize: 16, marginBottom: 5 }}>/100</Text>

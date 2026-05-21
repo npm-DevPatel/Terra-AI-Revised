@@ -7,7 +7,7 @@ function PageHeader({ date }) {
     <View style={S.pageHeader}>
       <View style={S.brandRow}>
         <View style={S.brandDot} />
-        <Text style={S.brandName}>Terra AI · Legal & Zoning Constraints</Text>
+        <Text style={S.brandName}>Terra AI — Legal & Zoning Constraints</Text>
       </View>
       <Text style={S.headerRight}>{date}</Text>
     </View>
@@ -23,21 +23,45 @@ function PageFooter({ n }) {
   );
 }
 
-// ── Safe string builder helpers (NO nested template literals) ──
-function riparianDesc(triggered, waterway) {
+// ─── String builder helpers (no nested template literals) ──────────────────
+
+function riparianDesc(triggered, waterway, dataSrc) {
   const dist = waterway != null ? String(waterway) + 'm away' : 'data unavailable';
+  const src  = dataSrc ? ` (Data source: ${dataSrc.toUpperCase()})` : '';
   if (triggered) {
-    return 'Plot may be within 30m of a waterway (' + dist + '). Construction within this buffer is prohibited under EMCA Cap 387.';
+    return 'CRITICAL: Plot is within 30m of a waterway (' + dist + ')' + src + '. Construction within this buffer is prohibited under EMCA Cap 387. A NEMA Environmental Impact Assessment is mandatory before any development.';
   }
-  return 'No riparian encroachment detected. Nearest waterway: ' + dist + '. Plot appears outside the legally protected 30m buffer.';
+  return 'No riparian encroachment detected. Nearest waterway: ' + dist + src + '. Plot appears outside the legally protected 30m NEMA buffer.';
 }
 
-function aviationDesc(triggered, airport) {
+function aviationGenericDesc(triggered, airport) {
   const dist = airport != null ? String(airport) + 'km' : 'data unavailable';
   if (triggered) {
     return 'Plot is within a flight path zone. Nearest airport: ' + dist + '. Height limits may apply under KCAA regulations — verify before multi-storey construction.';
   }
-  return 'No aviation height restriction flagged. Nearest airport: ' + dist + '. Standard building height rules apply.';
+  return 'No aviation height restriction flagged via OSM aerodrome data. Nearest airport: ' + dist + '. Standard building height rules apply.';
+}
+
+function aviationKcaaDesc(triggered, zoneName) {
+  if (triggered) {
+    return 'Plot is within KCAA-mapped approach funnel: ' + (zoneName || 'Unknown zone') + '. Building height strictly capped by KCAA. High-rise apartment development is NOT permissible. Obtain KCAA height certificate before any planning submission.';
+  }
+  return 'No KCAA aviation height restriction detected from hardcoded approach funnel zones. Standard county building height bylaws apply.';
+}
+
+function demolitionDesc(triggered, highway, railway) {
+  if (triggered) {
+    const hwy = highway != null ? String(highway) + 'm to nearest highway' : null;
+    const rwy = railway != null ? String(railway) + 'm to nearest railway' : null;
+    const dists = [hwy, rwy].filter(Boolean).join('; ');
+    return '100% RISK OF UNCOMPENSATED DEMOLITION by KeNHA/Kenya Railways. ' +
+      (dists ? dists + '. ' : '') +
+      'Any structure built here is subject to compulsory demolition without compensation under the Kenya Roads Act and Kenya Railways Act. Do NOT purchase.';
+  }
+  const parts = [];
+  if (highway != null) parts.push('Nearest major highway: ' + String(highway) + 'm');
+  if (railway != null) parts.push('Nearest railway: ' + String(railway) + 'm');
+  return 'No demolition setback breach detected. ' + parts.join('; ') + '. Verify with county surveyor — official road reserves may differ from OSM data.';
 }
 
 function cliffDesc(meters) {
@@ -48,11 +72,12 @@ function cliffDesc(meters) {
   return 'Nearest cliff or escarpment: ' + dist + '. Distance appears adequate.';
 }
 
-// ── Risk Row Component ──────────────────────────────────────────
-function RiskRow({ label, triggered, description }) {
-  // Ensure description is always a plain string for PDF Text node
+// ─── Risk Row Component ─────────────────────────────────────────────────────
+
+function RiskRow({ label, triggered, description, critical }) {
   const safeDesc = typeof description === 'string' ? description : String(description ?? '');
   const isTriggered = Boolean(triggered);
+  const isCritical  = Boolean(critical) && isTriggered;
 
   return (
     <View style={{
@@ -67,16 +92,16 @@ function RiskRow({ label, triggered, description }) {
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: isTriggered ? COLORS.red50 : COLORS.emerald50,
-        borderWidth: 1,
-        borderColor: isTriggered ? '#fca5a5' : COLORS.emerald100,
+        backgroundColor: isCritical ? '#fef2f2' : isTriggered ? '#fff7ed' : COLORS.emerald50,
+        borderWidth: isCritical ? 2 : 1,
+        borderColor: isCritical ? '#ef4444' : isTriggered ? '#f59e0b' : COLORS.emerald100,
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
         marginTop: 1,
       }}>
-        <Text style={{ fontSize: 10, color: isTriggered ? COLORS.red600 : COLORS.emerald600, fontFamily: 'Helvetica-Bold' }}>
-          {isTriggered ? 'X' : 'OK'}
+        <Text style={{ fontSize: 9, color: isCritical ? '#ef4444' : isTriggered ? '#f59e0b' : COLORS.emerald600, fontFamily: 'Helvetica-Bold' }}>
+          {isCritical ? '!!' : isTriggered ? 'X' : 'OK'}
         </Text>
       </View>
       <View style={{ flex: 1 }}>
@@ -84,8 +109,8 @@ function RiskRow({ label, triggered, description }) {
           <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: COLORS.slate900 }}>
             {String(label)}
           </Text>
-          <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: isTriggered ? COLORS.red600 : COLORS.emerald600 }}>
-            {isTriggered ? 'FLAGGED' : 'CLEAR'}
+          <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: isCritical ? '#ef4444' : isTriggered ? '#f59e0b' : COLORS.emerald600 }}>
+            {isCritical ? 'CRITICAL' : isTriggered ? 'FLAGGED' : 'CLEAR'}
           </Text>
         </View>
         <Text style={{ fontSize: 8.5, color: COLORS.slate600, lineHeight: 1.6 }}>
@@ -96,23 +121,29 @@ function RiskRow({ label, triggered, description }) {
   );
 }
 
-export default function LegalConstraints({ payload, report, date }) {
-  // Safely extract all values with explicit null checks
-  const riparianBreach  = payload?.riparian_breach    ?? false;
-  const roadReserve     = payload?.road_reserve_risk  ?? false;
-  const protectedLand   = payload?.protected_land_risk ?? false;
-  const aviationRisk    = payload?.aviation_risk       ?? false;
-  const nearestWaterway = payload?.nearest_waterway_m  ?? null;
-  const nearestAirport  = payload?.nearest_airport_km  ?? null;
-  const landuse         = String(payload?.landuse_zone ?? 'Not mapped');
-  const nearestCliff    = payload?.nearest_cliff_m     ?? null;
+// ─── Main Component ─────────────────────────────────────────────────────────
 
-  // Safely extract sections — guard against non-array
-  const sections = Array.isArray(report?.sections) ? report.sections : [];
-  const legalSection  = sections.find((s) => s.id === 'legal')          ?? null;
-  const zoningSection = sections.find((s) => s.id === 'zoning')         ?? null;
+export default function LegalConstraints({ payload, report, date }) {
+  const riparianBreach      = payload?.riparian_breach             ?? false;
+  const roadReserve         = payload?.road_reserve_risk           ?? false;
+  const protectedLand       = payload?.protected_land_risk         ?? false;
+  const aviationRisk        = payload?.aviation_risk               ?? false;    // OSM/generic
+  const aviationHeightCap   = payload?.aviation_height_restriction ?? false;    // KCAA hardcoded
+  const demolitionRisk      = payload?.demolition_risk             ?? false;
+  const nearestWaterway     = payload?.nearest_waterway_m          ?? null;
+  const nearestAirport      = payload?.nearest_airport_km          ?? null;
+  const nearestHighway      = payload?.nearest_highway_m           ?? null;
+  const nearestRailway      = payload?.nearest_railway_m           ?? null;
+  const kcaaZone            = payload?.kcaa_zone_name              ?? null;
+  const riparianSrc         = payload?.riparian_data_source        ?? 'osm';
+  const landuse             = String(payload?.landuse_zone         ?? 'Not mapped');
+  const nearestCliff        = payload?.nearest_cliff_m             ?? null;
+
+  const sections    = Array.isArray(report?.sections) ? report.sections : [];
+  const legalSection  = sections.find((s) => s.id === 'legal')           ?? null;
+  const zoningSection = sections.find((s) => s.id === 'zoning')          ?? null;
   const fraudSection  = sections.find((s) => s.id === 'fraud_checklist') ?? null;
-  const nextSection   = sections.find((s) => s.id === 'recommendation') ?? null;
+  const nextSection   = sections.find((s) => s.id === 'recommendation')  ?? null;
 
   return (
     <Page size="A4" style={S.page}>
@@ -120,13 +151,62 @@ export default function LegalConstraints({ payload, report, date }) {
       <View style={S.body}>
         <Text style={S.sectionLabel}>Legal, Zoning & Regulatory Constraints</Text>
 
+        {/* ── Step 3.2: Demolition Setback — Large red warning box if triggered ── */}
+        {demolitionRisk && (
+          <View style={{
+            backgroundColor: '#fef2f2',
+            borderWidth: 2,
+            borderColor: '#ef4444',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12,
+          }}>
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#ef4444', marginBottom: 4, letterSpacing: 1 }}>
+              ⚠ DEMOLITION RISK — DO NOT PURCHASE
+            </Text>
+            <Text style={{ fontSize: 8.5, color: '#b91c1c', lineHeight: 1.6 }}>
+              {demolitionDesc(true, nearestHighway, nearestRailway)}
+            </Text>
+          </View>
+        )}
+
+        {/* ── Step 3.2: KCAA Aviation Cap — detail height cap limits ── */}
+        {aviationHeightCap && (
+          <View style={{
+            backgroundColor: '#fff7ed',
+            borderWidth: 1.5,
+            borderColor: '#f59e0b',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12,
+          }}>
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#b45309', marginBottom: 4, letterSpacing: 0.5 }}>
+              ✈ KCAA AVIATION HEIGHT RESTRICTION
+            </Text>
+            <Text style={{ fontSize: 8.5, color: '#92400e', lineHeight: 1.6 }}>
+              {aviationKcaaDesc(true, kcaaZone)}
+            </Text>
+            <Text style={{ fontSize: 8, color: '#92400e', marginTop: 6, fontFamily: 'Helvetica-Bold' }}>
+              Affected zone: {kcaaZone ?? 'KCAA approach funnel'}
+            </Text>
+          </View>
+        )}
+
+        {/* ── Standard risk rows ── */}
         <RiskRow
-          label="Riparian Buffer Zone (30m)"
+          label="Riparian Buffer Zone (30m — EMCA Cap 387)"
           triggered={riparianBreach}
-          description={riparianDesc(riparianBreach, nearestWaterway)}
+          critical={riparianBreach}
+          description={riparianDesc(riparianBreach, nearestWaterway, riparianSrc)}
         />
         <RiskRow
-          label="Road Reserve Encroachment"
+          label="Demolition Setback (KeNHA 60m / Railways 30m)"
+          triggered={demolitionRisk}
+          critical={demolitionRisk}
+          description={demolitionRisk ? '' : demolitionDesc(false, nearestHighway, nearestRailway)}
+        />
+        <RiskRow
+          label="Road Reserve Encroachment (Kenya Roads Act)"
           triggered={roadReserve}
           description={
             roadReserve
@@ -144,9 +224,14 @@ export default function LegalConstraints({ payload, report, date }) {
           }
         />
         <RiskRow
-          label="Aviation Height Restriction (KCAA)"
+          label="KCAA Aviation Height Restriction (Hardcoded Approach Funnels)"
+          triggered={aviationHeightCap}
+          description={aviationHeightCap ? '' : aviationKcaaDesc(false, null)}
+        />
+        <RiskRow
+          label="Aviation Restriction (OSM Aerodrome Data)"
           triggered={aviationRisk}
-          description={aviationDesc(aviationRisk, nearestAirport)}
+          description={aviationGenericDesc(aviationRisk, nearestAirport)}
         />
         {nearestCliff != null && (
           <RiskRow

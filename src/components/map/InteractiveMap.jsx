@@ -30,7 +30,7 @@ export default function InteractiveMap({ onPinDropped }) {
     window.__terraMapCallback = initMap;
     const script = document.createElement('script');
     script.id = scriptId;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=__terraMapCallback&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=__terraMapCallback&libraries=places,marker&loading=async`;
     script.async = true;
     script.defer = true;
     script.onerror = () => setApiError(true);
@@ -45,6 +45,8 @@ export default function InteractiveMap({ onPinDropped }) {
       zoom: 13,
       // 'hybrid' = satellite tiles + road/place name labels (best of both)
       mapTypeId: 'hybrid',
+      // mapId is required for AdvancedMarkerElement
+      mapId: 'terra_ai_map',
       tilt: 0,
       zoomControl: true,
       mapTypeControl: false,   // we build our own toggle
@@ -67,11 +69,28 @@ export default function InteractiveMap({ onPinDropped }) {
   function dropPin({ lat, lng }, mapInstance) {
     const map = mapInstance ?? mapInstanceRef.current;
     if (!map) return;
-    if (markerRef.current) markerRef.current.setMap(null);
-    markerRef.current = new window.google.maps.Marker({
+
+    // Remove existing marker
+    if (markerRef.current) {
+      markerRef.current.map = null;
+      markerRef.current = null;
+    }
+
+    // Build a custom styled pin element
+    const pinEl = document.createElement('div');
+    pinEl.style.cssText = [
+      'width:28px', 'height:28px', 'border-radius:50% 50% 50% 0',
+      'transform:rotate(-45deg)', 'background:#f43f5e',
+      'border:3px solid #fff', 'box-shadow:0 2px 8px rgba(0,0,0,0.45)',
+    ].join(';');
+
+    // Use AdvancedMarkerElement (non-deprecated)
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+    markerRef.current = new AdvancedMarkerElement({
       position: { lat, lng },
       map,
-      animation: window.google.maps.Animation.DROP,
+      content: pinEl,
+      title: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
     });
     map.panTo({ lat, lng });
   }

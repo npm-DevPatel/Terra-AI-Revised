@@ -12,6 +12,15 @@ By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospati
 
 ---
 
+## 📅 Recent Updates
+- **Geotechnical Integrity**: Restricted ISRIC SoilGrids nearest-neighbor search to a geotechnically valid 500m radius. Automatically enforces an "Urban Mask" and legal geotechnical physical testing warnings in dense urban cores.
+- **Feasibility Scoring Revamp**: Introduced `land_feasibility_score` evaluating plots from 100 (Ideal) to 0 (Unbuildable), replacing the inverted risk scoring model.
+- **Smart Infrastructure Heuristics**: Automatically assumes municipal grid access and zeroes out KPLC extension CapEx premiums for plots in Commercial, Tier 1 Hyper-Urban, and Urban Mask zones.
+- **AI Persona Optimization**: Transitioned Gemini 2.5 Flash synthesis engine to a "Pragmatic Legal & Financial Advisor" persona, providing objective, actionable risk mitigation steps without unnecessary alarmism.
+- **React-PDF & Maps Compatibility**: Upgraded interactive mapping to the newly required `google.maps.marker.AdvancedMarkerElement` and eliminated SVG rendering wrapper errors in the architectural PDF exports.
+
+---
+
 ## 📖 Table of Contents
 1. [Core Features & User Flow](#-core-features--user-flow)
 2. [Technical Architecture](#-technical-architecture)

@@ -55,8 +55,8 @@ function getGreenFlags(payload) {
 }
 
 export default function ExecutiveBrief({ payload, report, date }) {
-  const score   = typeof report?.overall_risk_score === 'number' ? report.overall_risk_score : 0;
-  const label   = String(report?.overall_risk_label  ?? '—');
+  const score   = typeof report?.land_feasibility_score === 'number' ? report.land_feasibility_score : 0;
+  const label   = String(report?.land_feasibility_label  ?? '—');
   const summary = String(report?.executive_summary   ?? 'Analysis complete.');
   const verdict = report?.investment_verdict ? String(report.investment_verdict) : null;
   const flags   = Array.isArray(report?.key_flags) ? report.key_flags.map(String) : [];
@@ -64,8 +64,8 @@ export default function ExecutiveBrief({ payload, report, date }) {
   const { fg, bar } = riskColors(score);
   const greenFlags = getGreenFlags(payload);
 
-  const verdictBg = score >= 65 ? COLORS.red50 : score >= 40 ? '#fffbeb' : COLORS.emerald50;
-  const verdictFg = score >= 65 ? COLORS.red600 : score >= 40 ? COLORS.amber600 : COLORS.emerald600;
+  const verdictBg = score >= 80 ? COLORS.emerald50 : score >= 50 ? '#fffbeb' : COLORS.red50;
+  const verdictFg = score >= 80 ? COLORS.emerald600 : score >= 50 ? COLORS.amber600 : COLORS.red600;
 
   return (
     <>
@@ -77,7 +77,10 @@ export default function ExecutiveBrief({ payload, report, date }) {
 
           <View style={styles.scoreRow}>
             <Text style={[styles.scoreNum, { color: fg }]}>{score}</Text>
-            <Text style={styles.scoreOf}>/100</Text>
+            <View>
+              <Text style={styles.scoreOf}>/100</Text>
+              <Text style={{ fontSize: 7, color: COLORS.slate400, fontStyle: 'italic', marginBottom: 12 }}>(100 = Ideal, 0 = Unbuildable)</Text>
+            </View>
           </View>
 
           {/* Visual score bar */}

@@ -31,9 +31,9 @@ export const COLORS = {
 };
 
 export function riskColors(score) {
-  if (score >= 65) return { fg: COLORS.red600,     bg: COLORS.red50,     bar: COLORS.red500 };
-  if (score >= 40) return { fg: COLORS.amber600,   bg: COLORS.amber50,   bar: COLORS.amber500 };
-  return               { fg: COLORS.emerald600, bg: COLORS.emerald50, bar: COLORS.emerald500 };
+  if (score >= 80) return { fg: COLORS.emerald600, bg: COLORS.emerald50, bar: COLORS.emerald500 };
+  if (score >= 50) return { fg: COLORS.amber600,   bg: COLORS.amber50,   bar: COLORS.amber500 };
+  return               { fg: COLORS.red600,     bg: COLORS.red50,     bar: COLORS.red500 };
 }
 
 export function sectionRiskColor(risk_level) {
