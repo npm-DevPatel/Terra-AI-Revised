@@ -8,8 +8,8 @@
 
 # ── PyTorch CPU-only (avoids 2 GB CUDA download on Render) ───────────────────
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.5.1+cpu
-torchvision==0.20.1+cpu
+torch==2.12.0+cpu
+torchvision==0.27.0+cpu
 
 # ── Web framework ─────────────────────────────────────────────────────────────
 Flask==3.1.3
