@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, XCircle, Download, ChevronRight,
   Flame, Droplets, Mountain, Building2, ShieldAlert, Shovel,
-  Landmark, Leaf, ExternalLink
+  Landmark, Leaf, ExternalLink, Wind, Droplet
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
@@ -92,6 +92,13 @@ export default function RiskSummaryCard() {
   const aviationHeightCap     = Boolean(payload.aviation_height_restriction);
   const isTopographicalSink   = Boolean(payload.is_topographical_sinkhole);
 
+  // New: Groundwater and Air Quality flags
+  const groundwaterData       = payload.groundwater ?? {};
+  const environmentData       = payload.environment ?? {};
+  const waterScarcityRisk     = Boolean(groundwaterData.water_scarcity_risk);
+  const severeAirPollution    = Boolean(environmentData.severe_air_pollution);
+  const boreholeDepth         = groundwaterData.depth_to_groundwater_m ?? null;
+
   // Financial premiums from ISRIC & Gemini
   const costSummary      = report.cost_summary ?? {};
   const verifiedData     = report.verified_data ?? {};
@@ -172,6 +179,8 @@ export default function RiskSummaryCard() {
             <FlagChip label="Demolition" triggered={demolitionRisk} icon={Shovel} />
             <FlagChip label="Aviation Cap" triggered={aviationHeightCap} icon={Building2} />
             <FlagChip label="Sinkhole" triggered={isTopographicalSink} icon={Mountain} />
+            <FlagChip label="Air Quality" triggered={severeAirPollution} icon={Wind} />
+            <FlagChip label="Groundwater" triggered={waterScarcityRisk} icon={Droplet} />
           </div>
 
           {/* Soil + Rainfall quick stats */}

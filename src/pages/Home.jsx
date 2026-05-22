@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Shield, Zap, FileText, Star } from 'lucide-react';
+import { ArrowRight, Shield, Zap, FileText, Star, LogIn, LogOut, User } from 'lucide-react';
 import Button from '../components/ui/Button';
+import AuthModal from '../components/auth/AuthModal';
+import useTerraStore from '../store/useTerraStore';
+import { supabase } from '../lib/supabaseClient';
 
 const FEATURES = [
   { icon: Zap,      title: 'Vision AI',         desc: 'YOLO-powered detection of vegetation, terrain, and water bodies from a single photo.' },
@@ -19,9 +22,24 @@ const STATS = [
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user, logout } = useTerraStore();
+  const [authOpen, setAuthOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    logout();
+  };
+
+  // Derive user initials for avatar
+  const initials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : 'T';
 
   return (
     <div className="min-h-screen bg-terra-bg">
+      {/* ── AuthModal ── */}
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
+
       {/* ── Navbar ── */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-terra-border bg-white/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="flex items-center gap-2">
@@ -32,11 +50,46 @@ export default function Home() {
             Terra <span className="text-terra-emerald">AI</span>
           </span>
         </div>
+
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')}>Pricing</Button>
-          <Button variant="primary" size="sm" onClick={() => navigate('/analyze')}>
-            Start Analysis
-          </Button>
+
+          {user ? (
+            /* ── Logged-in state ── */
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-[10px] font-bold">
+                  {initials}
+                </div>
+                <span className="text-emerald-700 text-xs font-semibold max-w-[140px] truncate">
+                  {user.email}
+                </span>
+              </div>
+              <button
+                id="home-signout-btn"
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 text-xs font-semibold text-terra-muted hover:text-red-500 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-50"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            /* ── Logged-out state ── */
+            <>
+              <button
+                id="home-signin-btn"
+                onClick={() => setAuthOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-terra-body hover:text-terra-heading transition-colors px-3 py-2 rounded-xl hover:bg-slate-50"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </button>
+              <Button variant="primary" size="sm" onClick={() => navigate('/analyze')}>
+                Start Analysis
+              </Button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -65,9 +118,15 @@ export default function Home() {
               <Button variant="primary" size="lg" iconRight={ArrowRight} onClick={() => navigate('/analyze')}>
                 Analyze Your Land
               </Button>
-              <Button variant="secondary" size="lg" onClick={() => navigate('/pricing')}>
-                View Pricing
-              </Button>
+              {!user && (
+                <button
+                  onClick={() => setAuthOpen(true)}
+                  className="flex items-center gap-2 text-sm font-semibold text-terra-body hover:text-terra-heading border border-terra-border hover:border-slate-300 px-5 py-3 rounded-xl transition-all hover:shadow-sm"
+                >
+                  <User className="w-4 h-4" />
+                  Create Free Account
+                </button>
+              )}
             </div>
           </motion.div>
 
@@ -130,6 +189,20 @@ export default function Home() {
                 <p className="text-slate-300 text-xs">Elevation</p>
                 <p className="text-white text-base font-bold">1,680m</p>
               </motion.div>
+
+              {/* Auth badge — shown to logged-out users */}
+              {!user && (
+                <motion.button
+                  onClick={() => setAuthOpen(true)}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1 }}
+                  className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm border border-emerald-400/50 rounded-xl px-3 py-2 transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-white" />
+                  <span className="text-white text-xs font-bold">Free Sign Up</span>
+                </motion.button>
+              )}
             </div>
           </motion.div>
         </div>
@@ -198,14 +271,25 @@ export default function Home() {
           <p className="text-emerald-100 mb-8 max-w-md mx-auto">
             Start with a photo or drop a pin on the map. Get a professional risk report in under 60 seconds.
           </p>
-          <Button
-            variant="secondary"
-            size="lg"
-            iconRight={ArrowRight}
-            onClick={() => navigate('/analyze')}
-          >
-            Start Free Analysis
-          </Button>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <Button
+              variant="secondary"
+              size="lg"
+              iconRight={ArrowRight}
+              onClick={() => navigate('/analyze')}
+            >
+              Start Free Analysis
+            </Button>
+            {!user && (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="flex items-center gap-2 text-sm font-semibold text-emerald-100 hover:text-white border border-emerald-400/40 hover:border-emerald-300/60 px-5 py-3 rounded-xl transition-all"
+              >
+                <LogIn className="w-4 h-4" />
+                Create Account
+              </button>
+            )}
+          </div>
         </motion.div>
       </section>
     </div>

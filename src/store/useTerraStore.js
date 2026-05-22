@@ -25,6 +25,46 @@ const useTerraStore = create(
     (set, get) => ({
 
       // ─────────────────────────────────────────────────────────
+      // § 0. AUTH STATE
+      //   Supabase user & session. Not persisted (session storage)
+      //   because Supabase handles its own token persistence via
+      //   localStorage. We just mirror it here for reactive UI.
+      // ─────────────────────────────────────────────────────────
+      user: null,
+      session: null,
+      reportHistory: [],    // [{ id, location_name, feasibility_score, created_at }]
+      activeReportId: null, // UUID of currently-viewed historical report
+
+      setUser: (user) => set({ user }),
+
+      setSession: (session) => set({ session }),
+
+      setReportHistory: (reportHistory) => set({ reportHistory }),
+
+      setActiveReport: (id, payload, report) =>
+        set((state) => ({
+          activeReportId: id,
+          engineState: {
+            ...state.engineState,
+            status: 'done',
+            progressMessage: '',
+            payload,
+            report,
+            reportSource: 'database',
+            modelUsed: null,
+            errorMessage: null,
+          },
+        })),
+
+      logout: () =>
+        set({
+          user: null,
+          session: null,
+          reportHistory: [],
+          activeReportId: null,
+        }),
+
+      // ─────────────────────────────────────────────────────────
       // § 1. USER SESSION
       //   Tracks the active project and history of recent analyses.
       // ─────────────────────────────────────────────────────────
@@ -151,6 +191,8 @@ const useTerraStore = create(
         payload: null,            // full spatial JSON from Flask engine
         report: null,             // Gemini-generated narrative report
         errorMessage: null,       // displayed on error toast
+        reportSource: 'gemini',   // 'gemini' | 'fallback' | 'database'
+        modelUsed: null,
       },
 
       setEngineStatus: (status, progressMessage = '') =>
@@ -190,6 +232,8 @@ const useTerraStore = create(
             payload: null,
             report: null,
             errorMessage: null,
+            reportSource: 'gemini',
+            modelUsed: null,
           },
         })),
 
@@ -206,7 +250,7 @@ const useTerraStore = create(
 
       // ─────────────────────────────────────────────────────────
       // § GLOBAL RESET
-      //   Hard-resets everything except recentProjects.
+      //   Hard-resets everything except recentProjects and auth.
       // ─────────────────────────────────────────────────────────
       resetAll: () =>
         set((state) => ({
@@ -228,8 +272,11 @@ const useTerraStore = create(
             payload: null,
             report: null,
             errorMessage: null,
+            reportSource: 'gemini',
+            modelUsed: null,
           },
           pdfState: { isGenerating: false },
+          activeReportId: null,
           userSession: {
             ...state.userSession,
             currentProjectId: null,
@@ -243,7 +290,8 @@ const useTerraStore = create(
       storage: createJSONStorage(() => sessionStorage),
 
       // Only persist non-blob data to avoid sessionStorage bloat.
-      // The image blob is stored but cleared on hard reset.
+      // Auth (user/session) is NOT persisted here — Supabase handles that
+      // via localStorage and we rehydrate on mount via onAuthStateChange.
       partialize: (state) => ({
         userSession: state.userSession,
         mapState: state.mapState,
@@ -263,6 +311,7 @@ const useTerraStore = create(
           uploadedImageBlob: null,
           uploadedFile: null,
         },
+        // Auth is NOT persisted — rehydrated via supabase.auth.onAuthStateChange on mount
       }),
     }
   )

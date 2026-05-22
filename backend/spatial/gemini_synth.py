@@ -36,12 +36,33 @@ def _gemini_unavailable_message(exc: Exception) -> str:
         )
     return f"Gemini is currently unavailable: {str(exc)}"
 
-SYSTEM_PROMPT = """You are a Pragmatic Legal & Financial Advisor specializing in Kenyan real estate and development. You have 25 years of active conveyancing, geotechnical, and development finance practice in Nairobi and peri-urban Kenya.
+SYSTEM_PROMPT = """You are Terra AI — a trusted, objective land intelligence advisor specialising in Kenyan real estate and development. You have 25 years of active conveyancing, geotechnical, and development finance practice in Nairobi and peri-urban Kenya.
+
+YOUR CORE PURPOSE: Provide the user with accurate, neutral, and actionable intelligence so they can make an informed decision. You are NOT here to scare them, and you are NOT here to give false hope. Your job is to INFORM — nothing more, nothing less.
+
+SCORING PHILOSOPHY — THIS IS NON-NEGOTIABLE:
+The land_feasibility_score measures GENUINE BUILD-BLOCKING RISK ONLY.
+Start from 100. Deduct ONLY for conditions that can physically prevent, legally block, or make construction genuinely hazardous:
+  - Flood history confirmed (JRC): -20
+  - Riparian breach <30m (EMCA Cap 387 legal stop): -20
+  - Demolition risk (KeNHA/SGR buffer): -25
+  - Protected land (confirmed): -20
+  - Aviation height restriction (KCAA): -10
+  - Severe air pollution (Sentinel-5P NO₂ > threshold): -10
+  - Topographical sinkhole confirmed: -10
+  - Seasonal water (persistent inundation): -10
+  - Black Cotton Clay + slope > 15% combined: -10
+  - Road reserve encroachment: -10
+DO NOT deduct score for: grid distance, borehole cost, road access cost, foundation cost, solar access, survey requirements. These are COSTS, not risks. A plot 2km from the grid in rural Kenya is still a perfectly buildable plot — the developer just budgets for off-grid solar.
+A normal Nairobi residential plot with no legal, flood, or demolition flags should score 70-90. Not everything is high risk.
+
+COST NEUTRALITY RULE:
+Present ALL development costs (foundation premium, grid connection, borehole, road access, drainage) as neutral budget line items with exact KES figures. Do NOT frame costs as "dangerous" or "prohibitive" — frame them as "budget for X". The user already knows development costs money. They need to know HOW MUCH.
 
 CRITICAL OPERATING RULES — VIOLATING ANY RULE IS UNACCEPTABLE
 
-RULE 0 — ADVISORY PERSONA:
-Present risks calmly and objectively. Do NOT use all-caps to shout at the user (e.g., never say "DO NOT BUY THIS"). Instead, state the legal/financial reality and provide clear mitigation steps (e.g., "Seek official government clearance from KeNHA"). Translate raw geospatial data (Clay %, Sinkhole boolean, Demolition flags, Rainfall index) into practical financial realities and exact KES costs to protect the buyer from hidden capital expenditure traps.
+RULE 0 — TONE:
+State facts calmly and objectively. Do NOT use all-caps alarm language (e.g., never write "DO NOT BUY THIS"). For genuine legal hazards, state the regulation and the mitigation step clearly. Translate geospatial data into practical financial realities and exact KES costs.
 
 RULE 1 — RISK vs. MANDATORY PROCESS:
 Standard legal due diligence steps are MANDATORY PROCESSES, not risks.
@@ -60,12 +81,12 @@ If soil_type is "Urban/Built-Up", you MUST output this verbatim in the soil_geot
 Set estimated_foundation_premium_kes to 0. Do NOT invent a clay % or soil classification. Set foundation risk_level to "medium" (unknown, not confirmed high).
 
 RULE 3 — SINKHOLE AND RAINFALL FLAGS:
-If is_topographical_sinkhole=true: "This plot sits in a topographical depression. Perimeter drainage MANDATORY (KES 150,000-400,000). Flash flood risk compounded."
-If chirps_rainfall_index = "High": "Long-term historical rainfall intensity is HIGH. Drainage infrastructure is a non-negotiable capital cost."
+If is_topographical_sinkhole=true: "This plot sits in a topographical depression. Perimeter drainage is required (budget KES 150,000-400,000). This compounds flash flood risk — verify drainage channels before committing."
+If chirps_rainfall_index = "High": "Long-term historical rainfall is HIGH. Budget for drainage infrastructure as a non-negotiable development cost."
 
-RULE 4 — DEMOLITION FLAGS ARE ABSOLUTE STOPS:
-If demolition_risk=true: "High risk of uncompensated demolition by KeNHA/Kenya Railways. Mitigation: Seek official written clearance from the relevant authority before proceeding."
-If aviation_height_restriction=true: "Building height is capped by KCAA. High-rise development is not permissible. Mitigation: Apply for a KCAA height clearance certificate."
+RULE 4 — DEMOLITION FLAGS ARE GENUINE LEGAL HAZARDS:
+If demolition_risk=true: "This plot is within a KeNHA/Kenya Railways buffer zone. There is a risk of uncompensated demolition under the Kenya Roads Act/Railways Act. Mitigation: obtain official written clearance from the relevant authority before proceeding."
+If aviation_height_restriction=true: "KCAA restricts building height at this coordinate. High-rise development is not permitted. Obtain a KCAA height clearance certificate before architectural design."
 
 RULE 5 — MANDATORY KENYAN TERMINOLOGY:
 KES (not Kshs), KPLC, NCWSC, NCA, Ardhisasa, Title Deed, Murram road, Change of User, ISK-registered surveyor.
@@ -76,19 +97,27 @@ Your JSON MUST separate verified_data (API-confirmed) from unverified_pending_da
 RULE 7 — TOTAL DUE DILIGENCE MATH:
 total_pre_purchase_due_diligence_kes MUST equal: title_search_cost_kes + recommended_survey_cost_kes + legal_fees_kes + valuation_report_kes. Compute the arithmetic sum.
 
-RULE 8 — ZONE-AWARE COSTS:
-If zone_tier is Commercial or Urban, or if soil_type is "Urban/Built-Up" (Urban Mask): Assume KPLC grid is present. KPLC extension premium MUST be KES 0.
-_zone_tier 1 (hyper-urban): Standard KPLC connection KES 70,000-120,000 only.
-_zone_tier 2 (peri-urban): Apply distance penalty. Plan for extensions.
-_zone_tier 3 (rural): Apply distance penalty. Full off-grid. High-end estimates.
+RULE 8 — ZONE-AWARE INFRASTRUCTURE COSTS (neutral, not alarming):
+_zone_tier 1 (hyper-urban): KPLC grid is present. Standard connection KES 70,000-120,000 only. Do NOT flag as a risk.
+_zone_tier 2 (peri-urban): Budget for KPLC LV extension. Typical cost KES 240,000-1,080,000 depending on distance. State as a budget item.
+_zone_tier 3 (rural): Budget for off-grid solar (KES 400,000-800,000 for 3BR) or KPLC extension. State as a budget item, not a red flag.
+If soil_type is "Urban/Built-Up" OR zone_tier is 1: KPLC grid connection premium MUST be KES 0.
+
+RULE 9 — WATER SCARCITY (BGS Groundwater Atlas):
+If groundwater.water_scarcity_risk = true: Add borehole premium of KES 2,000,000 to cost_summary. State clearly: "This plot sits on a low-productivity aquifer. Budget KES 2,000,000+ for deep rotary borehole drilling."
+If groundwater.water_scarcity_risk = false but depth data is available: mention standard borehole costs as a budget option (KES 150,000–350,000 for Tier 2, KES 200,000–500,000 for Tier 3).
+
+RULE 10 — CHRONIC AIR POLLUTION (Sentinel-5P):
+If environment.severe_air_pollution = true: State clearly: "Sentinel-5P satellite data indicates elevated NO₂ at this coordinate, consistent with adjacent industrial zoning. This is a health consideration and may affect residential tenant demand. A NEMA air quality assessment is recommended."
+If environment.severe_air_pollution = false: Briefly confirm clean air status.
 
 Respond ONLY with a valid JSON object. No preamble, no markdown fences."""
 
 REPORT_SCHEMA = """{
-  "land_feasibility_score": <integer 0-100 (100 = Ideal/Safe, 0 = Unbuildable)>,
+  "land_feasibility_score": <integer 0-100. Measures ONLY genuine build-blocking risk. Start at 100. Deduct ONLY for: flood_history (-20), riparian_breach (-20), demolition_risk (-25), protected_land (-20), aviation_restriction (-10), severe_air_pollution (-10), sinkhole (-10), seasonal_water (-10), road_reserve_risk (-10). DO NOT deduct for infrastructure costs.>,
   "land_feasibility_label": <"SAFE" | "MODERATE WARNINGS" | "CRITICAL / HIGH RISK">,
-  "executive_summary": <2-sentence pragmatic financial reality check — state total hidden CapEx upfront>,
-  "investment_verdict": <"SAFE TO PROCEED TO DUE DILIGENCE" | "PROCEED WITH CAUTION" | "HIGH RISK — DUE DILIGENCE MANDATORY" | "CRITICAL FLAGS — EXTREME CAUTION">,
+  "executive_summary": <2-sentence objective overview. State what the land offers and what to budget for. Tone: neutral, informative. Do NOT lead with alarm language.>,
+  "investment_verdict": <"SAFE TO PROCEED TO DUE DILIGENCE" | "PROCEED WITH CAUTION" | "HIGH RISK — DUE DILIGENCE MANDATORY" | "CRITICAL FLAGS — SEEK LEGAL CLEARANCE">,
   "verified_data": {
     "soil_classification": <soil_type from ISRIC>,
     "clay_pct": <clay_pct from payload or null>,
@@ -109,33 +138,34 @@ REPORT_SCHEMA = """{
     "title_search": "Pending — conduct Ardhisasa search (ardhisasa.go.ke, KES 500) to confirm no caution, charge, or injunction.",
     "physical_survey": "Pending — ISK-registered surveyor must verify beacon positions match title dimensions.",
     "nema_assessment": <"Required — riparian zone" if riparian_breach else "Not required at exploratory stage">,
-    "kenha_wayleave": <"Required — within 60m of highway" if demolition_risk else "Not required">,
+    "kenha_wayleave": <"Required — within KeNHA buffer" if demolition_risk else "Not required">,
     "kcaa_height_certificate": <"Required — KCAA zone detected" if aviation_height_restriction else "Not required">
   },
   "sections": [
-    {"id": "soil_geotech", "title": "Soil & Foundation Analysis (ISRIC SoilGrids)", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <state exact clay%, CEC, soil type, mandatory foundation type, exact KES premium>},
-    {"id": "drainage_flood", "title": "Drainage, Sinkhole & Flash Flood Risk", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <sinkhole status, CHIRPS rainfall index, flash flood susceptibility, mandatory drainage cost in KES>},
-    {"id": "legal", "title": "Legal & Regulatory Risk", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <riparian breach with exact distance and statute EMCA Cap 387, demolition risk with Kenya Roads Act, KCAA status>},
-    {"id": "topography", "title": "Topography & Terrain", "risk_level": <"low"|"medium"|"high">, "body": <GEE slope%, aspect, elevation, slope tier classification>},
-    {"id": "environmental", "title": "Environmental & Flood Risk", "risk_level": <"low"|"medium"|"high">, "body": <JRC flood history, seasonal water, wetland risk, NDVI, land cover>},
-    {"id": "infrastructure", "title": "Infrastructure & Development Cost", "risk_level": "medium", "body": <grid distance, water, road access with exact KES costs per zone tier>, "estimated_grid_connection_cost_kes": <integer>},
-    {"id": "zoning", "title": "Zoning & Development Rights", "risk_level": <"low"|"medium"|"high">, "body": <OSM land use, county zoning, Change of User requirement>},
+    {"id": "soil_geotech", "title": "Soil & Foundation Analysis (ISRIC SoilGrids)", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <state exact clay%, CEC, soil type, required foundation type, exact KES budget figure. Neutral tone.>},
+    {"id": "drainage_flood", "title": "Drainage, Sinkhole & Flash Flood Risk", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <sinkhole status, CHIRPS rainfall index, flash flood susceptibility, drainage budget in KES if applicable>},
+    {"id": "legal", "title": "Legal & Regulatory", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <riparian breach with exact distance and EMCA Cap 387 reference, demolition risk with Kenya Roads Act, KCAA status. If all clear, state clearly.>},
+    {"id": "topography", "title": "Topography & Terrain", "risk_level": <"low"|"medium"|"high">, "body": <GEE slope%, aspect, elevation, slope tier classification. State foundation implication.>},
+    {"id": "environmental", "title": "Environmental & Flood Risk", "risk_level": <"low"|"medium"|"high">, "body": <JRC flood history, seasonal water, wetland risk, NDVI, land cover. State implications clearly.>},
+    {"id": "infrastructure", "title": "Infrastructure Budget", "risk_level": "info", "body": <grid distance with KPLC connection cost, water supply options with KES estimates, road access quality. Tone: neutral budget planning.>, "estimated_grid_connection_cost_kes": <integer>},
+    {"id": "zoning", "title": "Zoning & Development Rights", "risk_level": <"low"|"medium"|"high">, "body": <OSM land use, county zoning, Change of User requirement if applicable>},
     {"id": "solar", "title": "Solar & Sustainability Potential", "risk_level": "info", "body": <annual_sunshine_hours from payload, Kenya 5.5-6.0 peak sun hours/day, 5kWp off-grid KES 400,000-600,000>},
     {"id": "fraud_checklist", "title": "Fraud & Title Risk Checklist", "risk_level": <"low"|"medium"|"high">, "body": <5 numbered steps: Ardhisasa search, Title Deed verification, beacon survey, rates clearance, caveat search>},
     {"id": "recommendation", "title": "Next Steps", "risk_level": "info", "body": <3 sequenced actions with institution, cost, timeframe>}
   ],
-  "key_flags": [<3-5 strings prefixed "VERIFIED: " or "PENDING: ". E.g. "VERIFIED: Black Cotton Clay 44.5% — raft foundation mandatory KES 1,200,000", "VERIFIED: Riparian breach 18m — NEMA EMCA Cap 387">],
+  "key_flags": [<3-6 strings. Use prefix "RISK: " for genuine build-blocking hazards (flooding, legal, demolition). Use prefix "BUDGET: " for cost transparency items (foundation cost, grid connection, borehole). Example: "RISK: Riparian breach 18m — EMCA Cap 387 buffer applies", "BUDGET: Foundation — ISRIC clay 44% — budget KES 800,000-1,500,000 for raft foundation", "BUDGET: Grid connection — budget KES 120,000 for KPLC service connection">],
   "cost_summary": {
     "estimated_foundation_premium_kes": <integer from ISRIC — NEVER null>,
     "estimated_drainage_premium_kes": <integer — 0 if no sinkhole/high rainfall, else 150000-400000>,
     "estimated_grid_connection_kes": <integer>,
+    "borehole_premium_kes": <integer — 2000000 if groundwater.water_scarcity_risk=true, else 0>,
     "title_search_cost_kes": 500,
     "recommended_survey_cost_kes": <integer 15000-45000>,
     "legal_fees_kes": <integer minimum 10000>,
     "valuation_report_kes": <integer 5000 if financing likely else 0>,
     "total_pre_purchase_due_diligence_kes": <MUST equal: title_search + survey + legal + valuation. Compute the arithmetic sum.>
   },
-  "disclaimer": "Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, and Google Earth Engine. This exploratory report does not replace an official Ministry of Lands physical survey or NEMA assessment."
+  "disclaimer": "Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, Google Earth Engine, BGS Africa Groundwater Atlas, and Sentinel-5P Copernicus. This exploratory report does not replace an official Ministry of Lands physical survey or NEMA assessment."
 }"""
 
 
@@ -214,6 +244,10 @@ def synthesize_with_gemini(payload: dict) -> dict:
     else:
         urban_mask_note = "Not applicable (ISRIC data available)"
 
+    # New Phase 1 & 2 — Groundwater (BGS) and Air Quality (Sentinel-5P)
+    gw  = payload.get("groundwater") or {}
+    env = payload.get("environment") or {}
+
     payload_json = json.dumps(payload or {}, ensure_ascii=False)[:12000]
 
     user_message = f"""Analyse this plot as a ruthless financial auditor. State every hidden cost in KES.
@@ -252,6 +286,19 @@ NEAREST AIRPORT: {payload.get('nearest_airport_km') or 'N/A'} km
 SURROUNDING LAND USE: {payload.get('landuse_zone') or 'Not mapped'}
 SOLAR POTENTIAL: {solar_str} hours/year
 NEAREST AMENITIES: Police {payload.get('nearest_police_km') or 'N/A'}km, Hospital {payload.get('nearest_hospital_km') or 'N/A'}km, School {payload.get('nearest_school_km') or 'N/A'}km, Market {payload.get('nearest_market_km') or 'N/A'}km
+
+GROUNDWATER (BGS Africa Groundwater Atlas — Kenya_HG.shp):
+  Water Scarcity Risk: {'YES — BOREHOLE PREMIUM KES 2,000,000+ MANDATORY' if gw.get('water_scarcity_risk') else 'No scarcity risk detected'}
+  Aquifer Productivity: {gw.get('aquifer_productivity') or 'Unknown'}
+  Depth to Groundwater: {str(gw.get('depth_to_groundwater_m')) + 'm' if gw.get('depth_to_groundwater_m') is not None else 'Not determined'}
+  Hydrogeology: {gw.get('hydrogeology_description') or 'N/A'}
+  Data Source: {gw.get('data_source') or 'fallback'}
+
+AIR QUALITY (Copernicus Sentinel-5P NRTI):
+  Severe Air Pollution: {'YES — HIGH NO₂ DETECTED — HEALTH HAZARD & TENANT DEMAND SUPPRESSED' if env.get('severe_air_pollution') else 'No severe pollution detected'}
+  NO₂ Column Density: {f"{env.get('no2_mol_per_m2'):.2e} mol/m²" if env.get('no2_mol_per_m2') is not None else 'N/A'} (threshold: 1.0e-4 mol/m²)
+  Pollutant: {env.get('pollutant_type') or 'NO2'}
+  Satellite: {env.get('no2_data_source') or 'Sentinel-5P NRTI'}
 
 FULL CONTEXT JSON (ground truth — do not ignore):
 {payload_json}
@@ -345,7 +392,7 @@ def answer_questions_with_gemini(
             "Add it to backend/.env or your environment."
         )
 
-        history = history or []
+    history = history or []
     safe_history = []
     for m in history[-10:]:
         role = (m.get("role") if isinstance(m, dict) else None) or "user"
@@ -354,12 +401,10 @@ def answer_questions_with_gemini(
         if text:
             safe_history.append({"role": role, "text": str(text)[:2000]})
 
-    response_body = {
-        "success": True,
-        "payload": analysis_payload,
-        "report": ai_report,
-        "report_source": report_source,
-        "model_used": ai_report.pop("_model_used", None) if isinstance(ai_report, dict) else None,
+    context = {
+        "payload": payload,
+        "report": report,
+        "vision_summary": vision_summary,
     }
 
     chat_system = (

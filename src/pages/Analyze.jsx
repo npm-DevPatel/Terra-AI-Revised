@@ -9,8 +9,10 @@ import PinDrop from '../components/map/PinDrop';
 import ProgressiveLoader from '../components/results/ProgressiveLoader';
 import RiskSummaryCard from '../components/results/RiskSummaryCard';
 import Button from '../components/ui/Button';
+import AuthModal from '../components/auth/AuthModal';
 import useTerraStore from '../store/useTerraStore';
 import { getOrderedInstances } from '../utils/analyzeUtils';
+import { supabase } from '../lib/supabaseClient';
 
 // ─── Error Toast ──────────────────────────────────────────────
 function ErrorToast({ message, onClose }) {
@@ -56,16 +58,39 @@ const MODE_CARDS = [
   },
 ];
 
+// ─── Gate message shown in AuthModal ─────────────────────────
+const GATE_MESSAGE =
+  'Please sign in or create a free account to run a deep-scan analysis. ' +
+  'Your reports are saved and accessible from any device.';
+
 export default function Analyze() {
   const navigate = useNavigate();
   const {
+    user, session,
     visionState, mapState, engineState,
     setScanStatus, setAnnotations,
     setEngineStatus, setEngineResult, setEngineError, resetEngineState,
+    setReportHistory,
   } = useTerraStore();
 
-  const [mode, setMode] = useState(null);
+  // ─── Refresh history sidebar after a successful analysis ──
+  const refreshHistory = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('id, location_name, feasibility_score, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error && data) setReportHistory(data);
+    } catch (_) {
+      // non-fatal — sidebar will just not update until next login
+    }
+  };
+
+  const [mode, setMode]         = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   // ─── Vision: send FormData to /api/vision/analyze ────────
   // CRITICAL: The engine expects multipart/form-data with `image` field.
@@ -105,8 +130,16 @@ export default function Analyze() {
     }
   };
 
-  // ─── Map: trigger spatial engine ─────────────────────────
+  // ─── Map: trigger spatial engine (with auth gate) ─────────
   const handleSpatialAnalyze = async () => {
+    // ── AUTH GATE ─────────────────────────────────────────────
+    // If the user is not logged in, intercept here.
+    // Do NOT hit the backend. Show the AuthModal instead.
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+
     const { lat, lng } = mapState.pinnedCoordinates;
     if (!lat || !lng) {
       setErrorMsg('Please drop a pin on the map first.');
@@ -117,9 +150,15 @@ export default function Analyze() {
     setErrorMsg(null);
 
     try {
+      // Build auth headers so backend can record user_id
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch('/api/spatial/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           lat,
           lng,
@@ -136,8 +175,6 @@ export default function Analyze() {
       const data = await res.json();
 
       // Engine returns { success, payload, report, report_source }
-      // payload = raw geospatial data (elevation_m, slope_percent, etc.)
-      // report  = Gemini-structured object (overall_risk_score, sections[], etc.)
       const payload    = data.payload ?? data;
       const report     = data.report ?? null;
       const reportSrc  = data.report_source ?? 'gemini';
@@ -145,19 +182,31 @@ export default function Analyze() {
 
       setEngineResult(payload, report, reportSrc, modelUsed);
 
+      // Refresh the sidebar history so the new report appears immediately
+      if (user?.id) {
+        refreshHistory(user.id);
+      }
+
     } catch (err) {
       setEngineError(err.message ?? 'Spatial analysis failed. Please try again.');
       setErrorMsg(err.message ?? 'Engine error. Please try again.');
     }
   };
 
-  const pinSet = !!mapState.pinnedCoordinates.lat;
-  const scanDone = visionState.scanStatus === 'complete';
+  const pinSet    = !!mapState.pinnedCoordinates.lat;
+  const scanDone  = visionState.scanStatus === 'complete';
   const engineDone = engineState.status === 'done';
 
   return (
     <MainLayout>
       <ProgressiveLoader />
+
+      {/* Auth modal — gated for analyze click */}
+      <AuthModal
+        isOpen={authOpen}
+        onClose={() => setAuthOpen(false)}
+        message={GATE_MESSAGE}
+      />
 
       <AnimatePresence>
         {errorMsg && (
@@ -261,8 +310,16 @@ export default function Analyze() {
 
           {/* ── Map Flow ── */}
           {mode === 'map' && (
-            <motion.div key="map-flow" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="flex items-center gap-4 mb-6">
+            <motion.div
+              key="map-flow"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col"
+              style={{ height: 'calc(100vh - 140px)' }}
+            >
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-3 flex-shrink-0">
                 <button
                   onClick={() => { setMode(null); resetEngineState(); }}
                   className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors"
@@ -272,38 +329,47 @@ export default function Analyze() {
                 <h2 className="text-2xl font-black text-terra-heading">Spatial Risk Engine</h2>
               </div>
 
-              {/* Full map stage with PinDrop (includes LocationSearch) */}
-              <div className="relative" style={{ height: '600px' }}>
+              {/* Map — fills all remaining height */}
+              <div className="relative flex-1 rounded-2xl overflow-hidden min-h-0">
                 <PinDrop />
                 {engineDone && <RiskSummaryCard />}
               </div>
 
-              {/* Analyze CTA */}
-              {!engineDone && (
-                <div className="mt-4 flex justify-center">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    icon={Map}
-                    loading={engineState.status === 'loading'}
-                    disabled={!pinSet || engineState.status === 'loading'}
-                    onClick={handleSpatialAnalyze}
-                  >
-                    {pinSet ? 'Run Spatial Analysis' : 'Drop a Pin First'}
-                  </Button>
-                </div>
-              )}
-
-              {/* Done: navigate to report */}
-              {engineDone && (
-                <div className="mt-4 flex justify-center">
+              {/* Button strip — compact, always visible below the map */}
+              <div className="flex-shrink-0 pt-3 flex flex-col items-center gap-1.5">
+                {!engineDone && (
+                  <>
+                    <Button
+                      id="analyze-run-btn"
+                      variant="primary"
+                      size="lg"
+                      icon={Map}
+                      loading={engineState.status === 'loading'}
+                      disabled={!pinSet || engineState.status === 'loading'}
+                      onClick={handleSpatialAnalyze}
+                    >
+                      {pinSet ? 'Run Spatial Analysis' : 'Drop a Pin First'}
+                    </Button>
+                    {!user && pinSet && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-xs text-terra-muted"
+                      >
+                        You'll be asked to sign in before the analysis runs.
+                      </motion.p>
+                    )}
+                  </>
+                )}
+                {engineDone && (
                   <Button variant="secondary" size="md" onClick={() => navigate('/report')}>
                     View Full Report →
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
           )}
+
 
         </AnimatePresence>
       </div>

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -149,7 +149,7 @@ function SectionCard({ section, index }) {
 // ─── Cost Breakdown Component (Bulletproof Math) ──────────────────────────
 // Totals are ALWAYS computed from the rendered line items.
 // It is mathematically impossible for a hidden cost to exist in the total.
-function CostBreakdown({ costSum, payload }) {
+function CostBreakdown({ costSum }) {
   const { dueDiligence, development, totalDueDiligence, totalDevelopment, grandTotal } = useMemo(() => {
     const s = (val, fallback = 0) =>
       typeof val === 'number' && Number.isFinite(val) && val > 0 ? val : fallback;
@@ -263,7 +263,8 @@ function CostBreakdown({ costSum, payload }) {
 
 // ─── AI Engine Status Bar ───────────────────────────────────────
 function AIEngineStatus({ reportSource, modelUsed }) {
-  const isGemini = reportSource === 'gemini';
+  const isGemini   = reportSource === 'gemini';
+  const isDatabase = reportSource === 'database';
   const modelLabel = modelUsed
     ? modelUsed.replace('gemini-', 'Gemini ').replace('-', ' ').replace('flash', 'Flash').replace('pro', 'Pro')
     : isGemini ? 'Gemini' : 'Fallback';
@@ -278,17 +279,25 @@ function AIEngineStatus({ reportSource, modelUsed }) {
       <div className="flex items-center gap-3">
         <div className={clsx(
           'flex items-center justify-center w-8 h-8 rounded-xl',
-          isGemini ? 'bg-emerald-50' : 'bg-amber-50'
+          isGemini ? 'bg-emerald-50' : isDatabase ? 'bg-indigo-50' : 'bg-amber-50'
         )}>
           {isGemini
             ? <Cpu className="w-4 h-4 text-emerald-600" />
-            : <WifiOff className="w-4 h-4 text-amber-500" />
+            : isDatabase
+              ? <Activity className="w-4 h-4 text-indigo-500" />
+              : <WifiOff className="w-4 h-4 text-amber-500" />
           }
         </div>
         <div>
           <p className="text-xs font-semibold text-terra-muted uppercase tracking-wider">AI Synthesis Engine</p>
-          <p className={clsx('text-sm font-black', isGemini ? 'text-emerald-700' : 'text-amber-600')}>
-            {isGemini ? `${modelLabel} — Live synthesis` : 'Gemini unavailable — data-only report'}
+          <p className={clsx('text-sm font-black',
+            isGemini ? 'text-emerald-700' : isDatabase ? 'text-indigo-600' : 'text-amber-600'
+          )}>
+            {isGemini
+              ? `${modelLabel} — Live synthesis`
+              : isDatabase
+                ? 'Loaded from History — Instant rehydration'
+                : 'Gemini unavailable — data-only report'}
           </p>
         </div>
       </div>
@@ -297,6 +306,12 @@ function AIEngineStatus({ reportSource, modelUsed }) {
           <span className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
             Active
+          </span>
+        )}
+        {isDatabase && (
+          <span className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
+            Cached
           </span>
         )}
         <a
@@ -378,7 +393,6 @@ export default function Report() {
   const roadDist  = payload.nearest_road_m     != null ? `${payload.nearest_road_m}m`     : '—';
   const gridDist  = payload.distance_to_grid_m != null ? `${payload.distance_to_grid_m}m` : '—';
   const airportKm = payload.nearest_airport_km != null ? `${payload.nearest_airport_km}km` : '—';
-  const ndvi      = payload.ndvi_interpretation ?? payload.land_cover_label ?? '—';
   const moisture  = payload.soil_moisture != null ? `${payload.soil_moisture}` : '—';
   const sunshine  = payload.annual_sunshine_hours != null ? `${payload.annual_sunshine_hours} hrs/yr` : '~2007 hrs/yr';
   const hospital  = payload.nearest_hospital_km != null ? `${payload.nearest_hospital_km}km` : '—';
@@ -406,7 +420,7 @@ export default function Report() {
           </div>
           <PDFDownloadLink
             document={<TerraReportDocument payload={payload} report={report} coordinates={coords} />}
-            fileName={`terra-ai-report-${Date.now()}.pdf`}
+            fileName="terra-ai-report.pdf"
           >
             {({ loading }) => (
               <Button variant="primary" size="md" icon={Download} loading={loading}>
@@ -544,7 +558,7 @@ export default function Report() {
 
         {/* ── Cost Breakdown ── */}
         {Object.keys(costSum).length > 0 && (
-          <CostBreakdown costSum={costSum} payload={payload} />
+          <CostBreakdown costSum={costSum} />
         )}
 
         {/* Disclaimer */}

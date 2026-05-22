@@ -1,9 +1,0 @@
-feat(core): Comprehensive AI Persona, Feasibility Scoring, and Infrastructure Heuristics Update
-
-- Geotechnical Integrity: Capped ISRIC SoilGrids nearest-neighbor search to 500m. Implemented strict Urban Masking and mandatory geotechnical test warnings for dense urban cores.
-- Scoring Revamp: Replaced overall_risk_score with land_feasibility_score. Inverted the mathematical scale (100 = Ideal, 0 = Unbuildable) for clarity and updated color mapping logic across the frontend.
-- AI Persona: Transitioned the Gemini 2.5 Flash system prompt from a 'Ruthless Auditor' to a 'Pragmatic Legal & Financial Advisor' to present risks objectively with clear mitigation steps.
-- UI Layout: Condensed the RiskSummaryCard into an Executive Briefing format, fixing overflow bugs while ensuring detailed KES costs remain visible in the main Report and PDF dossier.
-- Infrastructure Context: Zeroed out KPLC grid extension penalties automatically for plots located in Commercial, Urban, or Urban Mask zones.
-- React-PDF & Maps Compatibility: Migrated deprecated Google Maps Markers to AdvancedMarkerElement. Replaced architectural SVG wrappers with View-grids to eliminate PDF rendering errors.
-- Documentation: Ignored docs folder in .gitignore, validated frontend build, and completely updated README.md with the recent changes.

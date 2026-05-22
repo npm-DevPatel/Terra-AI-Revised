@@ -8,5 +8,13 @@
   },
   "tailwindCSS.includeLanguages": {
     "plaintext": "ts"
-  }
+  },
+
+  // ── Python: point Pylance at the backend venv ──────────────────────────────
+  // This stops "supabase not found" red underlines — the venv has the package.
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend"
+  ],
+  "python.analysis.typeCheckingMode": "basic"
 }

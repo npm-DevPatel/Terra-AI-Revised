@@ -45,6 +45,7 @@ function CostLine({ label, value, note, highlight }) {
 }
 export default function FinancialImpact({ payload, report, date }) {
   const costSum = report?.cost_summary ?? {};
+  const gw      = payload?.groundwater ?? {};
 
   const safe = (val, fallback = 0) =>
     typeof val === 'number' && Number.isFinite(val) && val > 0 ? val : fallback;
@@ -64,7 +65,11 @@ export default function FinancialImpact({ payload, report, date }) {
   ];
   const totalDueDiligence = dueDiligence.reduce((sum, item) => sum + item.value, 0);
 
-  // ─ Development Costs ──────────────────────────────────────────────
+  // ─ Development Costs ────────────────────────────────────────
+  const boreholeKes = gw.water_scarcity_risk
+    ? safe(gw.borehole_premium_kes || costSum.borehole_premium_kes, 2_000_000)
+    : safe(costSum.borehole_premium_kes);
+
   const development = [
     ...(safe(costSum.estimated_foundation_premium_kes) > 0
       ? [{ label: 'Foundation Premium', value: safe(costSum.estimated_foundation_premium_kes),
@@ -73,6 +78,10 @@ export default function FinancialImpact({ payload, report, date }) {
     ...(safe(costSum.estimated_grid_connection_kes) > 0
       ? [{ label: 'KPLC Grid Connection', value: safe(costSum.estimated_grid_connection_kes),
            note: 'Service connection + LV extension if applicable' }]
+      : []),
+    ...(boreholeKes > 0
+      ? [{ label: 'Deep Borehole Drilling Premium', value: boreholeKes,
+           note: 'BGS Atlas: low-productivity aquifer >150m — deep rotary drilling required', highlight: true }]
       : []),
   ];
   const totalDevelopment = development.reduce((sum, item) => sum + item.value, 0);

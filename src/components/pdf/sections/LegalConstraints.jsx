@@ -145,11 +145,63 @@ export default function LegalConstraints({ payload, report, date }) {
   const fraudSection  = sections.find((s) => s.id === 'fraud_checklist') ?? null;
   const nextSection   = sections.find((s) => s.id === 'recommendation')  ?? null;
 
+  // New: Groundwater & Air Quality
+  const gw  = payload?.groundwater ?? {};
+  const env = payload?.environment ?? {};
+  const waterScarcityRisk  = Boolean(gw.water_scarcity_risk);
+  const severeAirPollution = Boolean(env.severe_air_pollution);
+  const no2Val = env.no2_mol_per_m2 != null ? (env.no2_mol_per_m2 * 1e6).toFixed(2) + ' µmol/m²' : 'N/A';
+  const gwDepth = gw.depth_to_groundwater_m != null ? String(gw.depth_to_groundwater_m) + 'm' : 'Not determined';
+
   return (
     <Page size="A4" style={S.page}>
       <PageHeader date={date} />
       <View style={S.body}>
         <Text style={S.sectionLabel}>Legal, Zoning & Regulatory Constraints</Text>
+
+        {/* ── Water Scarcity (BGS Groundwater Atlas) warning box ── */}
+        {waterScarcityRisk && (
+          <View style={{
+            backgroundColor: '#fef2f2',
+            borderWidth: 2,
+            borderColor: '#dc2626',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12,
+          }}>
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#dc2626', marginBottom: 4, letterSpacing: 0.8 }}>
+              ⚠ WATER SCARCITY WARNING — DEEP BOREHOLE REQUIRED
+            </Text>
+            <Text style={{ fontSize: 8.5, color: '#991b1b', lineHeight: 1.65 }}>
+              {'This plot sits on a low-productivity aquifer (BGS Africa Groundwater Atlas). Water depth: ' + gwDepth + '. Aquifer type: ' + (gw.aquifer_productivity || 'Unknown') + '.'}
+            </Text>
+            <Text style={{ fontSize: 8.5, color: '#991b1b', lineHeight: 1.65, marginTop: 4, fontFamily: 'Helvetica-Bold' }}>
+              Budget a minimum of KES 2,000,000 for deep rotary borehole drilling. Standard boreholes (60–120m) will not reach the water table.
+            </Text>
+          </View>
+        )}
+
+        {/* ── Severe Air Pollution (Sentinel-5P NO₂) warning box ── */}
+        {severeAirPollution && (
+          <View style={{
+            backgroundColor: '#fff7ed',
+            borderWidth: 1.5,
+            borderColor: '#d97706',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12,
+          }}>
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#b45309', marginBottom: 4, letterSpacing: 0.5 }}>
+              🌫 ENVIRONMENTAL HAZARD — CHRONIC NO₂ AIR POLLUTION (Copernicus Sentinel-5P)
+            </Text>
+            <Text style={{ fontSize: 8.5, color: '#92400e', lineHeight: 1.65 }}>
+              {'Sentinel-5P satellite telemetry (NRTI L3) indicates severe, chronic nitrogen dioxide (NO₂) pollution at this coordinate. Measured NO₂: ' + no2Val + ' (threshold: 100 µmol/m²). Likely cause: adjacent industrial zoning, waste combustion, or heavy traffic corridors.'}
+            </Text>
+            <Text style={{ fontSize: 8.5, color: '#92400e', lineHeight: 1.65, marginTop: 4 }}>
+              Impact: Severe respiratory health risks for occupants. Residential tenant demand will be materially suppressed. Rental yields and resale values are negatively affected. A NEMA air quality environmental impact assessment is strongly recommended before any development commitment.
+            </Text>
+          </View>
+        )}
 
         {/* ── Step 3.2: Demolition Setback — Large red warning box if triggered ── */}
         {demolitionRisk && (

@@ -599,3 +599,144 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
         print(f"[Terra AI] Aspect fetch failed (non-fatal): {exc}")
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Sentinel-5P NO₂ Pollution Fetch
+# ---------------------------------------------------------------------------
+
+# NO₂ thresholds (tropospheric column, mol/m²)
+# Clean rural baseline:   ~2–4 × 10⁻⁵  mol/m²
+# Urban baseline:         ~4–8 × 10⁻⁵  mol/m²
+# Industrial / heavy smog: > 1.0 × 10⁻⁴ mol/m²   ← our flag threshold
+_NO2_SEVERE_THRESHOLD = 1.0e-4   # mol/m²
+
+
+def fetch_no2_pollution(lat: float, lng: float) -> dict:
+    """
+    Fetch Sentinel-5P NRTI NO₂ tropospheric column density via GEE.
+
+    Dataset: COPERNICUS/S5P/NRTI/L3_NO2
+    Band:    tropospheric_NO2_column_number_density (mol/m²)
+    Period:  Historical median over the last 12 months (rolling).
+
+    Returns:
+        {
+            "no2_mol_per_m2": float | None,
+            "severe_air_pollution": bool,
+            "pollutant_type": "NO2",
+            "no2_data_source": "Sentinel-5P NRTI",
+        }
+
+    Flag: severe_air_pollution = True  if  no2_mol_per_m2 > 1.0e-4
+    """
+    result = {
+        "no2_mol_per_m2": None,
+        "severe_air_pollution": False,
+        "pollutant_type": "NO2",
+        "no2_data_source": "Sentinel-5P NRTI",
+    }
+
+    if not GEE_KEY:
+        print("[Terra AI] GEE key not set — skipping NO₂ fetch.")
+        return result
+
+    # Compute rolling 12-month window relative to current date
+    from datetime import datetime, timedelta
+    end_date   = datetime.utcnow()
+    start_date = end_date - timedelta(days=365)
+    start_str  = start_date.strftime("%Y-%m-%d")
+    end_str    = end_date.strftime("%Y-%m-%d")
+
+    try:
+        no2_payload = {
+            "expression": {
+                "functionInvocationValue": {
+                    "functionName": "Image.reduceRegion",
+                    "arguments": {
+                        "input": {
+                            "functionInvocationValue": {
+                                "functionName": "ImageCollection.median",
+                                "arguments": {
+                                    "collection": {
+                                        "functionInvocationValue": {
+                                            "functionName": "ImageCollection.select",
+                                            "arguments": {
+                                                "input": {
+                                                    "functionInvocationValue": {
+                                                        "functionName": "ImageCollection.filterDate",
+                                                        "arguments": {
+                                                            "collection": {
+                                                                "functionInvocationValue": {
+                                                                    "functionName": "ImageCollection.load",
+                                                                    "arguments": {
+                                                                        "id": {
+                                                                            "constantValue":
+                                                                                "COPERNICUS/S5P/NRTI/L3_NO2"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                            "start": {"constantValue": start_str},
+                                                            "end":   {"constantValue": end_str}
+                                                        }
+                                                    }
+                                                },
+                                                "bandSelectors": {
+                                                    "constantValue": [
+                                                        "tropospheric_NO2_column_number_density"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "reducer": {
+                            "functionInvocationValue": {
+                                "functionName": "Reducer.mean",
+                                "arguments": {}
+                            }
+                        },
+                        "geometry": {
+                            "functionInvocationValue": {
+                                "functionName": "Geometry.Point",
+                                "arguments": {
+                                    "coordinates": {"constantValue": [lng, lat]}
+                                }
+                            }
+                        },
+                        "scale": {"constantValue": 1113}   # S5P native ~1.1 km × 1.1 km
+                    }
+                }
+            }
+        }
+
+        resp = requests.post(
+            GEE_URL,
+            json=no2_payload,
+            params={"key": GEE_KEY},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        no2_val = resp.json().get("result", {}).get(
+            "tropospheric_NO2_column_number_density"
+        )
+
+        if no2_val is not None:
+            no2_float = float(no2_val)
+            # Clamp extremely negative sentinel values (cloud-masked pixels return -9999)
+            if no2_float < 0:
+                no2_float = 0.0
+            result["no2_mol_per_m2"] = round(no2_float, 8)
+            result["severe_air_pollution"] = no2_float > _NO2_SEVERE_THRESHOLD
+            print(
+                f"[Terra AI] Sentinel-5P NO₂: {no2_float:.2e} mol/m² | "
+                f"severe={result['severe_air_pollution']}"
+            )
+
+    except Exception as exc:
+        print(f"[Terra AI] Sentinel-5P NO₂ fetch failed (non-fatal): {exc}")
+
+    return result

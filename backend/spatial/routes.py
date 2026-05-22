@@ -12,6 +12,8 @@ New in this version:
   - data_quality dict for frontend transparency
 """
 
+import base64
+import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,13 +29,58 @@ _REPO_ROOT = os.path.abspath(os.path.join(_BACKEND_DIR, ".."))
 load_dotenv(os.path.join(_REPO_ROOT, ".env"), override=False)
 load_dotenv(os.path.join(_BACKEND_DIR, ".env"), override=True)
 
-from .elevation import fetch_elevation_data, fetch_gee_landcover
+from .elevation import fetch_elevation_data, fetch_gee_landcover, fetch_no2_pollution
 from .gemini_synth import synthesize_with_gemini, answer_questions_with_gemini_safe
+from .groundwater import query_groundwater
 from .maps import fetch_maps_data
 from .overpass import fetch_overpass_data
 from .shapely_engine import compute_risks
 from .soil import fetch_soil_data
 from .zones import compute_zone_risks
+
+# Absolute import — Flask runs from backend/ so 'db' is a top-level package there.
+# Wrapped in try/except so a missing package never stops the server from starting.
+try:
+    from db.supabase_client import supabase_client as _sb
+    from supabase import create_client as _create_sb_client  # type: ignore[import]
+except ImportError:
+    _sb = None
+    _create_sb_client = None
+    print("[Terra AI] db.supabase_client not found — DB caching disabled (non-fatal).")
+
+# Supabase URL/key for per-request authenticated clients
+_SB_URL = os.getenv("SUPABASE_URL", "")
+_SB_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+_SB_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")  # optional — bypasses RLS
+
+
+def _make_authed_client(jwt_token: str | None):
+    """
+    Build a Supabase client that can write rows owned by the current user.
+
+    Supabase RLS evaluates auth.uid() from the JWT in the PostgREST Authorization
+    header.  In supabase-py v2 the cleanest server-side approach is:
+        client.postgrest.auth(jwt)
+    which sets the Bearer token on the underlying httpx session without needing
+    a valid refresh token (which we don't have server-side).
+
+    Falls back to the service role key if SUPABASE_SERVICE_ROLE_KEY is set,
+    which bypasses RLS entirely (safe because this code only runs server-side).
+    Returns None if Supabase is not configured.
+    """
+    if _create_sb_client is None or not _SB_URL or not _SB_ANON_KEY:
+        return None
+    try:
+        # Service role key bypasses RLS — use if available (server-only, safe).
+        key = _SB_SERVICE_KEY if _SB_SERVICE_KEY else _SB_ANON_KEY
+        client = _create_sb_client(_SB_URL, key)
+        # Inject user JWT so RLS auth.uid() resolves correctly.
+        if jwt_token and not _SB_SERVICE_KEY:
+            client.postgrest.auth(jwt_token)
+        return client
+    except Exception as exc:
+        print(f"[Terra AI] _make_authed_client failed (non-fatal): {exc}")
+        return None
 
 bp = Blueprint("spatial", __name__)
 
@@ -57,30 +104,41 @@ def _risk_label(score: int) -> str:
 
 
 def _build_fallback_report(payload: dict, reason: str) -> dict:
-    """Create a minimal on-server report when Gemini is unavailable."""
-    flags: list[str] = []
-    score = 10
+    """Create a minimal on-server report when Gemini is unavailable.
 
-    def add_flag(condition: bool, points: int, text: str):
+    Score philosophy: Start at 100. Deduct ONLY for genuine build-blocking
+    conditions (flooding, legal violations, demolition risk, protected land).
+    Infrastructure costs (grid, borehole, road) are NOT risk deductions —
+    they are budget line items shown to the user transparently.
+    """
+    flags: list[str] = []
+    score = 100  # Start perfect — deduct only for real hazards
+
+    def deduct(condition: bool, points: int, prefix: str, text: str):
         nonlocal score
         if condition:
-            score += points
-            flags.append(text)
+            score -= points
+            flags.append(f"{prefix}: {text}")
 
-    add_flag(bool(payload.get("protected_land_risk")), 35, "Legal: Possible protected land risk")
-    add_flag(bool(payload.get("riparian_breach")), 25, "Environmental: Possible riparian reserve breach (30m)")
-    add_flag(bool(payload.get("road_reserve_risk")), 18, "Legal: Possible road reserve encroachment")
-    add_flag(bool(payload.get("flood_history")), 18, "Environmental: Flood history detected")
-    add_flag(bool(payload.get("seasonal_water")), 12, "Environmental: Seasonal surface water risk")
-    add_flag(bool(payload.get("high_moisture_risk")), 10, "Soil: High soil moisture (drainage concern)")
-    add_flag(bool(payload.get("aviation_risk")), 12, "Regulatory: Aviation/height restriction risk")
+    # ── Genuine build-blocking / legal hazards ─────────────────────────────
+    deduct(bool(payload.get("protected_land_risk")),  20, "RISK", "Possible protected land boundary — verify with county")
+    deduct(bool(payload.get("riparian_breach")),      20, "RISK", "Riparian reserve breach (<30m) — EMCA Cap 387 applies")
+    deduct(bool(payload.get("demolition_risk")),      25, "RISK", "KeNHA/SGR demolition buffer — seek written clearance")
+    deduct(bool(payload.get("road_reserve_risk")),    10, "RISK", "Road reserve encroachment risk — verify set-back with county")
+    deduct(bool(payload.get("flood_history")),        20, "RISK", "JRC flood history detected at this coordinate")
+    deduct(bool(payload.get("seasonal_water")),       10, "RISK", "Seasonal surface water — drainage assessment recommended")
+    deduct(bool(payload.get("aviation_risk")),        10, "RISK", "KCAA aviation zone — building height may be restricted")
+    deduct(bool(payload.get("is_topographical_sinkhole")), 10, "RISK", "Topographical depression — perimeter drainage required")
 
+    # ── Cost transparency items (no score deduction) ───────────────────────
     slope = payload.get("slope_percent")
     try:
         slope_value = float(slope) if slope is not None else None
     except (TypeError, ValueError):
         slope_value = None
-    add_flag(slope_value is not None and slope_value >= 12, 10, "Topography: Steep slope may increase foundation cost")
+
+    if slope_value is not None and slope_value >= 12:
+        flags.append(f"BUDGET: Slope {slope_value:.1f}% — budget KES 800,000+ for retaining/raft foundation")
 
     dist_grid = payload.get("distance_to_grid_m")
     try:
@@ -88,19 +146,23 @@ def _build_fallback_report(payload: dict, reason: str) -> dict:
     except (TypeError, ValueError):
         dist_grid_value = None
 
-    # Zero out grid penalty for Urban/Commercial zones or Urban Mask
     zone_label = str(payload.get("_zone_tier_label", ""))
     soil_type = str(payload.get("soil_type", ""))
-    is_urban_or_commercial = "Commercial" in zone_label or "Urban" in zone_label or soil_type == "Urban/Built-Up"
-    
-    if is_urban_or_commercial:
-        dist_grid_value = 0  # Assume grid is present
-    
-    add_flag(dist_grid_value is not None and dist_grid_value >= 400, 6, "Infrastructure: Far from power grid")
+    is_urban = "Urban" in zone_label or "Commercial" in zone_label or soil_type == "Urban/Built-Up"
 
-    # Invert score: 100 is perfect, 0 is unbuildable.
-    # The flags above compute 'penalty' points, so we subtract from 100.
-    score = max(0, min(100, 100 - int(round(score))))
+    if is_urban:
+        flags.append("BUDGET: KPLC grid — standard service connection KES 70,000-120,000")
+    elif dist_grid_value is not None and dist_grid_value >= 400:
+        est = int(min(2_500_000, dist_grid_value * 900))
+        flags.append(f"BUDGET: Grid {int(dist_grid_value)}m away — budget ~KES {est:,} for KPLC extension or off-grid solar")
+
+    # ISRIC soil cost flag
+    clay_pct = payload.get("soil_clay_pct")
+    fnd_kes = payload.get("soil_foundation_premium_kes", 0) or 0
+    if fnd_kes > 0:
+        flags.append(f"BUDGET: Foundation premium KES {fnd_kes:,} — {payload.get('soil_type', 'soil condition')} noted")
+
+    score = max(0, min(100, score))
     label = _risk_label(score)
 
     place = payload.get("place_name") or payload.get("neighborhood") or payload.get("ward") or "this location"
@@ -194,6 +256,26 @@ def _build_fallback_report(payload: dict, reason: str) -> dict:
 def _cache_key(lat: float, lng: float) -> str:
     """Round to 4 decimal places (~11 m precision) for cache hit grouping."""
     return f"{round(lat, 4)},{round(lng, 4)}"
+
+
+def _extract_user_id(auth_header: str | None) -> str | None:
+    """
+    Extract user_id (sub claim) from a Supabase JWT without full verification.
+    Supabase JWTs are already trusted at this point — the client is authenticated.
+    Returns None on any failure (graceful degradation).
+    """
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    try:
+        token = auth_header.split(" ", 1)[1]
+        # JWT is base64url-encoded header.payload.signature
+        payload_b64 = token.split(".")[1]
+        # Add padding if necessary
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        return payload.get("sub")  # Supabase uses 'sub' for user UUID
+    except Exception:
+        return None
 
 
 # ── Zone Tier Classification ──────────────────────────────────────────────────
@@ -468,12 +550,21 @@ def analyze():
 
     Accepts JSON body: {"lat": <float>, "lng": <float>}
     Returns JSON: {"success": true, "payload": {...}, "report": {...}}
+
+    Caching strategy (two layers):
+      L1: In-memory dict (24h TTL, resets on server restart)
+      L2: Supabase DB (persistent, ~11m precision, keyed on lat_rounded/lng_rounded)
+    If L2 hits, we still populate L1 for faster subsequent calls.
     """
     body = request.get_json(silent=True) or {}
     lat_raw = body.get("lat")
     lng_raw = body.get("lng")
     client_context = body.get("clientContext")
     vision_context = body.get("visionContext")
+
+    # ── Extract user_id from JWT (non-fatal if missing) ───────────────────────
+    auth_header = request.headers.get("Authorization")
+    user_id = _extract_user_id(auth_header)
 
     # ── Validation ────────────────────────────────────────────────────────────
     try:
@@ -485,17 +576,57 @@ def analyze():
     if not (KENYA_LAT_MIN <= lat <= KENYA_LAT_MAX and KENYA_LNG_MIN <= lng <= KENYA_LNG_MAX):
         return jsonify({"error": "Coordinates are outside Kenya"}), 400
 
-    print(f"[Terra AI] Analysing: {lat:.5f}, {lng:.5f}")
+    print(f"[Terra AI] Analysing: {lat:.5f}, {lng:.5f} | user_id: {user_id}")
 
-    # ── Cache check ────────────────────────────────────────────────────────────
+    # ── Rounded coordinates for cache keying (~11m precision) ─────────────────
+    lat_rounded = round(lat, 4)
+    lng_rounded = round(lng, 4)
+
+    # ── L1: In-memory cache check ──────────────────────────────────────────────
     cache_key = _cache_key(lat, lng)
     if cache_key in _ANALYSIS_CACHE:
         cached = _ANALYSIS_CACHE[cache_key]
         if time.time() - cached["timestamp"] < _CACHE_TTL_SECONDS:
-            print(f"[Terra AI] Cache hit for {cache_key}")
+            print(f"[Terra AI] L1 cache hit for {cache_key}")
             return jsonify(cached["response"])
 
-    # ── Parallel data fetching (7 tasks) ──────────────────────────────────────
+    # ── L2: Supabase DB cache check ────────────────────────────────────────────
+    if _sb is not None:
+        try:
+            db_result = (
+                _sb.table("reports")
+                .select("payload")
+                .eq("lat_rounded", lat_rounded)
+                .eq("lng_rounded", lng_rounded)
+                .limit(1)
+                .execute()
+            )
+            if db_result.data:
+                cached_payload = db_result.data[0]["payload"]
+                print(f"[Terra AI] L2 DB cache hit for ({lat_rounded}, {lng_rounded}) — returning instantly")
+                # Reconstruct response body from cached payload
+                # We stored the full response body in the payload column
+                if isinstance(cached_payload, dict) and "success" in cached_payload:
+                    response_body = cached_payload
+                else:
+                    # payload column holds the analysis_payload dict, reconstruct wrapper
+                    response_body = {
+                        "success": True,
+                        "payload": cached_payload,
+                        "report": cached_payload.get("_report"),
+                        "report_source": "database",
+                        "model_used": None,
+                    }
+                # Populate L1 cache so future hits are instant
+                _ANALYSIS_CACHE[cache_key] = {
+                    "timestamp": time.time(),
+                    "response": response_body,
+                }
+                return jsonify(response_body)
+        except Exception as db_err:
+            print(f"[Terra AI] L2 DB cache check failed (non-fatal, continuing): {db_err}")
+
+    # ── Parallel data fetching (11 tasks) ─────────────────────────────────────
     overpass_data: dict = {}
     elevation_data: dict = {}
     maps_data: dict = {}
@@ -503,6 +634,8 @@ def analyze():
     weather_data: dict = {}
     admin_data: dict = {}
     solar_data: dict = {}
+    groundwater_data: dict = {}
+    no2_data: dict = {}
 
     tasks = {
         "overpass":     lambda: fetch_overpass_data(lat, lng),
@@ -514,9 +647,11 @@ def analyze():
         "solar":        lambda: fetch_solar_data(lat, lng),
         "soil":         lambda: fetch_soil_data(lat, lng),
         "zones":        lambda: compute_zone_risks(lat, lng),
+        "groundwater":  lambda: query_groundwater(lat, lng),
+        "no2":          lambda: fetch_no2_pollution(lat, lng),
     }
 
-    with ThreadPoolExecutor(max_workers=9) as pool:
+    with ThreadPoolExecutor(max_workers=11) as pool:
         futures = {pool.submit(fn): key for key, fn in tasks.items()}
         for fut in as_completed(futures):
             key = futures[fut]
@@ -540,6 +675,10 @@ def analyze():
                     soil_data = result
                 elif key == "zones":
                     zones_data = result
+                elif key == "groundwater":
+                    groundwater_data = result
+                elif key == "no2":
+                    no2_data = result
             except Exception as exc:
                 print(f"[Terra AI] {key} fetch failed (non-fatal): {exc}")
 
@@ -557,6 +696,8 @@ def analyze():
         "weather_success": weather_data.get("soil_moisture") is not None,
         "soil_success": soil_data.get("data_source") in ("isric_soilgrids", "isric_soilgrids_nearby_sample"),
         "zones_success": isinstance(zones_data.get("demolition_risk"), bool),
+        "groundwater_success": groundwater_data.get("data_source") == "bgs_kenya_hg",
+        "no2_success": no2_data.get("no2_mol_per_m2") is not None,
     }
 
     # ── Merge analysis payload ────────────────────────────────────────────────
@@ -664,11 +805,29 @@ def analyze():
         "annual_sunshine_hours": solar_data.get("annual_sunshine_hours"),
         "max_panels": solar_data.get("max_panels"),
 
+        # Groundwater (BGS Africa Groundwater Atlas — Kenya_HG.shp)
+        "groundwater": {
+            "water_scarcity_risk": groundwater_data.get("water_scarcity_risk", False),
+            "aquifer_productivity": groundwater_data.get("aquifer_productivity"),
+            "depth_to_groundwater_m": groundwater_data.get("depth_to_groundwater_m"),
+            "borehole_premium_kes": groundwater_data.get("borehole_premium_kes", 0),
+            "hydrogeology_description": groundwater_data.get("hydrogeology_description"),
+            "data_source": groundwater_data.get("data_source", "fallback"),
+        },
+
+        # Environment / Air Quality (Sentinel-5P NRTI NO₂)
+        "environment": {
+            "severe_air_pollution": no2_data.get("severe_air_pollution", False),
+            "no2_mol_per_m2": no2_data.get("no2_mol_per_m2"),
+            "pollutant_type": no2_data.get("pollutant_type", "NO2"),
+            "no2_data_source": no2_data.get("no2_data_source", "Sentinel-5P NRTI"),
+        },
+
         # Data quality
         "data_quality": data_quality,
     }
 
-    print(f"[Terra AI] Payload assembled ({sum(data_quality.values())}/9 sources OK). Running sanitization middleware.")
+    print(f"[Terra AI] Payload assembled ({sum(data_quality.values())}/11 sources OK). Running sanitization middleware.")
 
     # ── Data sanitization middleware ─────────────────────────────────────────
     analysis_payload = _sanitize_payload(analysis_payload)
@@ -686,6 +845,13 @@ def analyze():
 
     model_used = ai_report.pop("_model_used", None) if isinstance(ai_report, dict) else None
 
+    # Embed report into the payload for DB storage so a single column holds everything
+    # needed to reconstruct the full UI without calling Flask again.
+    # We use a private key so it doesn't pollute the normal payload consumers.
+    analysis_payload_for_db = dict(analysis_payload)
+    analysis_payload_for_db["_report"] = ai_report
+    analysis_payload_for_db["_report_source"] = report_source
+
     response_body = {
         "success": True,
         "payload": analysis_payload,
@@ -694,7 +860,7 @@ def analyze():
         "model_used": model_used,
     }
 
-    # ── Store in cache ────────────────────────────────────────────────────────
+    # ── L1: Store in memory cache ─────────────────────────────────────────────
     _ANALYSIS_CACHE[cache_key] = {
         "timestamp": time.time(),
         "response": response_body,
@@ -703,6 +869,51 @@ def analyze():
     if len(_ANALYSIS_CACHE) > 500:
         oldest_key = min(_ANALYSIS_CACHE, key=lambda k: _ANALYSIS_CACHE[k]["timestamp"])
         del _ANALYSIS_CACHE[oldest_key]
+
+    # ── L2: Write to Supabase DB (non-fatal) ──────────────────────────────────
+    # IMPORTANT: We must write using an authenticated client so Supabase RLS
+    # can resolve auth.uid() == user_id.  The singleton anon client cannot do
+    # that, so we build a per-request client here with the user's JWT.
+    if user_id is not None:  # only save when we have a real authenticated user
+        raw_jwt = auth_header.split(" ", 1)[1] if auth_header and " " in auth_header else None
+        authed_sb = _make_authed_client(raw_jwt)
+        if authed_sb is not None:
+            try:
+                # Derive a meaningful location name for the history sidebar
+                location_name = (
+                    analysis_payload.get("place_name")
+                    or analysis_payload.get("neighborhood")
+                    or analysis_payload.get("ward")
+                    or f"{lat_rounded}, {lng_rounded}"
+                )
+                # Extract feasibility score from the Gemini report
+                feasibility_score = None
+                if isinstance(ai_report, dict):
+                    score_val = (
+                        ai_report.get("land_feasibility_score")
+                        or ai_report.get("overall_risk_score")
+                    )
+                    try:
+                        feasibility_score = int(score_val) if score_val is not None else None
+                    except (TypeError, ValueError):
+                        feasibility_score = None
+
+                db_row = {
+                    "user_id": user_id,
+                    "location_name": location_name,
+                    "feasibility_score": feasibility_score,
+                    "payload": analysis_payload_for_db,
+                    "lat_rounded": float(lat_rounded),
+                    "lng_rounded": float(lng_rounded),
+                }
+                authed_sb.table("reports").insert(db_row).execute()
+                print(f"[Terra AI] DB write OK for ({lat_rounded}, {lng_rounded}) | user_id: {user_id}")
+            except Exception as db_write_err:
+                print(f"[Terra AI] DB write failed (non-fatal): {db_write_err}")
+        else:
+            print("[Terra AI] Skipping DB write — could not build authenticated Supabase client.")
+    else:
+        print("[Terra AI] Skipping DB write — no authenticated user_id in JWT.")
 
     return jsonify(response_body)
 
