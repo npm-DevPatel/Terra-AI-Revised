@@ -133,7 +133,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
       /* ── Mobile: fixed overlay drawer that slides in from left ── */
       animate={{
         width: collapsed ? 72 : 268,
-        x: 0,  // desktop: always visible
       }}
       initial={false}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
