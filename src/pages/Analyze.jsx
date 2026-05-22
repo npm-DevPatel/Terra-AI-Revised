@@ -159,11 +159,13 @@ export default function Analyze() {
     // ── Retry loop (handles 502/503/504 cold-start errors) ───
     // Render free tier can take 20-40s to wake from sleep.
     // We retry up to 3 times with 8s delay between attempts.
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY_MS = 8000;
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY_MS = 12000;
     const RETRY_MESSAGES = [
-      'Server is waking up — this takes ~30s on first load…',
-      'Still warming up — almost ready…',
+      'Server is waking up — this takes ~45s on first load…',
+      'Still warming up — please hold…',
+      'Almost there — initializing AI models…',
+      'Finalizing boot sequence…',
       'Final attempt — running analysis now…',
     ];
 
