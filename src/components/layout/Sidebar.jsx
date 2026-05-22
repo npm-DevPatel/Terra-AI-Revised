@@ -148,9 +148,19 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
       style={{ width: collapsed ? 72 : 268 }}
     >
       {/* ── Brand ── */}
-      <div className="flex items-center justify-between px-3 sm:px-4 h-16 border-b border-terra-border flex-shrink-0">
+      <div className="flex items-center gap-3 px-3 sm:px-4 h-16 border-b border-terra-border flex-shrink-0">
+        
+        {/* ── Mobile: close (Hamburger) button — placed perfectly over the TopBar's hamburger ── */}
+        <button
+          onClick={onMobileClose}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-terra-muted hover:text-terra-heading hover:bg-slate-50 transition-colors relative z-50 flex-shrink-0"
+          aria-label="Close menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex-shrink-0">
+          <div className="hidden md:flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex-shrink-0">
             <Leaf className="w-5 h-5 text-white" />
           </div>
           <AnimatePresence initial={false}>
@@ -172,15 +182,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
             )}
           </AnimatePresence>
         </div>
-
-        {/* ── Mobile: close (Hamburger) button ── */}
-        <button
-          onClick={onMobileClose}
-          className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-terra-muted hover:text-terra-heading hover:bg-slate-50 transition-colors"
-          aria-label="Close menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
       </div>
 
       {/* ── New Analysis CTA ── */}
