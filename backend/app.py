@@ -8,7 +8,17 @@ from spatial.routes import bp as spatial_bp
 
 
 app = Flask(__name__)
-CORS(app)
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Allow requests from the Vercel frontend (set FRONTEND_URL in Render env vars)
+# Falls back to "*" for local development when FRONTEND_URL is not set.
+_frontend_url = os.getenv("FRONTEND_URL", "")
+if _frontend_url:
+    CORS(app, origins=[_frontend_url, "http://localhost:5173"])
+else:
+    # Local dev: allow everything
+    CORS(app)
+
 app.register_blueprint(vision_bp)
 app.register_blueprint(spatial_bp)
 
@@ -55,4 +65,4 @@ def health():
     return jsonify({"ok": True})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)

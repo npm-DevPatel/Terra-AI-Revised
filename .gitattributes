@@ -1,0 +1,7 @@
+datasets/HydroRIVERS_v10_af.dbf filter=lfs diff=lfs merge=lfs -text
+datasets/HydroRIVERS_v10_af.sbn filter=lfs diff=lfs merge=lfs -text
+datasets/HydroRIVERS_v10_af.sbx filter=lfs diff=lfs merge=lfs -text
+datasets/HydroRIVERS_v10_af.shx filter=lfs diff=lfs merge=lfs -text
+datasets/HydroRIVERS_v10_af.prj filter=lfs diff=lfs merge=lfs -text
+datasets/HydroRIVERS_v10_af.shp filter=lfs diff=lfs merge=lfs -text
+backend/yolov8n-seg.pt filter=lfs diff=lfs merge=lfs -text

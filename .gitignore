@@ -32,15 +32,20 @@ backend/.env
 # Python
 venv/
 backend/venv/
-__pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 
-# ML model weights (large binary — re-download as needed)
-backend/yolov8n-seg.pt
+# Always include .env.example files (they have placeholder values, not real keys)
+!.env.example
+!backend/.env.example
+
+# ML model weights — tracked via Git LFS (see .gitattributes)
+# backend/yolov8n-seg.pt   ← DO NOT add here; LFS handles it
 
 # Ignore docs
 docs/
 
-# Datasets
-datasets/
+# Datasets — large shapefiles tracked via Git LFS (see .gitattributes)
+# HydroRIVERS (~420 MB) and Kenya_HG (~700 KB) are LFS-tracked
+# datasets/                ← DO NOT add here; LFS handles it
