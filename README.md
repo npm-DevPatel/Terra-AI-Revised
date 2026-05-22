@@ -2,22 +2,32 @@
 
 [![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
 [![Flask](https://img.shields.io/badge/Backend-Flask%20%2B%20Python-38ef7d?style=for-the-badge&logo=flask)](https://flask.palletsprojects.com/)
+[![Supabase](https://img.shields.io/badge/SaaS%20Database-Supabase%20Postgres-3ecf8e?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-06b6d4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
 [![YOLOv8](https://img.shields.io/badge/Computer%20Vision-YOLOv8--seg-FF2F2F?style=for-the-badge&logo=ultralytics)](https://ultralytics.com/)
-[![Gemini](https://img.shields.io/badge/AI%20Synthesis-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=googlegemini)](https://deepmind.google/technologies/gemini/)
+[![Gemini](https://img.shields.io/badge/AI%20Synthesis-Gemini%201.5%20Flash-4285F4?style=for-the-badge&logo=googlegemini)](https://deepmind.google/technologies/gemini/)
 
 Terra AI is an enterprise-grade, land pre-purchase due diligence and risk assessment platform designed specifically for the Kenyan real estate market (with a high-fidelity focus on the Nairobi Metropolitan Area). 
 
-By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospatial intelligence (**Shapely, OpenStreetMap, Google Maps, Google Earth Engine, Open-Meteo**), Terra AI detects physical, environmental, infrastructure, and legal risks *before* a buyer commits to a purchase. The platform evaluates riparian buffer zones, road reserves, terrain slope, soil type foundations, grid connectivity, solar potential, and administrative zoning, synthesizing a professional architectural-grade **PDF Dossier** with estimated financial premiums.
+By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospatial intelligence (**Shapely, OpenStreetMap, Google Maps, Google Earth Engine, Open-Meteo, BGS Africa Groundwater Atlas, and Sentinel-5P Air Quality**), Terra AI detects physical, environmental, infrastructure, and legal risks *before* a buyer commits to a purchase. The platform evaluates riparian buffer zones, road reserves, terrain slope, soil type foundations, aquifer depth, air pollution, grid connectivity, solar potential, and administrative zoning, synthesizing a professional architectural-grade **PDF Dossier** with estimated financial premiums.
 
 ---
 
 ## 📅 Recent Updates
-- **Geotechnical Integrity**: Restricted ISRIC SoilGrids nearest-neighbor search to a geotechnically valid 500m radius. Automatically enforces an "Urban Mask" and legal geotechnical physical testing warnings in dense urban cores.
-- **Feasibility Scoring Revamp**: Introduced `land_feasibility_score` evaluating plots from 100 (Ideal) to 0 (Unbuildable), replacing the inverted risk scoring model.
-- **Smart Infrastructure Heuristics**: Automatically assumes municipal grid access and zeroes out KPLC extension CapEx premiums for plots in Commercial, Tier 1 Hyper-Urban, and Urban Mask zones.
-- **AI Persona Optimization**: Transitioned Gemini 2.5 Flash synthesis engine to a "Pragmatic Legal & Financial Advisor" persona, providing objective, actionable risk mitigation steps without unnecessary alarmism.
-- **React-PDF & Maps Compatibility**: Upgraded interactive mapping to the newly required `google.maps.marker.AdvancedMarkerElement` and eliminated SVG rendering wrapper errors in the architectural PDF exports.
+
+- **Supabase SaaS Integration & Auth Gate**: Upgraded Terra AI to a full SaaS platform. Spatial queries are now locked behind a sleek dark glassmorphism authentication gate. Users must register/login to execute deep scans, with all reports tied to their accounts using PostgreSQL Row Level Security (RLS).
+- **Two-Layer Geospatial Cache**: 
+  - **L1 (In-Memory Cache)**: Fast 24-hour temporal memory cache.
+  - **L2 (Supabase Database Cache)**: Checks database records for any pin dropped within a geotechnically identical 11-meter radius (coordinates rounded to 4 decimals). Returns historical analyses instantly to save API calls and eliminate 3+ seconds of latency.
+- **ChatGPT-Style Sidebar with CRUD actions**: Created an interactive history panel allowing users to instantly rehydrate previously generated reports. Built hovering actions:
+  - **Rename (Pencil)**: Inline, blur-safe name updates synced instantly to Supabase.
+  - **Delete (Trash)**: A double-click safety lock (click once to arm/turn red, second click confirms) with an optimistic UI state that removes items from list immediately while deleting in the background.
+  - **Standardized Aesthetics**: Cleaned up the visual clutter by removing color-coded score dots, using standard map markers for a sleek, cohesive feel.
+- **Advanced Spatial Datasets**:
+  - **BGS Africa Groundwater Atlas**: Performs point-in-polygon queries against the official Kenya Hydrogeology shapefile (`Kenya_HG.shp`) to discover aquifer type, productivity levels, and depth to water table. Triggers a water scarcity flag and KES 2,000,000 deep drilling premium if standard drilling cannot reach water.
+  - **Copernicus Sentinel-5P Air Quality**: Connects to the Sentinel-5P NRTI L3 satellite band via Google Earth Engine to sample median tropospheric nitrogen dioxide ($NO_2$) levels over a rolling 12-month window, flagging chronic pollution above $1.0\times 10^{-4}\text{ mol/m}^2$.
+- **Scroll-Free Adaptive Layout**: Optimized the spatial map canvas to scale dynamically to the exact device height (`100vh - 140px`). Buttons and action elements sit in a clean footer band underneath, making the entire flow fit on any screen without needing to scroll.
+- **Auditor-Style Cost & Risk Synthesis**: Optimized Gemini 1.5 Flash report generation prompts. The AI synthesis now separates genuine hazards (landslide, flood, legal encroachment) into critical `RISK` flags, while organizing infrastructure and geotech costs into `BUDGET` items, keeping reviews pragmatic, objective, and transparent.
 
 ---
 
@@ -26,106 +36,112 @@ By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospati
 2. [Technical Architecture](#-technical-architecture)
 3. [System Dependencies & Tech Stack](#-system-dependencies--tech-stack)
 4. [Strict Folder Structure](#-strict-folder-structure)
-5. [Environment Variables Config](#%EF%B8%8F-environment-variables-config)
-6. [Step-by-Step Installation & Run Guide](#-step-by-step-installation--run-guide)
-7. [API Endpoints Reference](#-api-endpoints-reference)
-8. [Nairobi-Focused Spatial Heuristics & Rules](#%EF%B8%8F-nairobi-focused-spatial-heuristics--rules)
-9. [Verification & Development Commands](#-verification--development-commands)
-10. [Legal Disclaimer](#-legal-disclaimer)
+5. [Required Supabase SQL Schema](#%EF%B8%8F-required-supabase-sql-schema)
+6. [Environment Variables Config](#%EF%B8%8F-environment-variables-config)
+7. [Step-by-Step Installation & Run Guide](#-step-by-step-installation--run-guide)
+8. [API Endpoints Reference](#-api-endpoints-reference)
+9. [Nairobi-Focused Spatial Heuristics & Rules](#%EF%B8%8F-nairobi-focused-spatial-heuristics--rules)
+10. [Verification & Development Commands](#-verification--development-commands)
+11. [Legal Disclaimer](#-legal-disclaimer)
 
 ---
 
 ## 🌟 Core Features & User Flow
 
 ### 1. The Landing Experience (`/`)
-- A light-mode, Google Gemini-inspired layout with clean typography, heavy whitespace, and isometric visuals.
-- High-converting hero section explaining the core value proposition: *“Understand land constraints and sustainable building before you buy.”*
+- A modern Google Gemini-inspired light-mode portal featuring clean sans-serif typography, abundant white space, and subtle micro-animations.
+- Highlights SaaS capabilities, motivating buyers to log in to capture spatial reports and access their multi-device project history.
 
 ### 2. Dual-Channel Analysis Split (`/analyze`)
-- Sleek, glassmorphic column controls routing users into two distinct analysis pipelines:
-  - **Option A (Vision Flow)**: Scan drone or site photography.
-  - **Option B (Deep Map Flow)**: Drop a pin on a 3D satellite canvas.
+- Sleek, interactive routing cards directing users to their choice of:
+  - **Option A (Vision Flow)**: Upload site photos or drone footage to extract spatial segments.
+  - **Option B (Deep Map Flow)**: Drop a pin on a 3D satellite canvas to run a complete GIS assessment.
 
 ### 3. Cinematic Site Scanning (Vision Pipeline)
-- **Cinematic Uploader & Scanner**: `CinematicScanner.jsx` uses `framer-motion` to run a glowing green scan line across uploaded images.
-- **YOLOv8 Segmentation**: Auto-detects structures, roads, vegetation, water bodies, and rocky terrains.
-- **Interactive Annotations**: Elegantly rendered floating tooltips pointing to segmented elements on the canvas.
-- **Upsell Gateway**: Sticky callouts prompting users to attach spatial coordinates to transition from visual analysis into full GIS zoning reports.
+- **Cinematic Uploader & Scanner**: `CinematicScanner.jsx` uses `framer-motion` to execute a glowing green scan line across uploaded images.
+- **YOLOv8 Segmentation**: Automatically parses roads, structures, vegetation, water bodies, and rocky terrain.
+- **Interactive Annotations**: Places floating overlays that let users tap to see confidence levels. Can be converted to full spatial analysis by attaching coordinates.
 
-### 4. Full-Bleed Map Stage & 7-Task Parallel Engine (Map Pipeline)
-- **Interactive satellite mapping**: Drop a pin on the precise plot boundaries.
-- **Progressive Loader**: An overlay cycling through diagnostic metrics as tasks are executed in the background:
-  - *“Querying Nairobi infrastructure data...”*
-  - *“Calculating Riparian buffers and slope terrain...”*
-  - *“Cross-referencing zoning records...”*
-  - *“Synthesizing final risk report via Gemini...”*
-- **7-Task Parallel GIS Fetcher**: Utilizes a Python `ThreadPoolExecutor` to query independent data APIs concurrently in **< 3 seconds**:
-  1. **Overpass (OpenStreetMap)**: Computes distance to grid lines, nearest roadways, waterways, airports, cliffs, markets, and hospitals.
-  2. **Google Maps Elevation API**: Fetches elevation data and computes exact terrain slope percentage.
-  3. **Google Maps Places/Details**: Discovers local neighborhood context, administrative subdivisions, police stations, and medical services.
-  4. **Google Earth Engine (GEE)**: Analyzes JRC surface water history, vegetation index (NDVI), and tree cover flags.
-  5. **Open-Meteo API**: Queries real-time and historical soil moisture values to evaluate drainage constraints.
-  6. **Nominatim (OSM Reverse Geocoding)**: Maps precise coordinates to administrative hierarchies (County, Subcounty, Ward, Place Name).
-  7. **Google Maps Solar API**: Establishes maximum roof solar panels, annual sunshine hours, and carbon offset factors.
+### 4. Full-Bleed Map Stage & 11-Task Parallel Engine (Map Pipeline)
+- **Scroll-Free Map Canvas**: A full-bleed map module that fills all available screen height with a clean, separated run-analysis button sitting directly below it.
+- **Progressive Loader**: Displays active scan metrics in real time (e.g., *“Connecting to Copernicus satellite telemetry...”*, *“Querying BGS Groundwater Shapefiles...”*).
+- **11-Task Parallel GIS Harvester**: Utilizes a Python `ThreadPoolExecutor` to query independent spatial data streams concurrently in **< 4 seconds**:
+  1. **BGS Africa Groundwater Atlas**: Point-in-polygon queries against hydrogeology layers.
+  2. **Copernicus Sentinel-5P**: NO₂ air pollution satellite sampling.
+  3. **Overpass (OpenStreetMap)**: Computes distance to power lines, nearest roads, waterways, airports, cliffs, markets, and hospitals.
+  4. **Google Maps Elevation API**: Evaluates exact terrain slope percentages and height indexes.
+  5. **Google Maps Places/Details**: Contextualizes neighborhoods, administrative units, and safety infrastructure.
+  6. **Google Earth Engine (GEE)**: Analyzes JRC surface water history, vegetation index (NDVI), and tree cover.
+  7. **Open-Meteo API**: Fetches historical and real-time soil moisture.
+  8. **Nominatim (OSM Reverse Geocoding)**: Resolves coordinates into county, subcounty, and ward names.
+  9. **Google Maps Solar API**: Estimates maximum roof solar panel capacities and annual peak sun hours.
 
-### 5. Smart 24h GIS Cache
-- Restricts redundant API costs via a 24-hour backend in-memory cache. 
-- Coordinates are rounded to **4 decimal places** (~11-meter precision) to cluster immediate neighboring queries.
+### 5. Multi-Layer Geocaching (L1 & L2)
+- Fast 24-hour temporal memory cache combined with a persistent Supabase PostgreSQL database cache. 
+- Prevents expensive re-queries by checking for prior pins within an ~11m radius. 
 
-### 6. Land-Zone Inferences & Sanitization
-- Evaluates data quality scores (0 to 7 checklist) for total transparency.
-- Runs location-aware data sanitization. If OSM is missing infrastructure data in a hyper-urban area, the platform auto-infers that grid lines/piped water are present, avoiding hallucinated risks.
+### 6. SaaS Sidebar & Report Rehydration
+- **ChatGPT-Style Sidebar**: Automatically syncs completed scans to the user's account. Shows location name, date, and feasibility score.
+- **One-Click Rehydration**: Clicking a sidebar item fetches the full cached payload from Supabase, rendering the entire report page instantly with zero backend Flask executions required.
+- **Inline Rename & Confirm Delete**: Hovering over sidebar rows reveals editing icons. Click the pencil to change names inline, or tap the trash once to arm a double-click delete block.
 
 ### 7. Gemini AI Synthesis & Interactive QA Chat
-- **Gemini 2.5 Flash** synthesizes raw GIS metrics into a detailed report containing:
-  - An overall risk score (0-100) and risk labels (**LOW**, **MEDIUM**, **HIGH**, **CRITICAL**).
-  - A definitive investment verdict.
-  - Development constraints and estimated KES capital expenditure premiums.
-- **Interactive Report Chatbot**: Contextual chat box (`ChatAssistant.jsx`) letting users ask natural-language questions about their land report (e.g., *"Can I build a 4-story apartment block here?"*).
-- **Graceful On-Server Fallback**: Should Gemini hit API limits or quotas, a deterministic Python fallback engine builds a high-fidelity risk report based on hard-coded spatial rules.
+- **Pragmatic Synthesis**: Gemini 1.5 Flash compiles raw metrics into a neutral financial assessment. Distinguishes between physical blockers (`RISK`) and transparent cost forecasts (`BUDGET`), adjusting feasibility scores accordingly.
+- **Context-Aware Chat Assistant**: Chatbot allows users to ask localized questions about their reports (e.g., *"What regulations govern building a commercial retail center here?"*), referencing full GIS context.
+- **Deterministic Offline Fallback**: In the event of Gemini rate limits, a fallback engine maps hard-coded spatial metrics to high-fidelity risk indicators.
 
-### 8. $5,000 Architectural-Grade PDF Dossier
-- Custom, client-side PDF document generation using `@react-pdf/renderer` inside `TerraReportDocument.jsx`.
-- **Page 1: Executive Summary**: Features project metadata, static map visuals, risk verdicts, and the core AI synthesis.
-- **Page 2: Environmental & Topography Grid**: 2-column flex layout presenting slope percentages, elevation, flood risk, and interactive SVG progress bars/meters.
-- **Page 3: Legal & Infrastructure Economics**: Outlines warning flags (riparian breaches, road reserves) and KES financial estimates (grid extensions, foundation premiums, due diligence fees).
+### 8. Architectural-Grade PDF Dossier
+- Complete client-side PDF document generation using `@react-pdf/renderer` in `TerraReportDocument.jsx`.
+- **Page 1: Executive Summary**: Layout featuring coordinate tags, static maps, feasibility verdicts, and primary AI synthesis.
+- **Page 2: Environmental & Topography Grid**: Visual grids mapping slope, elevation, surface water historical indexes, and interactive progress bars.
+- **Page 3: Legal & Infrastructure Economics**: Outlines statutory buffers (30m NEMA riparian zone, highway encroachments), air pollution issues, and fully matched KES CapEx estimates (foundations, KPLC power connection, borehole drilling, survey, and title searches).
 
 ---
 
 ## ⚙️ Technical Architecture
 
-The platform operates on a decoupled client-server architecture:
+The platform operates on a decoupled client-server architecture backed by Supabase:
 
 ```mermaid
 graph TD
-    A["React 18 / Vite Frontend"] -->|1. Image Upload| B["Flask Backend /api/vision/analyze"]
-    A -->|2. Coordinates Drop| C["Flask Backend /api/spatial/analyze"]
+    A["React 18 / Vite Frontend"] -->|1. Sign In / Sign Up| B["Supabase Auth"]
+    A -->|2. Coordinates Drop + JWT| C["Flask Backend /api/spatial/analyze"]
+    A -->|3. Image Upload| D["Flask Backend /api/vision/analyze"]
     
-    B -->|Image Processing| D["YOLOv8-seg Engine"]
-    D -->|Feature Segments| A
+    D -->|Feature Segmentation| E["YOLOv8-seg Engine"]
+    E -->|Interactive Annotations| A
     
-    C -->|ThreadPoolExecutor| E["Parallel Data Harvester"]
-    E -->|1. Overpass API| F["OSM Infrastructure Data"]
-    E -->|2. Elevation API| G["Google Terrain / Slope"]
-    E -->|3. Maps API| H["Neighborhood Amenities"]
-    E -->|4. Earth Engine| I["GEE Flood & NDVI"]
-    E -->|5. Open-Meteo| J["Soil Moisture"]
-    E -->|6. Nominatim| K["Administrative Subdivisions"]
-    E -->|7. Solar API| L["Google Solar Insights"]
+    C -->|Extract user_id| F{"L2 Cache Check (Supabase)"}
+    F -->|Cache Hit ~11m| G["Fetch Payload & Embed _report"]
+    G -->|Instant Load| A
     
-    F & G & H & I & J & K & L --> M["Sanitization & Zone Classification"]
-    M --> N{"Cache Check"}
-    N -->|Cache Hit| O["Return Response"]
-    N -->|Cache Miss| P["Gemini 2.5 Flash Synthesis"]
-    P -->|Synthesized JSON Report| Q["24h In-Memory Cache"]
-    Q --> O
-    O -->|Payload & AI Report| A
+    F -->|Cache Miss| H["11-Task Parallel Harvester"]
     
-    A -->|3. Document Export| R["@react-pdf/renderer"]
-    R -->|Offline-Safe Helvetica PDF| S["Downloadable PDF Dossier"]
+    H -->|1. BGS Africa Atlas| I["Groundwater Depth & Yield"]
+    H -->|2. Copernicus S5P| J["NO₂ Air Quality Telemetry"]
+    H -->|3. Overpass API| K["OSM Infrastructure Data"]
+    H -->|4. Elevation API| L["Google Terrain / Slope"]
+    H -->|5. Maps API| M["Neighborhood Amenities"]
+    H -->|6. Earth Engine| N["GEE Flood & NDVI"]
+    H -->|7. Open-Meteo| O["Soil Moisture"]
+    H -->|8. Nominatim| P["Administrative Subdivisions"]
+    H -->|9. Solar API| Q["Google Solar Insights"]
     
-    A -->|4. Interactive Q&A| T["Flask Backend /api/spatial/chat"]
-    T -->|Contextual Response| A
+    I & J & K & L & M & N & O & P & Q --> R["Data Sanitization & Zone Filters"]
+    R --> S["Gemini 1.5 Flash Synthesis"]
+    S -->|Insert Row with Payload| T["Write L2 Cache (Supabase)"]
+    S -->|Save to L1 Cache| U["In-Memory Cache"]
+    T & U --> V["Return Response"]
+    V --> A
+    
+    A -->|4. History Rehydration| W["Direct Supabase Select"]
+    W -->|Zero Flask Calls| A
+    
+    A -->|5. Sidebar CRUD| X["Direct Supabase Update / Delete"]
+    X -->|Optimistic UI Render| A
+    
+    A -->|6. Document Export| Y["@react-pdf/renderer"]
+    Y -->|Offline-Safe PDF| Z["Downloadable PDF Dossier"]
 ```
 
 ---
@@ -134,8 +150,9 @@ graph TD
 
 ### Frontend Dependencies (`package.json`)
 - **Core Framework**: React 18, Vite (Fast HMR)
+- **SaaS Database Client**: `@supabase/supabase-js` (Auth, Direct tables select/insert/update/delete)
 - **Routing**: `react-router-dom` (BrowserRouter v7)
-- **Global State**: `zustand` (sessionStorage-backed persistent engine for tab isolation)
+- **Global State**: `zustand` (sessionStorage-backed persistent global engine)
 - **Animations**: `framer-motion` (for cinematic scanner and UI transitions)
 - **Styling**: Tailwind CSS (Tailwind Merge + CLSX for class combinations)
 - **Icons**: `lucide-react` (SVG-based vector assets)
@@ -143,8 +160,9 @@ graph TD
 
 ### Backend Dependencies (`requirements.txt`)
 - **API Engine**: Flask 3.1, Flask-CORS 6.0
+- **Database Client**: `supabase` (v2.15.3 Python SDK - for authenticated JWT verify and write-backs)
 - **Computer Vision**: Ultralytics (YOLOv8 segmentation model `yolov8n-seg.pt`), OpenCV-Python, Pillow
-- **GIS Engine**: Shapely (geometric intersections), Requests (API integration)
+- **GIS Engine**: Shapely (geometric intersections), PyShp / GeoPandas (for reading shapefile polygons), Requests
 - **AI Orchestration**: Google GenAI SDK (`google-genai`), Python-Dotenv
 - **Concurrency**: Python Standard `concurrent.futures.ThreadPoolExecutor`
 
@@ -155,13 +173,17 @@ graph TD
 ```text
 terra_ai_3/
 ├── backend/                       # Flask GIS & Vision Engine
+│   ├── db/                        # Database connectivity
+│   │   ├── __init__.py
+│   │   └── supabase_client.py     # Supabase client singleton & auth helpers
 │   ├── spatial/                   # Spatial API module
-│   │   ├── routes.py              # Spatial, reverse-geocode, chat, & export endpoints
+│   │   ├── routes.py              # Spatial, reverse-geocode, chat, & L2 database caching
 │   │   ├── shapely_engine.py      # Riparian reserve & Road setback math
-│   │   ├── elevation.py           # Slope & GEE landcover fetchers
+│   │   ├── elevation.py           # Slope, GEE landcover, & Sentinel-5P NO2 fetches
+│   │   ├── groundwater.py         # BGS Africa shapefile loader & aquifer queries
 │   │   ├── maps.py                # Google Maps Geocoding & Places queries
 │   │   ├── overpass.py            # OpenStreetMap API fetcher
-│   │   └── gemini_synth.py        # Gemini 2.5 Flash integration & Chat prompt engineering
+│   │   └── gemini_synth.py        # Gemini 1.5 Flash integration & Chat prompt engineering
 │   ├── vision/                    # YOLOv8 Image Segmentation module
 │   │   ├── routes.py              # Photo analysis endpoints
 │   │   ├── service.py             # YOLOv8 segmentation pipeline
@@ -169,20 +191,28 @@ terra_ai_3/
 │   ├── yolov8n-seg.pt             # YOLOv8 nano segmentation weights
 │   ├── app.py                     # Main server entrypoint (Port 5000)
 │   └── requirements.txt           # Python dependency manifest
+├── datasets/                      # Static spatial data resources
+│   ├── Kenya_HG.shp               # BGS Africa Hydrogeology shapefile (aquifers)
+│   ├── Kenya_HG.shx               # Shapefile spatial index
+│   └── Kenya_HG.dbf               # Shapefile attribute table
 ├── src/                           # React Frontend Application
 │   ├── assets/                    # Static vectors & brand imagery
+│   ├── lib/
+│   │   └── supabaseClient.js      # Supabase JS client config
 │   ├── store/
 │   │   └── useTerraStore.js       # Zustand persistent global state (sessionStorage)
 │   ├── components/
-│   │   ├── layout/                # Sidebar.jsx, TopBar.jsx, MainLayout.jsx
+│   │   ├── auth/
+│   │   │   └── AuthModal.jsx      # Dark glassmorphism authentication modal
+│   │   ├── layout/                # Sidebar.jsx (CRUD history), TopBar.jsx, MainLayout.jsx
 │   │   ├── ui/                    # Button.jsx, Card.jsx, Tooltip.jsx, Loader.jsx
 │   │   ├── vision/                # Uploader.jsx, CinematicScanner.jsx, AnnotationPins.jsx
-│   │   ├── map/                   # InteractiveMap.jsx, LocationSearch.jsx
+│   │   ├── map/                   # InteractiveMap.jsx, LocationSearch.jsx, PinDrop.jsx
 │   │   ├── results/               # RiskSummaryCard.jsx, ChatAssistant.jsx, ProgressiveLoader.jsx
 │   │   └── pdf/                   # TerraReportDocument.jsx (Pages 1-3 PDF structure)
 │   ├── pages/
 │   │   ├── Home.jsx               # Floating isometric landing page
-│   │   ├── Analyze.jsx            # Vision vs. Map split choice
+│   │   ├── Analyze.jsx            # Vision vs. Map split choice & scroll-free wrapper
 │   │   ├── Pricing.jsx            # SaaS pricing tiers
 │   │   └── Report.jsx             # Final visual workspace before PDF print
 │   ├── utils/                     # Local helpers
@@ -196,6 +226,49 @@ terra_ai_3/
 
 ---
 
+## ⚡ Required Supabase SQL Schema
+
+Before running the application, you **must** configure your database schema inside the Supabase dashboard SQL editor.
+
+```sql
+-- 1. Create the reports table
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  location_name TEXT,
+  feasibility_score INTEGER,
+  payload JSONB NOT NULL,
+  lat_rounded NUMERIC(8,4) NOT NULL,
+  lng_rounded NUMERIC(8,4) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Create index on rounded coordinates for L2 cache checks
+CREATE INDEX idx_reports_cache ON reports(lat_rounded, lng_rounded);
+
+-- 3. Enable Row Level Security (RLS)
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+-- 4. Create RLS Policies so users can only access their own records
+CREATE POLICY "Users can insert their own reports" 
+  ON reports FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own reports" 
+  ON reports FOR SELECT 
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own reports" 
+  ON reports FOR UPDATE 
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own reports" 
+  ON reports FOR DELETE 
+  USING (auth.uid() = user_id);
+```
+
+---
+
 ## 🔑 Environment Variables Config
 
 Create a `.env` file in the root of the project. The Flask backend loads variables directly from the project root.
@@ -205,7 +278,7 @@ Create a `.env` file in the root of the project. The Flask backend loads variabl
 # Terra AI Environment Configuration
 # ==============================================================================
 
-# 1. Gemini 2.5 API Key (Used by backend/spatial/gemini_synth.py for report synthesis)
+# 1. Gemini API Key (Used by backend/spatial/gemini_synth.py for report synthesis)
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # 2. Google Maps API Keys
@@ -218,7 +291,16 @@ VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 # 3. Google Earth Engine Key (Optional; fallback values are injected if missing)
 GOOGLE_EARTH_ENGINE_API_KEY=your_gee_api_key_here
 
-# 4. Port Configuration
+# 4. Supabase SaaS Keys
+# Backend connection secrets
+SUPABASE_URL=https://your-supabase-project.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key-here
+
+# Frontend connection secrets (prefixed with VITE_ for client-side execution)
+VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key-here
+
+# 5. Port Configuration
 PORT=5000
 ```
 
@@ -230,6 +312,7 @@ PORT=5000
 - **Node.js**: v18.0.0 or higher
 - **Python**: v3.8.0 up to v3.12.0 (Required for YOLO/PyTorch modules)
 - **Git**
+- **GDAL/Fiona Dependencies** (If installing `geopandas` manually on Windows; otherwise the app will gracefully default to standard python shapefile readers or mock calculations if import fails)
 
 ---
 
@@ -327,6 +410,10 @@ From the project root, run the pre-configured automation script. It automaticall
 ### 2. Multi-API Spatial Analysis
 - **Endpoint**: `POST /api/spatial/analyze`
 - **Request Type**: `JSON`
+- **Headers**:
+  ```http
+  Authorization: Bearer <JWT_access_token>
+  ```
 - **Expected Payload**:
   ```json
   {
@@ -358,6 +445,20 @@ From the project root, run the pre-configured automation script. It automaticall
       "solar_available": true,
       "annual_sunshine_hours": 2007.0,
       "max_panels": 18,
+      "groundwater": {
+        "water_scarcity_risk": false,
+        "aquifer_productivity": "Moderate",
+        "depth_to_groundwater_m": 80.0,
+        "borehole_premium_kes": 0,
+        "hydrogeology_description": "Volcanic rocks and interbedded sediments of high hydrogeological potential.",
+        "data_source": "bgs_kenya_hg"
+      },
+      "environment": {
+        "severe_air_pollution": false,
+        "no2_mol_per_m2": 0.00004512,
+        "pollutant_type": "NO2",
+        "no2_data_source": "Sentinel-5P NRTI"
+      },
       "data_quality": {
         "overpass_success": true,
         "elevation_success": true,
@@ -365,7 +466,9 @@ From the project root, run the pre-configured automation script. It automaticall
         "maps_success": true,
         "solar_success": true,
         "admin_success": true,
-        "weather_success": true
+        "weather_success": true,
+        "groundwater_success": true,
+        "no2_success": true
       }
     },
     "report": {
@@ -376,7 +479,7 @@ From the project root, run the pre-configured automation script. It automaticall
       "sections": [
         {
           "id": "legal",
-          "title": "Legal & Regulatory Risk",
+          "title": "Legal & Regulatory",
           "risk_level": "low",
           "body": "No active overlaps with public road or railway reserves detected. Confirmed outside riparian buffer boundaries."
         }
@@ -384,13 +487,14 @@ From the project root, run the pre-configured automation script. It automaticall
       "cost_summary": {
         "estimated_foundation_premium_kes": 0,
         "estimated_grid_connection_kes": 0,
+        "borehole_premium_kes": 0,
         "title_search_cost_kes": 500,
         "recommended_survey_cost_kes": 25000,
         "total_pre_purchase_due_diligence_kes": 25500
       }
     },
     "report_source": "gemini",
-    "model_used": "gemini-2.5-flash"
+    "model_used": "gemini-1.5-flash"
   }
   ```
 
@@ -446,6 +550,16 @@ The engine parses geocoded sub-county and ward labels to inject known regional g
 - **Karen, Lang'ata, Lavington, Ngong**: Identifies stable **Red Laterite (Murram)**, signaling moderate-to-good load-bearing capacities and standard structural foundation bills.
 - **Athi River, Syokimau, Kitengela**: Injects warning about **Alluvial Deposits** and variable load capacities with a high risk of differential settlement, mandating local soil testing.
 
+### 5. Aquifer Water Scarcity
+Parsed from the BGS Africa shapefiles for Kenya. If the estimated depth to the aquifer table exceeds **150 meters** or the primary classification yields low/minor productivity:
+- Triggers a **Water Scarcity Warning** in the PDF report and user dashboard.
+- Appends a mandatory **KES 2,000,000 deep rotary borehole drilling premium** to the project development CapEx summary.
+
+### 6. Chronic Air Pollution ($NO_2$)
+Analyzed from the Copernicus Sentinel-5P orbital bands. If the tropospheric vertical column number density is determined to exceed **$1.0\times 10^{-4}\text{ mol/m}^2$**:
+- Flags an **Air Quality Warning** in the PDF report and user dashboard.
+- Injects guidance regarding occupancy health risks, potential suppression of rental yield demand, and mandates a NEMA Air Quality impact assessment.
+
 ---
 
 ## 🛠️ Verification & Development Commands
@@ -467,6 +581,6 @@ npm run build
 ## ⚠️ Legal Disclaimer
 
 > [!WARNING]
-> **Terra AI** is a decision-support platform designed to assist land buyers with preliminary digital due diligence. The reports, zoning analysis, slope percentages, riparian borders, and financial evaluations synthesized by our AI engine and GIS sources represent heuristic estimations.
+> **Terra AI** is a decision-support platform designed to assist land buyers with preliminary digital due diligence. The reports, zoning analysis, slope percentages, riparian borders, air quality, hydrogeology, and financial evaluations synthesized by our AI engine and GIS sources represent heuristic estimations.
 > 
 > This software **does not** replace an official physical site survey conducted by a licensed surveyor under the **Ministry of Lands and Physical Planning**, nor does it substitute statutory geotechnical testing or official **NEMA (National Environment Management Authority)** environmental impact assessments. Always verify beacons, titles, and county zoning rules on the ground before completing real estate purchases.
