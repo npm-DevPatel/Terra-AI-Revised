@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ScanLine, Map, FileText, CreditCard,
   ChevronLeft, ChevronRight, Leaf, Plus, History,
-  LogIn, Loader2, AlertCircle, MapPin, Pencil, Trash2, Check, X,
+  LogIn, Loader2, AlertCircle, MapPin, Pencil, Trash2, Check, X, Menu,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
@@ -148,28 +148,39 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
       style={{ width: collapsed ? 72 : 268 }}
     >
       {/* ── Brand ── */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-terra-border flex-shrink-0">
-        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex-shrink-0">
-          <Leaf className="w-5 h-5 text-white" />
+      <div className="flex items-center justify-between px-3 sm:px-4 h-16 border-b border-terra-border flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex-shrink-0">
+            <Leaf className="w-5 h-5 text-white" />
+          </div>
+          <AnimatePresence initial={false}>
+            {!collapsed && (
+              <motion.div
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.18 }}
+                className="overflow-hidden"
+              >
+                <span className="text-base font-bold text-terra-heading tracking-tight whitespace-nowrap">
+                  Terra <span className="text-terra-emerald">AI</span>
+                </span>
+                <p className="text-[10px] text-terra-muted font-medium tracking-wider uppercase whitespace-nowrap">
+                  Land Intelligence
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        <AnimatePresence initial={false}>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.18 }}
-              className="overflow-hidden"
-            >
-              <span className="text-base font-bold text-terra-heading tracking-tight whitespace-nowrap">
-                Terra <span className="text-terra-emerald">AI</span>
-              </span>
-              <p className="text-[10px] text-terra-muted font-medium tracking-wider uppercase whitespace-nowrap">
-                Land Intelligence
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+        {/* ── Mobile: close (Hamburger) button ── */}
+        <button
+          onClick={onMobileClose}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-terra-muted hover:text-terra-heading hover:bg-slate-50 transition-colors"
+          aria-label="Close menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
       </div>
 
       {/* ── New Analysis CTA ── */}
@@ -403,15 +414,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
         ))}
       </div>
 
-      {/* ── Mobile: close (X) button in top-right corner ── */}
-      <button
-        id="sidebar-mobile-close-btn"
-        onClick={onMobileClose}
-        className="absolute top-4 right-4 z-10 md:hidden flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-terra-muted hover:text-terra-heading hover:bg-slate-200 transition-colors"
-        aria-label="Close menu"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+
 
       {/* ── Desktop: Collapse Toggle ── */}
       <button
