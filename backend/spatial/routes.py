@@ -645,6 +645,9 @@ def analyze():
     auth_header = request.headers.get("Authorization")
 
     # ── Validation ────────────────────────────────────────────────────────────
+    if lat_raw is None or lng_raw is None:
+        return jsonify({"error": "lat and lng must be provided"}), 400
+
     try:
         lat = float(lat_raw)
         lng = float(lng_raw)
@@ -712,6 +715,8 @@ def analyze():
     weather_data: dict = {}
     admin_data: dict = {}
     solar_data: dict = {}
+    soil_data: dict = {}
+    zones_data: dict = {}
     groundwater_data: dict = {}
     no2_data: dict = {}
 
@@ -1008,6 +1013,9 @@ def reverse_geocode():
     lat_str = request.args.get("lat")
     lng_str = request.args.get("lng")
     
+    if lat_str is None or lng_str is None:
+        return jsonify({"error": "lat and lng must be provided"}), 400
+    
     try:
         lat = float(lat_str)
         lng = float(lng_str)
@@ -1121,7 +1129,8 @@ def export_analysis_document():
     """
     body = request.get_json(silent=True) or {}
 
-    workspace = body.get("workspace") if isinstance(body.get("workspace"), dict) else {}
+    workspace_raw = body.get("workspace")
+    workspace = workspace_raw if isinstance(workspace_raw, dict) else {}
     payload = body.get("payload") if isinstance(body.get("payload"), dict) else {}
     report = body.get("report") if isinstance(body.get("report"), dict) else {}
     report_source = body.get("report_source")
