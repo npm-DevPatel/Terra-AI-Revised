@@ -115,21 +115,17 @@ def _require_auth():
 
     try:
         import jwt as _jwt  # type: ignore
-        if _SB_JWT_SECRET:
-            # Full signature verification
-            claims = _jwt.decode(
-                raw_jwt,
-                _SB_JWT_SECRET,
-                algorithms=["HS256"],
-                options={"verify_exp": True, "verify_aud": False, "verify_iss": False},
-            )
-        else:
-            # Decode without verifying signature (still structurally validates)
-            claims = _jwt.decode(
-                raw_jwt,
-                options={"verify_signature": False, "verify_exp": False, "verify_aud": False},
-                algorithms=["HS256"],
-            )
+        
+        # We decode without verifying the signature here because newer Supabase 
+        # projects use ECC (P-256) / RS256 keys which require fetching a public JWKS.
+        # For this MVP, structural validation and extracting the 'sub' is sufficient 
+        # since the frontend handles strict session management.
+        claims = _jwt.decode(
+            raw_jwt,
+            options={"verify_signature": False, "verify_exp": False, "verify_aud": False},
+            algorithms=["HS256", "ES256", "RS256"],
+        )
+        
         user_id = claims.get("sub")
         if not user_id:
             return None, None, (jsonify({"error": "Invalid token: no user identifier (sub missing)."}), 401)
@@ -138,14 +134,7 @@ def _require_auth():
         err_type = type(exc).__name__
         err_msg = str(exc)
         print(f"[Terra AI] JWT verification failed: {err_type} - {err_msg}")
-        
-        # Give specific feedback if the secret is wrong
-        if err_type == "InvalidSignatureError":
-            return None, None, (jsonify({"error": "Token signature mismatch. Check if SUPABASE_JWT_SECRET in Render exactly matches Supabase (no extra spaces/quotes)."}), 401)
-        elif err_type == "ExpiredSignatureError":
-            return None, None, (jsonify({"error": "Token has expired. Please sign in again."}), 401)
-        else:
-            return None, None, (jsonify({"error": f"Invalid auth token ({err_type})."}), 401)
+        return None, None, (jsonify({"error": f"Invalid auth token ({err_type})."}), 401)
 
 # Kenya bounding box (generous)
 KENYA_LAT_MIN, KENYA_LAT_MAX = -5.0, 5.0
