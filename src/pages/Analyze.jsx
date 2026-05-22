@@ -278,17 +278,17 @@ export default function Analyze() {
         )}
       </AnimatePresence>
 
-      {/* ── Map Flow — full-height, no outer padding, no scroll ── */}
+      {/* ── Map Flow — padded to avoid border-to-border ── */}
       {mode === 'map' && (
         <motion.div
           key="map-flow"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="flex flex-col h-full"
+          className="flex flex-col h-full max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 gap-3 sm:gap-4"
         >
           {/* Compact header bar */}
-          <div className="flex items-center gap-3 px-4 sm:px-6 py-3 flex-shrink-0 border-b border-terra-border bg-white">
+          <div className="flex items-center gap-3 px-4 sm:px-6 py-3 flex-shrink-0 bg-white rounded-xl shadow-sm border border-terra-border">
             <button
               onClick={() => { setMode(null); resetEngineState(); }}
               className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors flex-shrink-0"
@@ -299,13 +299,13 @@ export default function Analyze() {
           </div>
 
           {/* Map — grows to fill all available space */}
-          <div className="relative flex-1 min-h-0">
+          <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden shadow-sm border border-terra-border bg-slate-50">
             <PinDrop />
             {engineDone && <RiskSummaryCard />}
           </div>
 
           {/* Button strip — always anchored at the bottom, never requires scrolling */}
-          <div className="flex-shrink-0 px-4 sm:px-6 py-3 bg-white border-t border-terra-border flex flex-col items-center gap-1.5">
+          <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-white rounded-xl shadow-sm border border-terra-border flex flex-col items-center gap-1.5">
             {!engineDone && (
               <>
                 <Button
