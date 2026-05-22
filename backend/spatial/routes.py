@@ -121,6 +121,7 @@ def _require_auth():
                 raw_jwt,
                 _SB_JWT_SECRET,
                 algorithms=["HS256"],
+                audience="authenticated",
                 options={"verify_exp": True},
             )
         else:
@@ -135,7 +136,7 @@ def _require_auth():
             return None, None, (jsonify({"error": "Invalid token: no user identifier."}), 401)
         return user_id, raw_jwt, None
     except Exception as exc:
-        print(f"[Terra AI] JWT verification failed: {exc}")
+        print(f"[Terra AI] JWT verification failed: {type(exc).__name__} - {exc}")
         return None, None, (jsonify({"error": "Invalid or expired authentication token."}), 401)
 
 # Kenya bounding box (generous)
