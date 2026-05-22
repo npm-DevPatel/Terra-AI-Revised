@@ -114,7 +114,7 @@ def _require_auth():
         return None, None, (jsonify({"error": "Authentication required."}), 401)
 
     try:
-        import jwt as _jwt  # PyJWT
+        import jwt as _jwt  # type: ignore
         if _SB_JWT_SECRET:
             # Full signature verification
             claims = _jwt.decode(
