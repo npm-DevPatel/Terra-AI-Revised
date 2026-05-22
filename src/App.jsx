@@ -22,6 +22,13 @@ export default function App() {
   const { setUser, setSession, setReportHistory, logout } = useTerraStore();
 
   useEffect(() => {
+    // ── 0. Pre-warm Render backend (fire-and-forget) ───────────
+    // Render free tier sleeps after 15 min inactivity. Pinging /health
+    // immediately on page load gives it ~30s to wake before the user
+    // triggers an analysis. This runs silently with no user impact.
+    fetch('/health', { method: 'GET', signal: AbortSignal.timeout(30000) })
+      .catch(() => { /* Non-fatal — backend may already be awake */ });
+
     // ── 1. Hydrate from existing session on mount ──────────────
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {

@@ -4,10 +4,10 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import useTerraStore from '../../store/useTerraStore';
 
 const LOADING_STEPS = [
-  { message: 'Querying Nairobi infrastructure data…',           duration: 3500 },
-  { message: 'Calculating riparian buffers and slope terrain…', duration: 4000 },
-  { message: 'Cross-referencing zoning records…',               duration: 3000 },
-  { message: 'Synthesizing final risk report via Gemini…',      duration: 5000 },
+  { message: 'Waking up the analysis engine — first load may take ~30s…', duration: 12000 },
+  { message: 'Querying live infrastructure & satellite data…',             duration: 10000 },
+  { message: 'Calculating risk vectors — riparian, slope, zoning…',       duration: 8000  },
+  { message: 'Synthesizing final report via Gemini AI…',                   duration: 6000  },
 ];
 
 /**

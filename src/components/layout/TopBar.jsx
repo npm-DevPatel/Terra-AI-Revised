@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, AlertCircle, CheckCircle2, Loader2, LogIn, LogOut } from 'lucide-react';
-import { clsx } from 'clsx';
+import { LogIn, LogOut, Menu } from 'lucide-react';
 import useTerraStore from '../../store/useTerraStore';
 import AuthModal from '../auth/AuthModal';
 import { supabase } from '../../lib/supabaseClient';
@@ -14,21 +13,12 @@ const ROUTE_LABELS = {
   '/report':  { label: 'Report',       sub: 'Your risk assessment' },
 };
 
-const STATUS_CONFIG = {
-  idle:    { icon: Zap,          color: 'text-terra-muted',   bg: 'bg-slate-100', label: 'Engine Ready' },
-  loading: { icon: Loader2,      color: 'text-indigo-600',    bg: 'bg-indigo-50', label: 'Analyzing...' },
-  done:    { icon: CheckCircle2, color: 'text-emerald-600',   bg: 'bg-emerald-50',label: 'Analysis Complete' },
-  error:   { icon: AlertCircle,  color: 'text-red-600',       bg: 'bg-red-50',    label: 'Engine Error' },
-};
-
-export default function TopBar() {
+export default function TopBar({ onMenuToggle }) {
   const location = useLocation();
-  const { engineState, user, logout } = useTerraStore();
+  const { user, logout } = useTerraStore();
   const [authOpen, setAuthOpen] = useState(false);
 
   const route = ROUTE_LABELS[location.pathname] ?? { label: 'Terra AI', sub: '' };
-  const statusCfg = STATUS_CONFIG[engineState.status] ?? STATUS_CONFIG.idle;
-  const StatusIcon = statusCfg.icon;
 
   // Derive initials from email
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : '';
@@ -42,9 +32,19 @@ export default function TopBar() {
     <>
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
-      <header className="flex items-center justify-between px-6 h-16 bg-white border-b border-terra-border flex-shrink-0">
+      <header className="flex items-center justify-between px-3 sm:px-6 h-16 bg-white border-b border-terra-border flex-shrink-0 gap-2">
+        {/* ── Hamburger (mobile only) ── */}
+        <button
+          id="topbar-menu-btn"
+          onClick={onMenuToggle}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-terra-muted hover:text-terra-heading hover:bg-slate-50 transition-colors flex-shrink-0"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         {/* ── Breadcrumb ── */}
-        <div>
+        <div className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
             <motion.h1
               key={location.pathname}
@@ -63,30 +63,19 @@ export default function TopBar() {
         </div>
 
         {/* ── Right Controls ── */}
-        <div className="flex items-center gap-3">
-          {/* Engine status pill */}
-          <div className={clsx(
-            'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold',
-            statusCfg.bg, statusCfg.color
-          )}>
-            <StatusIcon
-              className={clsx('w-3.5 h-3.5', engineState.status === 'loading' && 'animate-spin')}
-            />
-            <span>{statusCfg.label}</span>
-          </div>
-
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
           {/* Auth controls */}
           {user ? (
             /* ── Logged-in: avatar + email + sign out ── */
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div
                 title={user.email}
-                className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-2.5 py-1.5 max-w-[160px] cursor-default"
+                className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-2 sm:px-2.5 py-1.5 max-w-[120px] sm:max-w-[160px] cursor-default"
               >
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
                   {initials}
                 </div>
-                <span className="text-emerald-700 text-xs font-semibold truncate">{user.email}</span>
+                <span className="text-emerald-700 text-xs font-semibold truncate hidden xs:block sm:block">{user.email}</span>
               </div>
               <button
                 id="topbar-signout-btn"

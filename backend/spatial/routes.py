@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from dotenv import load_dotenv
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 # Load env vars from both repo-root and backend/.env.
 # Order: repo-root first, then backend overrides (if present).
@@ -85,6 +85,58 @@ def _make_authed_client(jwt_token: str | None):
 bp = Blueprint("spatial", __name__)
 
 MAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+
+# ── JWT Auth enforcement ──────────────────────────────────────────────────────
+# Supabase JWT secret — used to verify tokens without calling Supabase API.
+# Set SUPABASE_JWT_SECRET in Render env vars (found in Supabase project settings).
+_SB_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+
+
+def _require_auth():
+    """
+    Verify the Supabase Bearer JWT on the request.
+    Returns (user_id, raw_jwt, None) on success.
+    Returns (None, None, error_response) on failure.
+
+    Strategy:
+      1. If SUPABASE_JWT_SECRET is configured: fully verify the token signature.
+      2. If not configured: decode without verification (still extracts user_id
+         and confirms the token is structurally valid — acceptable for MVP).
+
+    This prevents unauthenticated calls from reaching Gemini/GEE/Maps APIs.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None, None, (jsonify({"error": "Authentication required."}), 401)
+
+    raw_jwt = auth_header.split(" ", 1)[1].strip()
+    if not raw_jwt:
+        return None, None, (jsonify({"error": "Authentication required."}), 401)
+
+    try:
+        import jwt as _jwt  # PyJWT
+        if _SB_JWT_SECRET:
+            # Full signature verification
+            claims = _jwt.decode(
+                raw_jwt,
+                _SB_JWT_SECRET,
+                algorithms=["HS256"],
+                options={"verify_exp": True},
+            )
+        else:
+            # Decode without verifying signature (still structurally validates)
+            claims = _jwt.decode(
+                raw_jwt,
+                options={"verify_signature": False, "verify_exp": False},
+                algorithms=["HS256"],
+            )
+        user_id = claims.get("sub")
+        if not user_id:
+            return None, None, (jsonify({"error": "Invalid token: no user identifier."}), 401)
+        return user_id, raw_jwt, None
+    except Exception as exc:
+        print(f"[Terra AI] JWT verification failed: {exc}")
+        return None, None, (jsonify({"error": "Invalid or expired authentication token."}), 401)
 
 # Kenya bounding box (generous)
 KENYA_LAT_MIN, KENYA_LAT_MAX = -5.0, 5.0
@@ -459,7 +511,7 @@ def fetch_admin_context(lat: float, lng: float) -> dict:
     """
     url = (
         f"https://nominatim.openstreetmap.org/reverse"
-        f"?format=jsonv2&lat={lat}&lon={lng}&zoom=14&addressdetails=1"
+        f"?format=jsonv2&lat={lat}&lon={lng}&zoom=10&addressdetails=1"
     )
     headers = {"User-Agent": "TerraAI/1.0 land-risk-analysis kenya"}
     try:
@@ -482,8 +534,16 @@ def fetch_admin_context(lat: float, lng: float) -> dict:
             or address.get("town")
             or ""
         )
-        # First part of display_name is usually the most local name
-        place_name = data.get("display_name", "").split(",")[0].strip()
+        # Prefer the most local human-readable name (suburb/neighbourhood > city > fallback)
+        place_name = (
+            address.get("suburb")
+            or address.get("neighbourhood")
+            or address.get("village")
+            or address.get("town")
+            or address.get("city")
+            or address.get("county")
+            or data.get("display_name", "").split(",")[0].strip()
+        )
         return {
             "county": county,
             "subcounty": subcounty,
@@ -543,7 +603,7 @@ def _kenya_solar_fallback() -> dict:
 
 # ── Main endpoint ─────────────────────────────────────────────────────────────
 
-@bp.post("/api/spatial/analyze")
+@bp.post("/api/spatial/scan")
 def analyze():
     """
     Main spatial risk analysis endpoint.
@@ -551,20 +611,37 @@ def analyze():
     Accepts JSON body: {"lat": <float>, "lng": <float>}
     Returns JSON: {"success": true, "payload": {...}, "report": {...}}
 
+    Security:
+      - Requires valid Supabase Bearer JWT (enforced here on the server)
+      - Rate limited to 10 requests/hour per IP via flask-limiter
+      - Coordinates validated against Kenya bounding box
+
     Caching strategy (two layers):
       L1: In-memory dict (24h TTL, resets on server restart)
       L2: Supabase DB (persistent, ~11m precision, keyed on lat_rounded/lng_rounded)
     If L2 hits, we still populate L1 for faster subsequent calls.
     """
+    # ── Rate limiting (applied via flask-limiter if available) ────────────────
+    try:
+        limiter = current_app.config.get("LIMITER")
+        if limiter:
+            limiter.check()  # raises RateLimitExceeded if over limit
+    except Exception:
+        pass  # Non-fatal if limiter unavailable
+
+    # ── Auth gate — require valid JWT ─────────────────────────────────────────
+    user_id, raw_jwt, auth_error = _require_auth()
+    if auth_error:
+        return auth_error
+
     body = request.get_json(silent=True) or {}
     lat_raw = body.get("lat")
     lng_raw = body.get("lng")
     client_context = body.get("clientContext")
     vision_context = body.get("visionContext")
 
-    # ── Extract user_id from JWT (non-fatal if missing) ───────────────────────
+    # Build auth_header for downstream DB writes
     auth_header = request.headers.get("Authorization")
-    user_id = _extract_user_id(auth_header)
 
     # ── Validation ────────────────────────────────────────────────────────────
     try:

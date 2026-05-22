@@ -3,6 +3,14 @@
     {
       "source": "/api/:path*",
       "destination": "https://terra-ai-revised.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://terra-ai-revised.onrender.com/health"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

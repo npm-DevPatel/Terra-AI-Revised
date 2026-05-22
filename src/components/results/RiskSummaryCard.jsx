@@ -125,12 +125,16 @@ export default function RiskSummaryCard() {
       initial={{ opacity: 0, y: 60 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 220, damping: 26, delay: 0.1 }}
-      className="absolute bottom-4 left-4 right-4 z-20 md:left-auto md:right-4 md:w-[380px]"
+      className="absolute bottom-3 left-3 right-3 z-20 md:left-auto md:right-3 md:w-[360px]"
+      style={{ maxHeight: 'calc(100% - 24px)' }}
     >
-      <div className={clsx(
-        'bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-y-auto max-h-[70vh]',
-        glow
-      )}>
+      <div className={[
+        'bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-y-auto',
+        'scrollbar-thin scrollbar-thumb-slate-200',
+        glow,
+      ].join(' ')}
+        style={{ maxHeight: 'calc(100% - 0px)' }}
+      >
 
         {/* ── Score header ── */}
         <div className="px-5 pt-5 pb-4 border-b border-slate-100">

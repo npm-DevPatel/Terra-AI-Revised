@@ -37,7 +37,7 @@ function fmtDate(iso) {
 }
 
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }) {
   const [collapsed, setCollapsed] = useState(false);
   const [loadingId, setLoadingId] = useState(null); // UUID being loaded
   const [loadError, setLoadError] = useState(null);
@@ -129,9 +129,23 @@ export default function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 72 : 268 }}
+      /* ── Desktop: inline sidebar that animates its own width ── */
+      /* ── Mobile: fixed overlay drawer that slides in from left ── */
+      animate={{
+        width: collapsed ? 72 : 268,
+        x: 0,  // desktop: always visible
+      }}
+      initial={false}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="relative flex flex-col h-screen bg-white border-r border-terra-border flex-shrink-0 overflow-hidden"
+      className={[
+        'flex flex-col h-screen bg-white border-r border-terra-border flex-shrink-0 overflow-hidden',
+        // Mobile: fixed overlay, show/hide via translate
+        'fixed md:relative z-40 md:z-auto',
+        // On mobile hide off-screen when closed, show when open
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        'transition-transform duration-300 md:transition-none',
+      ].join(' ')}
+      style={{ width: collapsed ? 72 : 268 }}
     >
       {/* ── Brand ── */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-terra-border flex-shrink-0">
@@ -389,11 +403,21 @@ export default function Sidebar() {
         ))}
       </div>
 
-      {/* ── Collapse Toggle ── */}
+      {/* ── Mobile: close (X) button in top-right corner ── */}
+      <button
+        id="sidebar-mobile-close-btn"
+        onClick={onMobileClose}
+        className="absolute top-4 right-4 z-10 md:hidden flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-terra-muted hover:text-terra-heading hover:bg-slate-200 transition-colors"
+        aria-label="Close menu"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+
+      {/* ── Desktop: Collapse Toggle ── */}
       <button
         id="sidebar-collapse-btn"
         onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-3 top-[72px] z-10 flex items-center justify-center w-6 h-6 rounded-full bg-white border border-terra-border shadow-md text-terra-body hover:text-terra-heading transition-colors"
+        className="hidden md:flex absolute -right-3 top-[72px] z-10 items-center justify-center w-6 h-6 rounded-full bg-white border border-terra-border shadow-md text-terra-body hover:text-terra-heading transition-colors"
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>

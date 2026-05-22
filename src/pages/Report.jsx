@@ -191,12 +191,12 @@ function CostBreakdown({ costSum }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.35 }}
-      className="bg-white border border-terra-border rounded-2xl p-6 mb-6"
+      className="bg-white border border-terra-border rounded-2xl p-4 sm:p-6 mb-6"
     >
-      <h2 className="text-base font-black text-terra-heading mb-5 flex items-center gap-2">
+      <h2 className="text-base font-black text-terra-heading mb-4 sm:mb-5 flex items-center gap-2">
         <DollarSign className="w-4 h-4 text-emerald-500" /> Estimated Cost Breakdown
       </h2>
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 
         {/* ─ Due Diligence ───────────────────────────────────────────── */}
         <div>
@@ -274,7 +274,7 @@ function AIEngineStatus({ reportSource, modelUsed }) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 }}
-      className="flex items-center justify-between gap-4 bg-white border border-terra-border rounded-2xl px-5 py-3 mb-6 shadow-sm"
+      className="flex items-center justify-between gap-3 bg-white border border-terra-border rounded-2xl px-4 sm:px-5 py-3 mb-6 shadow-sm flex-wrap"
     >
       <div className="flex items-center gap-3">
         <div className={clsx(
@@ -400,9 +400,9 @@ export default function Report() {
 
   return (
     <MainLayout>
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6 sm:mb-8">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/analyze')} className="text-terra-muted hover:text-terra-heading transition-colors">
               <ArrowLeft className="w-5 h-5" />
@@ -434,12 +434,12 @@ export default function Report() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl border border-terra-border shadow-md p-8 mb-6"
+          className="bg-white rounded-3xl border border-terra-border shadow-md p-5 sm:p-8 mb-6"
         >
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex items-end gap-4">
               <div className="flex items-end gap-2">
-                <span className={clsx('text-7xl font-black leading-none', scoreText)}>{score}</span>
+                <span className={clsx('text-5xl sm:text-7xl font-black leading-none', scoreText)}>{score}</span>
                 <span className="text-terra-muted text-2xl mb-2">/100</span>
               </div>
               <p className="text-xs text-slate-400 mt-2 font-medium italic mb-2">
@@ -546,7 +546,7 @@ export default function Report() {
         {sections.length > 0 && (
           <div className="mb-6">
             <h2 className="text-base font-black text-terra-heading mb-4">Detailed Analysis</h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {sections
               .filter(s => typeof s.body === 'string' && s.body.length > 0)
               .map((section, i) => (

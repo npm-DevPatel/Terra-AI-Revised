@@ -146,51 +146,115 @@ export default function Analyze() {
       return;
     }
 
-    setEngineStatus('loading', 'Querying Nairobi infrastructure data…');
+    setEngineStatus('loading', 'Connecting to analysis engine…');
     setErrorMsg(null);
 
-    try {
-      // Build auth headers so backend can record user_id
-      const headers = { 'Content-Type': 'application/json' };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
+    // ── Wake-up ping (non-fatal) ──────────────────────────────
+    // Render free tier sleeps after 15 min. Ping /health first
+    // to start the cold-boot before the real request fires.
+    // We fire the ping and don't wait long — the main retry loop handles it.
+    fetch('/health', { method: 'GET', signal: AbortSignal.timeout(15000) })
+      .catch(() => { /* Non-fatal — main request also triggers boot */ });
 
-      const res = await fetch('/api/spatial/analyze', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          lat,
-          lng,
-          clientContext: mapState.approvedLocationData ?? null,
-          visionContext: visionState.rawVisionPayload ?? null,
-        }),
-      });
+    // ── Retry loop (handles 502/503/504 cold-start errors) ───
+    // Render free tier can take 20-40s to wake from sleep.
+    // We retry up to 3 times with 8s delay between attempts.
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 8000;
+    const RETRY_MESSAGES = [
+      'Server is waking up — this takes ~30s on first load…',
+      'Still warming up — almost ready…',
+      'Final attempt — running analysis now…',
+    ];
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error ?? `Spatial API error ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      // Engine returns { success, payload, report, report_source }
-      const payload    = data.payload ?? data;
-      const report     = data.report ?? null;
-      const reportSrc  = data.report_source ?? 'gemini';
-      const modelUsed  = data.model_used ?? null;
-
-      setEngineResult(payload, report, reportSrc, modelUsed);
-
-      // Refresh the sidebar history so the new report appears immediately
-      if (user?.id) {
-        refreshHistory(user.id);
-      }
-
-    } catch (err) {
-      setEngineError(err.message ?? 'Spatial analysis failed. Please try again.');
-      setErrorMsg(err.message ?? 'Engine error. Please try again.');
+    const headers = { 'Content-Type': 'application/json' };
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
     }
+
+    const body = JSON.stringify({
+      lat,
+      lng,
+      clientContext: mapState.approvedLocationData ?? null,
+      visionContext: visionState.rawVisionPayload ?? null,
+    });
+
+    let lastError = null;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        setEngineStatus('loading', RETRY_MESSAGES[attempt - 1]);
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
+
+      try {
+        // NOTE: /api/spatial/scan is the production-safe endpoint name.
+        // "analyze" is blocked by ad blockers (uBlock, Brave Shields).
+        const res = await fetch('/api/spatial/scan', {
+          method: 'POST',
+          headers,
+          body,
+          signal: AbortSignal.timeout(90000), // 90s — Gemini + all APIs can take time
+        });
+
+        // Retry on gateway errors (Render cold-start) but not on 4xx
+        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < MAX_RETRIES) {
+          lastError = new Error(`Server starting up (${res.status}) — retrying…`);
+          continue;
+        }
+
+        // 401 — token expired; show auth modal again (non-retryable)
+        if (res.status === 401) {
+          setEngineError('Session expired. Please sign in again.');
+          setErrorMsg('Session expired. Please sign in again.');
+          setAuthOpen(true);
+          return;
+        }
+
+        // 429 — rate limited; show friendly message (non-retryable)
+        if (res.status === 429) {
+          const msg = 'You\'ve run too many analyses in the past hour. Please wait a few minutes and try again.';
+          setEngineError(msg);
+          setErrorMsg(msg);
+          return;
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.error ?? `Spatial API error ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // Engine returns { success, payload, report, report_source }
+        const payload    = data.payload ?? data;
+        const report     = data.report ?? null;
+        const reportSrc  = data.report_source ?? 'gemini';
+        const modelUsed  = data.model_used ?? null;
+
+        setEngineResult(payload, report, reportSrc, modelUsed);
+
+        // Refresh the sidebar history so the new report appears immediately
+        if (user?.id) {
+          refreshHistory(user.id);
+        }
+        return; // success — exit retry loop
+
+      } catch (err) {
+        lastError = err;
+        // Network-level errors (ERR_CONNECTION_REFUSED, timeouts) are retryable
+        const isRetryable = err instanceof TypeError || err.name === 'TimeoutError';
+        if (!isRetryable || attempt >= MAX_RETRIES) {
+          break;
+        }
+        // Fire another keep-alive ping mid-wait to keep Render awake
+        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(15000) }).catch(() => {});
+      }
+    }
+
+    // All retries exhausted
+    const msg = lastError?.message ?? 'Spatial analysis failed. Please try again.';
+    setEngineError(msg);
+    setErrorMsg(msg);
   };
 
   const pinSet    = !!mapState.pinnedCoordinates.lat;
@@ -214,165 +278,167 @@ export default function Analyze() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-6xl mx-auto px-6 py-10">
-        <AnimatePresence mode="wait">
-
-          {/* ── Mode Selection ── */}
-          {!mode && (
-            <motion.div key="mode-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="mb-10 text-center">
-                <h2 className="text-3xl font-black text-terra-heading mb-3">Choose your analysis method</h2>
-                <p className="text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
-              </div>
-              <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-                {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, desc, gradient, lightBg, border, textColor, linkColor }) => (
-                  <motion.button
-                    key={id}
-                    whileHover={{ scale: 1.02, y: -4 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setMode(id)}
-                    className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer`}
-                  >
-                    <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-6`}>
-                      <Icon className="w-7 h-7 text-white" />
-                    </div>
-                    <div className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-full ${lightBg} ${textColor} mb-3`}>
-                      {subtitle}
-                    </div>
-                    <h3 className="text-xl font-black text-terra-heading mb-3">{title}</h3>
-                    <p className="text-sm text-terra-body leading-relaxed mb-6">{desc}</p>
-                    <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: linkColor }}>
-                      Get Started <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Vision Flow ── */}
-          {mode === 'vision' && (
-            <motion.div key="vision-flow" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="flex items-center gap-4 mb-8">
-                <button
-                  onClick={() => setMode(null)}
-                  className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors"
-                >
-                  ← Back
-                </button>
-                <h2 className="text-2xl font-black text-terra-heading">Vision AI Scanner</h2>
-              </div>
-
-              <div className="grid lg:grid-cols-2 gap-8">
-                {/* Left: Uploader + CTA */}
-                <div className="space-y-4">
-                  <Uploader />
-                  {visionState.uploadedFile && visionState.scanStatus === 'idle' && (
-                    <Button fullWidth variant="primary" size="lg" icon={ScanLine} onClick={handleScan}>
-                      Start YOLO Scan
-                    </Button>
-                  )}
-                  {visionState.scanStatus === 'scanning' && (
-                    <Button fullWidth variant="secondary" size="lg" loading disabled>
-                      Scanning…
-                    </Button>
-                  )}
-                </div>
-
-                {/* Right: CinematicScanner + upsell */}
-                <div className="space-y-4">
-                  <CinematicScanner />
-
-                  {/* Upsell banner after scan completes */}
-                  {scanDone && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4"
-                    >
-                      <div>
-                        <p className="text-indigo-800 font-semibold text-sm">
-                          Want deeper legal and zoning analysis for this plot?
-                        </p>
-                        <p className="text-indigo-600 text-xs mt-0.5">
-                          Drop a pin to run the full spatial engine with this vision context.
-                        </p>
-                      </div>
-                      <Button variant="indigo" size="sm" iconRight={ArrowRight} onClick={() => setMode('map')}>
-                        Drop a Pin
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Map Flow ── */}
-          {mode === 'map' && (
-            <motion.div
-              key="map-flow"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col"
-              style={{ height: 'calc(100vh - 140px)' }}
+      {/* ── Map Flow — full-height, no outer padding, no scroll ── */}
+      {mode === 'map' && (
+        <motion.div
+          key="map-flow"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="flex flex-col h-full"
+        >
+          {/* Compact header bar */}
+          <div className="flex items-center gap-3 px-4 sm:px-6 py-3 flex-shrink-0 border-b border-terra-border bg-white">
+            <button
+              onClick={() => { setMode(null); resetEngineState(); }}
+              className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors flex-shrink-0"
             >
-              {/* Header */}
-              <div className="flex items-center gap-4 mb-3 flex-shrink-0">
-                <button
-                  onClick={() => { setMode(null); resetEngineState(); }}
-                  className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors"
+              ← Back
+            </button>
+            <h2 className="text-lg sm:text-xl font-black text-terra-heading truncate">Spatial Risk Engine</h2>
+          </div>
+
+          {/* Map — grows to fill all available space */}
+          <div className="relative flex-1 min-h-0">
+            <PinDrop />
+            {engineDone && <RiskSummaryCard />}
+          </div>
+
+          {/* Button strip — always anchored at the bottom, never requires scrolling */}
+          <div className="flex-shrink-0 px-4 sm:px-6 py-3 bg-white border-t border-terra-border flex flex-col items-center gap-1.5">
+            {!engineDone && (
+              <>
+                <Button
+                  id="analyze-run-btn"
+                  variant="primary"
+                  size="lg"
+                  icon={Map}
+                  loading={engineState.status === 'loading'}
+                  disabled={!pinSet || engineState.status === 'loading'}
+                  onClick={handleSpatialAnalyze}
                 >
-                  ← Back
-                </button>
-                <h2 className="text-2xl font-black text-terra-heading">Spatial Risk Engine</h2>
-              </div>
+                  {pinSet ? 'Run Spatial Analysis' : 'Drop a Pin First'}
+                </Button>
+                {!user && pinSet && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-xs text-terra-muted"
+                  >
+                    You'll be asked to sign in before the analysis runs.
+                  </motion.p>
+                )}
+              </>
+            )}
+            {engineDone && (
+              <Button variant="secondary" size="md" onClick={() => navigate('/report')}>
+                View Full Report →
+              </Button>
+            )}
+          </div>
+        </motion.div>
+      )}
 
-              {/* Map — fills all remaining height */}
-              <div className="relative flex-1 rounded-2xl overflow-hidden min-h-0">
-                <PinDrop />
-                {engineDone && <RiskSummaryCard />}
-              </div>
+      {/* ── Non-map flows — padded scrollable container ── */}
+      {mode !== 'map' && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+          <AnimatePresence mode="wait">
 
-              {/* Button strip — compact, always visible below the map */}
-              <div className="flex-shrink-0 pt-3 flex flex-col items-center gap-1.5">
-                {!engineDone && (
-                  <>
-                    <Button
-                      id="analyze-run-btn"
-                      variant="primary"
-                      size="lg"
-                      icon={Map}
-                      loading={engineState.status === 'loading'}
-                      disabled={!pinSet || engineState.status === 'loading'}
-                      onClick={handleSpatialAnalyze}
+            {/* ── Mode Selection ── */}
+            {!mode && (
+              <motion.div key="mode-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="mb-10 text-center">
+                  <h2 className="text-3xl font-black text-terra-heading mb-3">Choose your analysis method</h2>
+                  <p className="text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
+                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, desc, gradient, lightBg, border, textColor, linkColor }) => (
+                    <motion.button
+                      key={id}
+                      whileHover={{ scale: 1.02, y: -4 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setMode(id)}
+                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-8 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full`}
                     >
-                      {pinSet ? 'Run Spatial Analysis' : 'Drop a Pin First'}
-                    </Button>
-                    {!user && pinSet && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-xs text-terra-muted"
-                      >
-                        You'll be asked to sign in before the analysis runs.
-                      </motion.p>
+                      <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-6`}>
+                        <Icon className="w-7 h-7 text-white" />
+                      </div>
+                      <div className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-full ${lightBg} ${textColor} mb-3`}>
+                        {subtitle}
+                      </div>
+                      <h3 className="text-xl font-black text-terra-heading mb-3">{title}</h3>
+                      <p className="text-sm text-terra-body leading-relaxed mb-6">{desc}</p>
+                      <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: linkColor }}>
+                        Get Started <ChevronRight className="w-4 h-4" />
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Vision Flow ── */}
+            {mode === 'vision' && (
+              <motion.div key="vision-flow" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="flex items-center gap-4 mb-8">
+                  <button
+                    onClick={() => setMode(null)}
+                    className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors"
+                  >
+                    ← Back
+                  </button>
+                  <h2 className="text-2xl font-black text-terra-heading">Vision AI Scanner</h2>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Left: Uploader + CTA */}
+                  <div className="space-y-4">
+                    <Uploader />
+                    {visionState.uploadedFile && visionState.scanStatus === 'idle' && (
+                      <Button fullWidth variant="primary" size="lg" icon={ScanLine} onClick={handleScan}>
+                        Start YOLO Scan
+                      </Button>
                     )}
-                  </>
-                )}
-                {engineDone && (
-                  <Button variant="secondary" size="md" onClick={() => navigate('/report')}>
-                    View Full Report →
-                  </Button>
-                )}
-              </div>
-            </motion.div>
-          )}
+                    {visionState.scanStatus === 'scanning' && (
+                      <Button fullWidth variant="secondary" size="lg" loading disabled>
+                        Scanning…
+                      </Button>
+                    )}
+                  </div>
 
+                  {/* Right: CinematicScanner + upsell */}
+                  <div className="space-y-4">
+                    <CinematicScanner />
 
-        </AnimatePresence>
-      </div>
+                    {/* Upsell banner after scan completes */}
+                    {scanDone && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4"
+                      >
+                        <div>
+                          <p className="text-indigo-800 font-semibold text-sm">
+                            Want deeper legal and zoning analysis for this plot?
+                          </p>
+                          <p className="text-indigo-600 text-xs mt-0.5">
+                            Drop a pin to run the full spatial engine with this vision context.
+                          </p>
+                        </div>
+                        <Button variant="indigo" size="sm" iconRight={ArrowRight} onClick={() => setMode('map')}>
+                          Drop a Pin
+                        </Button>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+      )}
+
     </MainLayout>
   );
 }

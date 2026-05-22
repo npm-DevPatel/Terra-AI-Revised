@@ -71,7 +71,7 @@ export default function ChatAssistant() {
         whileTap={{ scale: 0.95 }}
         onClick={() => setOpen((o) => !o)}
         className={clsx(
-          'fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-colors duration-200',
+          'fixed bottom-6 right-4 z-40 flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-colors duration-200',
           open ? 'bg-slate-700' : 'bg-gradient-to-br from-indigo-500 to-indigo-600'
         )}
       >
@@ -96,8 +96,8 @@ export default function ChatAssistant() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-            className="fixed bottom-24 right-6 z-40 w-[340px] md:w-[380px] bg-white rounded-2xl shadow-2xl border border-terra-border flex flex-col overflow-hidden"
-            style={{ maxHeight: '480px' }}
+            className="fixed bottom-24 right-4 z-40 bg-white rounded-2xl shadow-2xl border border-terra-border flex flex-col overflow-hidden"
+            style={{ maxHeight: '480px', width: 'min(calc(100vw - 2rem), 380px)' }}
           >
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600">

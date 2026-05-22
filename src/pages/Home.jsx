@@ -41,7 +41,7 @@ export default function Home() {
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       {/* ── Navbar ── */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-terra-border bg-white/80 backdrop-blur-sm sticky top-0 z-30">
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-terra-border bg-white/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
             <span className="text-white text-xs font-black">T</span>
@@ -51,17 +51,17 @@ export default function Home() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')}>Pricing</Button>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')} className="hidden xs:inline-flex">Pricing</Button>
 
           {user ? (
             /* ── Logged-in state ── */
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-2 sm:px-3 py-1.5">
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-[10px] font-bold">
                   {initials}
                 </div>
-                <span className="text-emerald-700 text-xs font-semibold max-w-[140px] truncate">
+                <span className="text-emerald-700 text-xs font-semibold max-w-[100px] sm:max-w-[140px] truncate hidden sm:block">
                   {user.email}
                 </span>
               </div>
@@ -94,18 +94,18 @@ export default function Home() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden px-8 py-24 md:py-36 max-w-6xl mx-auto">
+      <section className="relative overflow-hidden px-4 sm:px-8 py-14 sm:py-24 md:py-36 max-w-6xl mx-auto">
         {/* Background orbs */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-100 rounded-full blur-3xl opacity-40 -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-100 rounded-full blur-3xl opacity-30 translate-y-1/2 -translate-x-1/4 pointer-events-none" />
 
-        <div className="relative z-10 grid md:grid-cols-2 gap-16 items-center">
+        <div className="relative z-10 grid md:grid-cols-2 gap-8 md:gap-16 items-center">
           {/* Copy */}
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
               <Star className="w-3 h-3 fill-current" /> Kenya's #1 Land Intelligence Platform
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-terra-heading leading-[1.1] tracking-tight mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-terra-heading leading-[1.1] tracking-tight mb-4 sm:mb-6">
               Know the land
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-emerald-700">
                 before you buy it.
@@ -210,7 +210,7 @@ export default function Home() {
 
       {/* ── Stats bar ── */}
       <section className="bg-white border-y border-terra-border py-8">
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 px-8">
+        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-8">
           {STATS.map(({ value, label }, i) => (
             <motion.div
               key={label}
@@ -228,7 +228,7 @@ export default function Home() {
       </section>
 
       {/* ── Features ── */}
-      <section className="max-w-6xl mx-auto px-8 py-24">
+      <section className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-black text-terra-heading mb-4">
             Enterprise-grade intelligence
@@ -258,12 +258,12 @@ export default function Home() {
       </section>
 
       {/* ── CTA Banner ── */}
-      <section className="max-w-6xl mx-auto px-8 pb-24">
+      <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-14 sm:pb-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl px-10 py-16 text-center shadow-2xl"
+          className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl px-6 sm:px-10 py-10 sm:py-16 text-center shadow-2xl"
         >
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
             Ready to analyze your plot?

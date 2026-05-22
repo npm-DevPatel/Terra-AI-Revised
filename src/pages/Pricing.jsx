@@ -67,7 +67,7 @@ export default function Pricing() {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto px-6 py-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -86,14 +86,14 @@ export default function Pricing() {
         </motion.div>
 
         {/* Plans */}
-        <div className="grid md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
           {PLANS.map(({ id, name, price, period, desc, icon: Icon, color, badge, features }, i) => (
             <motion.div
               key={id}
               initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className={`relative bg-white rounded-3xl border-2 ${color} p-8 flex flex-col shadow-sm hover:shadow-xl transition-all duration-300`}
+              className={`relative bg-white rounded-3xl border-2 ${color} p-5 sm:p-8 flex flex-col shadow-sm hover:shadow-xl transition-all duration-300`}
             >
               {badge && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">

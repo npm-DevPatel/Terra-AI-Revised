@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, Leaf, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { X, Mail, Lock, Leaf, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 // ── Tiny input field wrapper ──────────────────────────────────
@@ -65,12 +65,13 @@ function AuthField({ id, label, type, value, onChange, icon: Icon, autoComplete 
 
 // ── Main Modal ────────────────────────────────────────────────
 export default function AuthModal({ isOpen, onClose, message = null }) {
-  const [tab, setTab]         = useState('signin'); // 'signin' | 'signup'
-  const [email, setEmail]     = useState('');
-  const [password, setPass]   = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [tab, setTab]               = useState('signin'); // 'signin' | 'signup'
+  const [email, setEmail]           = useState('');
+  const [password, setPass]         = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState(null);
+  const [success, setSuccess]       = useState(null);
+  const [checkEmailSent, setCheckEmailSent] = useState(false); // dedicated confirm screen
 
   // Reset form whenever modal opens/tabs switch
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
     setError(null);
     setSuccess(null);
     setLoading(false);
+    setCheckEmailSent(false);
   }, [isOpen, tab]);
 
   const handleSubmit = async (e) => {
@@ -99,8 +101,8 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
         if (signUpData?.session) {
           onClose();
         } else {
-          setSuccess('Account created! Check your inbox for a confirmation email, then sign in.');
-          setTab('signin');
+          // Show the dedicated "check your email" screen
+          setCheckEmailSent(true);
         }
       }
     } catch (err) {
@@ -155,8 +157,53 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
               {/* Glass card */}
               <div className="relative bg-[#0d1117]/95 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
 
-                {/* ── Emerald header strip ── */}
-                <div className="relative bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 px-8 pt-8 pb-10">
+                {/* ── Check-email confirmation screen ── */}
+                <AnimatePresence mode="wait">
+                  {checkEmailSent ? (
+                    <motion.div
+                      key="check-email"
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="px-6 py-10 flex flex-col items-center text-center"
+                    >
+                      {/* Animated envelope */}
+                      <motion.div
+                        initial={{ y: -10, rotate: -6 }}
+                        animate={{ y: [0, -8, 0], rotate: [0, 4, 0, -4, 0] }}
+                        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                        className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-2xl shadow-emerald-900/60 mb-6"
+                      >
+                        <Send className="w-9 h-9 text-white" />
+                      </motion.div>
+
+                      <h2 className="text-2xl font-black text-white mb-3">Check your inbox!</h2>
+                      <p className="text-slate-400 text-sm leading-relaxed mb-2">
+                        We sent a confirmation link to
+                      </p>
+                      <p className="text-emerald-400 font-bold text-sm mb-5 break-all">{email}</p>
+                      <p className="text-slate-500 text-xs leading-relaxed mb-8 max-w-xs">
+                        Click the link in the email to activate your account.
+                        Check your spam folder if you don't see it within a minute.
+                      </p>
+
+                      <button
+                        onClick={() => { setCheckEmailSent(false); setTab('signin'); }}
+                        className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/12 border border-white/10 text-white text-sm font-semibold rounded-xl px-5 py-3 transition-all"
+                      >
+                        ← Back to Sign In
+                      </button>
+
+                      <button
+                        onClick={onClose}
+                        className="mt-3 text-xs text-slate-500 hover:text-slate-400 transition-colors"
+                      >
+                        Close
+                      </button>
+                    </motion.div>
+                  ) : (
+                  <motion.div key="auth-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="relative bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 px-5 sm:px-8 pt-7 sm:pt-8 pb-10">
                   {/* Decorative orb */}
                   <div className="absolute -top-8 -right-8 w-32 h-32 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
                   <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-emerald-300/10 rounded-full blur-xl pointer-events-none" />
@@ -225,7 +272,7 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                 </div>
 
                 {/* ── Form body ── */}
-                <div className="px-8 pt-6 pb-8">
+                <div className="px-5 sm:px-8 pt-6 pb-6 sm:pb-8">
                   {/* Success banner */}
                   <AnimatePresence>
                     {success && (
@@ -310,6 +357,9 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                     </button>
                   </p>
                 </div>
+              </motion.div>
+              )}
+              </AnimatePresence>
               </div>
             </div>
           </motion.div>
