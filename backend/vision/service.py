@@ -43,12 +43,15 @@ def analyze_image(rgb: np.ndarray) -> Dict[str, Any]:
 
     instances = result_to_instances(result)
 
-    # Add coarse scene-level annotations (road/ground/tree/vegetation/etc).
-    try:
-        instances.extend(semantic_instances(rgb))
-    except Exception:
-        # Semantic model is optional; YOLO results still return.
-        pass
+    # Add coarse scene-level annotations. 
+    # DISABLED on Render by default because loading a second AI model (Segformer) 
+    # simultaneously with YOLO exceeds the 512MB free-tier RAM limit and causes silent OOM kills.
+    if os.getenv("RENDER") != "true":
+        try:
+            instances.extend(semantic_instances(rgb))
+        except Exception:
+            # Semantic model is optional; YOLO results still return.
+            pass
 
     # Filter to land-relevant classes only; keep high-confidence detections regardless.
     instances = [
