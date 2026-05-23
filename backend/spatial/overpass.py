@@ -13,7 +13,6 @@ import requests
 OVERPASS_INSTANCES = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ]
 
 RADIUS_M = 800      # 800 m radius for most features (shrunk for rate limits)
@@ -30,7 +29,7 @@ def fetch_overpass_data(lat: float, lng: float) -> dict:
         raw_elements
     """
     query = f"""
-[out:json][timeout:30];
+[out:json][timeout:10];
 (
   // WATER — riparian risk
   way["waterway"~"river|stream|canal|drain|ditch"](around:{RADIUS_M},{lat},{lng});
@@ -84,7 +83,7 @@ out geom;
             response = requests.post(
                 instance,
                 data={"data": query},
-                timeout=25,
+                timeout=12,
                 headers={
                     "Accept": "application/json",
                     "User-Agent": "TerraAI/1.0 (terra-ai@example.com)"

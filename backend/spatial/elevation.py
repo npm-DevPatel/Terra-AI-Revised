@@ -230,7 +230,7 @@ def _check_flood_history(lat: float, lng: float) -> bool:
         GEE_URL,
         json=payload,
         params={"key": GEE_KEY},
-        timeout=15,
+        timeout=8,
     )
     resp.raise_for_status()
     occurrence = resp.json().get("result", {}).get("occurrence", 0)
@@ -336,7 +336,7 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
                 }
             }
         }
-        resp = requests.post(GEE_URL, json=ndvi_payload, params={"key": GEE_KEY}, timeout=15)
+        resp = requests.post(GEE_URL, json=ndvi_payload, params={"key": GEE_KEY}, timeout=8)
         resp.raise_for_status()
         raw_ndvi = resp.json().get("result", {}).get("NDVI")
         if raw_ndvi is not None:
@@ -394,7 +394,7 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
                 }
             }
         }
-        resp = requests.post(GEE_URL, json=season_payload, params={"key": GEE_KEY}, timeout=15)
+        resp = requests.post(GEE_URL, json=season_payload, params={"key": GEE_KEY}, timeout=8)
         resp.raise_for_status()
         seasonality = (
             resp.json()
@@ -440,7 +440,7 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
                 }
             }
         }
-        resp = requests.post(GEE_URL, json=esa_payload, params={"key": GEE_KEY}, timeout=15)
+        resp = requests.post(GEE_URL, json=esa_payload, params={"key": GEE_KEY}, timeout=8)
         resp.raise_for_status()
         lc_class = (
             resp.json()
@@ -493,7 +493,7 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
                 }
             }
         }
-        resp = requests.post(GEE_URL, json=slope_payload, params={"key": GEE_KEY}, timeout=15)
+        resp = requests.post(GEE_URL, json=slope_payload, params={"key": GEE_KEY}, timeout=8)
         resp.raise_for_status()
         slope_val = resp.json().get("result", {}).get("slope")
         if slope_val is not None:
@@ -548,7 +548,7 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
                 }
             }
         }
-        resp = requests.post(GEE_URL, json=chirps_payload, params={"key": GEE_KEY}, timeout=20)
+        resp = requests.post(GEE_URL, json=chirps_payload, params={"key": GEE_KEY}, timeout=8)
         resp.raise_for_status()
         precipitation = resp.json().get("result", {}).get("precipitation")
         if precipitation is not None:
@@ -590,7 +590,7 @@ def fetch_gee_landcover(lat: float, lng: float) -> dict:
                 }
             }
         }
-        resp = requests.post(GEE_URL, json=aspect_payload, params={"key": GEE_KEY}, timeout=15)
+        resp = requests.post(GEE_URL, json=aspect_payload, params={"key": GEE_KEY}, timeout=8)
         resp.raise_for_status()
         aspect = resp.json().get("result", {}).get("aspect")
         if aspect is not None:
@@ -717,7 +717,7 @@ def fetch_no2_pollution(lat: float, lng: float) -> dict:
             GEE_URL,
             json=no2_payload,
             params={"key": GEE_KEY},
-            timeout=20,
+            timeout=8,
         )
         resp.raise_for_status()
         no2_val = resp.json().get("result", {}).get(

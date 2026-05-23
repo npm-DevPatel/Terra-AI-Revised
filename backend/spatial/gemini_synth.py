@@ -324,7 +324,7 @@ Write the full financial auditor risk assessment JSON now."""
 
     # Try models in order using the new google.genai SDK.
     # gemini-2.5-flash is confirmed working on this key.
-    MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+    MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.0-flash"]
     raw_text = None
     last_model_error = None
     _succeeded_model = None
