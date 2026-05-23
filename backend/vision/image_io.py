@@ -11,6 +11,14 @@ def strip_data_url(data_url: str) -> str:
     return data_url
 
 
+def _resize_if_huge(img: Image.Image) -> Image.Image:
+    # Protect against OOM: if the image is massive (e.g. 24 megapixel phone photo),
+    # resize it down using Pillow BEFORE converting to NumPy/PyTorch tensors.
+    # 1024x1024 is well above YOLO's 640x640, preserving detail but saving 90% RAM.
+    img.thumbnail((1024, 1024), getattr(Image, 'Resampling', getattr(Image, 'LANCZOS', 1)))
+    return img
+
+
 def decode_image_from_flask_request(flask_request) -> np.ndarray:
     """Return RGB uint8 image array.
 
@@ -23,6 +31,7 @@ def decode_image_from_flask_request(flask_request) -> np.ndarray:
         file_storage = flask_request.files["image"]
         content = file_storage.read()
         img = Image.open(BytesIO(content)).convert("RGB")
+        img = _resize_if_huge(img)
         return np.array(img)
 
     payload = flask_request.get_json(silent=True) or {}
@@ -35,4 +44,5 @@ def decode_image_from_flask_request(flask_request) -> np.ndarray:
     b64 = strip_data_url(image_data_url)
     raw = base64.b64decode(b64)
     img = Image.open(BytesIO(raw)).convert("RGB")
+    img = _resize_if_huge(img)
     return np.array(img)
