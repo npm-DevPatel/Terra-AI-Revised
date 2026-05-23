@@ -9,6 +9,15 @@ torch.set_num_threads(1)
 from vision.routes import bp as vision_bp
 from spatial.routes import bp as spatial_bp
 
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _HAS_LIMITER = True
+except ImportError:
+    Limiter = None
+    get_remote_address = None
+    _HAS_LIMITER = False
+
 
 app = Flask(__name__)
 
@@ -30,10 +39,7 @@ else:
 # Protects Gemini, Google Maps and GEE API quotas from abuse.
 # Uses in-memory storage (resets on restart — sufficient for Render free tier).
 # Gracefully disabled if flask-limiter is not installed.
-try:
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
-
+if _HAS_LIMITER:
     limiter = Limiter(
         key_func=get_remote_address,
         app=app,
@@ -44,7 +50,7 @@ try:
     )
     _LIMITER_ENABLED = True
     print("[Terra AI] Rate limiter enabled.")
-except ImportError:
+else:
     limiter = None
     _LIMITER_ENABLED = False
     print("[Terra AI] flask-limiter not installed — rate limiting disabled.")
