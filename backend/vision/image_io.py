@@ -15,7 +15,7 @@ def _resize_if_huge(img: Image.Image) -> Image.Image:
     # Protect against OOM: if the image is massive (e.g. 24 megapixel phone photo),
     # resize it down using Pillow BEFORE converting to NumPy/PyTorch tensors.
     # 1024x1024 is well above YOLO's 640x640, preserving detail but saving 90% RAM.
-    img.thumbnail((1024, 1024), getattr(Image, 'Resampling', getattr(Image, 'LANCZOS', 1)))
+    img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
     return img
 
 
