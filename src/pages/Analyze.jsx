@@ -105,29 +105,63 @@ export default function Analyze() {
     setScanStatus('scanning');
     setErrorMsg(null);
 
+    const MAX_RETRIES = 6;
+    const RETRY_DELAYS = [8000, 12000, 15000, 15000, 20000, 20000];
+
+    // Fire an immediate wake-up ping
     try {
-      const formData = new FormData();
-      formData.append('image', file);
+      fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
+    } catch (_) {}
 
-      const res = await fetch('/api/vision/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.error ?? `Vision API error ${res.status}`);
+    let lastError = null;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]));
+        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
       }
 
-      const data = await res.json();
-      // Engine returns instances array — getOrderedInstances sorts by confidence
-      const orderedInstances = getOrderedInstances(data);
-      setAnnotations(orderedInstances, data);
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
 
-    } catch (err) {
-      setScanStatus('idle');
-      setErrorMsg(err.message ?? 'Vision analysis failed. Please try again.');
+        const res = await fetch('/api/vision/analyze', {
+          method: 'POST',
+          body: formData,
+          signal: AbortSignal.timeout(120000), // longer timeout for heavy YOLO inference
+        });
+
+        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < MAX_RETRIES) {
+          lastError = new Error(`Server starting up (${res.status}) — retrying…`);
+          continue;
+        }
+
+        if (res.status === 429) {
+          throw new Error('Too many requests. Please wait a moment before trying again.');
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.error ?? `Vision API error ${res.status}`);
+        }
+
+        const data = await res.json();
+        // Engine returns instances array — getOrderedInstances sorts by confidence
+        const orderedInstances = getOrderedInstances(data);
+        setAnnotations(orderedInstances, data);
+        return; // Success! Exit function.
+
+      } catch (err) {
+        lastError = err;
+        const isRetryable = err instanceof TypeError || err.name === 'TimeoutError' || err.name === 'AbortError';
+        if (!isRetryable || attempt >= MAX_RETRIES) {
+          break;
+        }
+      }
     }
+
+    // If we exhausted retries or hit a non-retryable error
+    setScanStatus('idle');
+    setErrorMsg(lastError?.message ?? 'Vision analysis failed. The server may still be waking up — please try again.');
   };
 
   // ─── Map: trigger spatial engine (with auth gate) ─────────

@@ -92,8 +92,9 @@ export default function Uploader({ onUploaded }) {
             </div>
           </motion.div>
         ) : (
-          <motion.div
+          <motion.label
             key="dropzone"
+            htmlFor="terra-image-uploader"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -101,7 +102,6 @@ export default function Uploader({ onUploaded }) {
             onDragLeave={() => setDragging(false)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
             className={clsx(
               'flex flex-col items-center justify-center gap-4',
               'border-2 border-dashed rounded-2xl py-16 px-8',
@@ -127,7 +127,7 @@ export default function Uploader({ onUploaded }) {
                 Drag & drop or click to browse · JPG, PNG, WEBP · Max 20MB
               </p>
             </div>
-          </motion.div>
+          </motion.label>
         )}
       </AnimatePresence>
 
@@ -140,7 +140,7 @@ export default function Uploader({ onUploaded }) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg, image/png, image/webp"
         className="hidden"
         onChange={handleChange}
         id="terra-image-uploader"
