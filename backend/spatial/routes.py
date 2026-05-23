@@ -683,6 +683,8 @@ def fetch_solar_data(lat: float, lng: float) -> dict:
     )
     try:
         resp = requests.get(url, timeout=10)
+        if resp.status_code == 403:
+            print(f"[Terra AI - Solar API 403] Google Response: {resp.text}")
         if resp.status_code == 404:
             # No Solar API coverage for this location — use Kenya standard
             return _kenya_solar_fallback()

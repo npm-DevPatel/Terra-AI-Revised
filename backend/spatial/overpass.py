@@ -16,8 +16,8 @@ OVERPASS_INSTANCES = [
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ]
 
-RADIUS_M = 1000     # 1 km radius for most features
-AERO_RADIUS_M = 8000  # 8 km radius for aerodromes (covers both Nairobi airports)
+RADIUS_M = 800      # 800 m radius for most features (shrunk for rate limits)
+AERO_RADIUS_M = 6000  # 6 km radius for aerodromes (shrunk for rate limits)
 
 
 def fetch_overpass_data(lat: float, lng: float) -> dict:
@@ -85,7 +85,10 @@ out geom;
                 instance,
                 data={"data": query},
                 timeout=25,
-                headers={"Accept": "application/json"},
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "TerraAI/1.0 (terra-ai@example.com)"
+                },
             )
             response.raise_for_status()
             elements = response.json().get("elements", [])

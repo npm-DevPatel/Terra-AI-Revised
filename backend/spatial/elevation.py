@@ -26,7 +26,7 @@ GEE_KEY = (
     or ""
 )
 
-GEE_URL = "https://earthengine.googleapis.com/v1alpha/projects/earthengine-public:computeValue"
+GEE_URL = "https://earthengine.googleapis.com/v1/projects/earthengine-public/value:compute"
 
 # ~100 m bounding box half-width (for 3×3 sinkhole grid)
 _SINKHOLE_OFFSET_DEG = 0.00090   # ≈ 100 m
