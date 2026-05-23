@@ -1,8 +1,9 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UploadCloud, Image as ImageIcon, X, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, Camera, Image as ImageIcon, X, CheckCircle2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
+import heic2any from 'heic2any';
 
 /**
  * Uploader — drag-and-drop image uploader.
@@ -16,18 +17,34 @@ export default function Uploader({ onUploaded }) {
   const [preview, setPreview] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [error, setError] = useState(null);
-  const inputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   const processFile = useCallback(
-    (file) => {
+    async (file) => {
       setError(null);
       if (!file) return;
 
-      if (!file.type.startsWith('image/')) {
+      let processedFile = file;
+
+      // Handle HEIC/HEIF files manually
+      if (file.type.includes('heic') || file.type.includes('heif') || file.name.toLowerCase().endsWith('.heic')) {
+        try {
+          // Convert to JPEG blob
+          const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.8 });
+          const finalBlob = Array.isArray(blob) ? blob[0] : blob;
+          processedFile = new File([finalBlob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+        } catch (err) {
+          setError('Failed to process HEIC image. Please try a different format.');
+          return;
+        }
+      }
+
+      if (!processedFile.type.startsWith('image/')) {
         setError('Please upload an image file (JPG, PNG, WEBP).');
         return;
       }
-      if (file.size > 20 * 1024 * 1024) {
+      if (processedFile.size > 20 * 1024 * 1024) {
         setError('Image too large. Maximum size is 20MB.');
         return;
       }
@@ -37,12 +54,12 @@ export default function Uploader({ onUploaded }) {
       reader.onload = (e) => {
         const dataUrl = e.target.result;
         setPreview(dataUrl);
-        setFileName(file.name);
+        setFileName(processedFile.name);
         // Store both dataUrl (preview) AND the raw File object (for FormData)
-        setUploadedImage(dataUrl, file.name, file);
-        onUploaded?.(dataUrl, file.name, file);
+        setUploadedImage(dataUrl, processedFile.name, processedFile);
+        onUploaded?.(dataUrl, processedFile.name, processedFile);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(processedFile);
     },
     [setUploadedImage, onUploaded]
   );
@@ -59,7 +76,8 @@ export default function Uploader({ onUploaded }) {
     setPreview(null);
     setFileName(null);
     setError(null);
-    if (inputRef.current) inputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
   return (
@@ -92,42 +110,58 @@ export default function Uploader({ onUploaded }) {
             </div>
           </motion.div>
         ) : (
-          <motion.label
+          <div
             key="dropzone"
-            htmlFor="terra-image-uploader"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             onDragEnter={() => setDragging(true)}
             onDragLeave={() => setDragging(false)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
             className={clsx(
-              'flex flex-col items-center justify-center gap-4',
-              'border-2 border-dashed rounded-2xl py-16 px-8',
-              'cursor-pointer transition-all duration-200',
+              'flex flex-col items-center justify-center gap-6',
+              'border-2 border-dashed rounded-2xl py-12 px-6',
+              'transition-all duration-200',
               dragging
                 ? 'border-emerald-400 bg-emerald-50'
-                : 'border-slate-200 bg-slate-50 hover:border-emerald-300 hover:bg-emerald-50/40'
+                : 'border-slate-200 bg-slate-50'
             )}
           >
             <motion.div
               animate={{ scale: dragging ? 1.12 : 1 }}
-              className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-md"
+              className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm"
             >
               {dragging
                 ? <ImageIcon className="w-7 h-7 text-emerald-500" />
                 : <UploadCloud className="w-7 h-7 text-slate-400" />}
             </motion.div>
+            
             <div className="text-center">
-              <p className="text-sm font-semibold text-terra-heading">
-                {dragging ? 'Drop your image here' : 'Upload a land photo'}
+              <p className="text-sm font-semibold text-terra-heading mb-1">
+                {dragging ? 'Drop your image here' : 'Provide a land photo'}
               </p>
-              <p className="text-xs text-terra-muted mt-1">
-                Drag & drop or click to browse · JPG, PNG, WEBP · Max 20MB
+              <p className="text-xs text-terra-muted max-w-[240px] mx-auto">
+                Take a picture or upload from your device. HEIC, JPG, PNG supported.
               </p>
             </div>
-          </motion.label>
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm mt-2">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white border border-slate-200 text-sm font-semibold text-slate-700 shadow-sm hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+              >
+                <Camera className="w-4 h-4" />
+                Take Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-sm hover:bg-emerald-500 transition-colors"
+              >
+                <ImageIcon className="w-4 h-4" />
+                Browse Gallery
+              </button>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -138,12 +172,21 @@ export default function Uploader({ onUploaded }) {
       )}
 
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
-        accept="image/jpeg, image/png, image/webp"
+        accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleChange}
-        id="terra-image-uploader"
+        id="terra-camera-input"
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleChange}
+        id="terra-gallery-input"
       />
     </div>
   );

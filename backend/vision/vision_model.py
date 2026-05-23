@@ -15,9 +15,9 @@ def _get_conf() -> float:
 
 def _get_imgsz() -> int:
 	try:
-		return int(os.getenv("TERRA_YOLO_IMGSZ", "1024"))
+		return int(os.getenv("TERRA_YOLO_IMGSZ", "640"))
 	except Exception:
-		return 1024
+		return 640
 
 
 def get_model() -> YOLO:

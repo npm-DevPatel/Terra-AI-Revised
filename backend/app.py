@@ -1,5 +1,8 @@
 import os
+import torch
 
+# Constrain PyTorch thread spawning overhead
+torch.set_num_threads(1)
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
