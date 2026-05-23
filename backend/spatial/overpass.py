@@ -29,7 +29,7 @@ def fetch_overpass_data(lat: float, lng: float) -> dict:
         raw_elements
     """
     query = f"""
-[out:json][timeout:10];
+[out:json][timeout:25];
 (
   // WATER — riparian risk
   way["waterway"~"river|stream|canal|drain|ditch"](around:{RADIUS_M},{lat},{lng});
@@ -83,7 +83,7 @@ out geom;
             response = requests.post(
                 instance,
                 data={"data": query},
-                timeout=12,
+                timeout=25,
                 headers={
                     "Accept": "application/json",
                     "User-Agent": "TerraAI/1.0 (terra-ai@example.com)"
