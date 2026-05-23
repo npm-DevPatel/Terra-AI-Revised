@@ -89,7 +89,7 @@ export default function Home() {
           <button 
             onClick={wakeBackend}
             disabled={serverStatus === 'waking' || serverStatus === 'active'}
-            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold transition-colors border ${
               serverStatus === 'active' 
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
                 : serverStatus === 'waking'
@@ -98,10 +98,15 @@ export default function Home() {
             }`}
             title="Start backend server (takes ~30s if asleep)"
           >
-            <div className={`w-2 h-2 rounded-full ${
+            <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full flex-shrink-0 ${
               serverStatus === 'active' ? 'bg-emerald-500' : serverStatus === 'waking' ? 'bg-amber-500' : 'bg-slate-300'
             }`} />
-            {serverStatus === 'active' ? 'Backend Ready' : serverStatus === 'waking' ? 'Waking...' : 'Wake Backend'}
+            <span className="hidden xs:inline">
+              {serverStatus === 'active' ? 'Backend Ready' : serverStatus === 'waking' ? 'Waking...' : 'Wake Backend'}
+            </span>
+            <span className="inline xs:hidden">
+              {serverStatus === 'active' ? 'Ready' : serverStatus === 'waking' ? 'Waking' : 'Wake'}
+            </span>
           </button>
           <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')} className="hidden xs:inline-flex">Pricing</Button>
 
