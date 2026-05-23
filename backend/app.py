@@ -1,10 +1,10 @@
 import os
 import torch
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 # Constrain PyTorch thread spawning overhead
 torch.set_num_threads(1)
-from flask import Flask, jsonify, request
-from flask_cors import CORS
 
 from vision.routes import bp as vision_bp
 from spatial.routes import bp as spatial_bp
