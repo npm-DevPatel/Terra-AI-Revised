@@ -149,24 +149,15 @@ export default function Analyze() {
     setEngineStatus('loading', 'Connecting to analysis engine…');
     setErrorMsg(null);
 
-    // ── Wake-up ping (non-fatal) ──────────────────────────────
-    // Render free tier sleeps after 15 min. Ping /health first
-    // to start the cold-boot before the real request fires.
-    // We fire the ping and don't wait long — the main retry loop handles it.
-    fetch('/health', { method: 'GET', signal: AbortSignal.timeout(15000) })
-      .catch(() => { /* Non-fatal — main request also triggers boot */ });
-
-    // ── Retry loop (handles 502/503/504 cold-start errors) ───
-    // Render free tier can take 20-40s to wake from sleep.
-    // We retry up to 3 times with 8s delay between attempts.
-    const MAX_RETRIES = 5;
-    const RETRY_DELAY_MS = 12000;
+    const MAX_RETRIES = 6;
+    const RETRY_DELAYS = [8000, 12000, 15000, 15000, 20000, 20000];
     const RETRY_MESSAGES = [
-      'Server is waking up — this takes ~45s on first load…',
-      'Still warming up — please hold…',
-      'Almost there — initializing AI models…',
-      'Finalizing boot sequence…',
-      'Final attempt — running analysis now…',
+      'Server waking up from sleep — this takes 20-45s on first load…',
+      'Still warming up — hang tight…',
+      'Initializing AI models — almost there…',
+      'Loading geospatial engine…',
+      'Final boot sequence — nearly ready…',
+      'Last attempt — running your analysis now…',
     ];
 
     const headers = { 'Content-Type': 'application/json' };
@@ -181,30 +172,32 @@ export default function Analyze() {
       visionContext: visionState.rawVisionPayload ?? null,
     });
 
+    // Fire an immediate wake-up ping before the main request
+    try {
+      fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
+    } catch (_) {}
+
     let lastError = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0) {
         setEngineStatus('loading', RETRY_MESSAGES[attempt - 1]);
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]));
+        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
       }
 
       try {
-        // NOTE: /api/spatial/scan is the production-safe endpoint name.
-        // "analyze" is blocked by ad blockers (uBlock, Brave Shields).
         const res = await fetch('/api/spatial/scan', {
           method: 'POST',
           headers,
           body,
-          signal: AbortSignal.timeout(90000), // 90s — Gemini + all APIs can take time
+          signal: AbortSignal.timeout(120000),
         });
 
-        // Retry on gateway errors (Render cold-start) but not on 4xx
         if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < MAX_RETRIES) {
           lastError = new Error(`Server starting up (${res.status}) — retrying…`);
           continue;
         }
 
-        // 401 — token expired; show auth modal again (non-retryable)
         if (res.status === 401) {
           setEngineError('Session expired. Please sign in again.');
           setErrorMsg('Session expired. Please sign in again.');
@@ -212,9 +205,8 @@ export default function Analyze() {
           return;
         }
 
-        // 429 — rate limited; show friendly message (non-retryable)
         if (res.status === 429) {
-          const msg = 'You\'ve run too many analyses in the past hour. Please wait a few minutes and try again.';
+          const msg = 'Too many analyses in the past hour. Please wait a few minutes.';
           setEngineError(msg);
           setErrorMsg(msg);
           return;
@@ -226,8 +218,6 @@ export default function Analyze() {
         }
 
         const data = await res.json();
-
-        // Engine returns { success, payload, report, report_source }
         const payload    = data.payload ?? data;
         const report     = data.report ?? null;
         const reportSrc  = data.report_source ?? 'gemini';
@@ -235,26 +225,22 @@ export default function Analyze() {
 
         setEngineResult(payload, report, reportSrc, modelUsed);
 
-        // Refresh the sidebar history so the new report appears immediately
         if (user?.id) {
           refreshHistory(user.id);
         }
-        return; // success — exit retry loop
+        return;
 
       } catch (err) {
         lastError = err;
-        // Network-level errors (ERR_CONNECTION_REFUSED, timeouts) are retryable
-        const isRetryable = err instanceof TypeError || err.name === 'TimeoutError';
+        const isRetryable = err instanceof TypeError || err.name === 'TimeoutError' || err.name === 'AbortError';
         if (!isRetryable || attempt >= MAX_RETRIES) {
           break;
         }
-        // Fire another keep-alive ping mid-wait to keep Render awake
-        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(15000) }).catch(() => {});
+        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
       }
     }
 
-    // All retries exhausted
-    const msg = lastError?.message ?? 'Spatial analysis failed. Please try again.';
+    const msg = lastError?.message ?? 'Analysis failed. The server may still be waking up — please try again in 30 seconds.';
     setEngineError(msg);
     setErrorMsg(msg);
   };

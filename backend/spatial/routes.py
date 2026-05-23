@@ -153,7 +153,7 @@ def _risk_label(score: int) -> str:
     return "CRITICAL / HIGH RISK"
 
 
-def _build_fallback_report(payload: dict, reason: str) -> dict:
+def _build_fallback_report(payload: dict, reason: str, deductions: list = None) -> dict:
     """Create a minimal on-server report when Gemini is unavailable.
 
     Score philosophy: Start at 100. Deduct ONLY for genuine build-blocking
@@ -234,6 +234,21 @@ def _build_fallback_report(payload: dict, reason: str) -> dict:
     total_due_diligence = 500 + recommended_survey_cost
 
     return {
+        "pros": (
+            ["Clear of riparian buffer (no NEMA EIA required)"] if not payload.get("riparian_breach") else []
+        ) + (
+            ["No demolition risk from KeNHA/SGR corridors"] if not payload.get("demolition_risk") else []
+        ) + (
+            ["No confirmed flood history at this coordinate"] if not payload.get("flood_history") else []
+        ) + (
+            ["No KCAA aviation height restriction detected"] if not payload.get("aviation_height_restriction") else []
+        ),
+        "cons": [f for f in flags[:5] if f],
+        "score_breakdown": {
+            "base_score": 100,
+            "deductions": deductions or [],
+            "final_score": score,
+        },
         "land_feasibility_score": score,
         "land_feasibility_label": label,
         "executive_summary": exec_summary[:240],
@@ -469,6 +484,105 @@ def _sanitize_payload(payload: dict) -> dict:
         s['_slope_assessment'] = f"STEEP ({slope_val}%): Raft/piled foundation required. Premium KES 1,500,000-3,000,000+. Structural engineer mandatory."
 
     return s
+
+
+def _compute_deterministic_score(payload: dict) -> tuple[int, str, list[str]]:
+    """
+    Compute a deterministic land feasibility score from hard geospatial data.
+
+    Score philosophy:
+    - Start at 100
+    - Deduct ONLY for confirmed, measurable, build-blocking conditions
+    - Infrastructure costs are NEVER deductions (they are budget items)
+    - Returns (score, label, deduction_log) for full transparency
+
+    This score is passed to Gemini as a FIXED value it must use verbatim.
+    Gemini writes the narrative — it does NOT set the score.
+    """
+    score = 100
+    deductions = []
+
+    def deduct(points: int, reason: str, condition: bool):
+        nonlocal score
+        if condition:
+            score -= points
+            deductions.append(f"-{points}: {reason}")
+
+    # ── LEGAL / STATUTORY BLOCKS ──────────────────────────────────────────────────────────────────
+    deduct(25, "Demolition risk — within KeNHA/SGR buffer zone",
+           bool(payload.get("demolition_risk")))
+
+    deduct(20, "Riparian breach — within 30m NEMA buffer (EMCA Cap 387)",
+           bool(payload.get("riparian_breach")))
+
+    deduct(20, "Protected land — conservation/forest reserve overlap detected",
+           bool(payload.get("protected_land_risk")))
+
+    deduct(10, "Road reserve encroachment — within 15m of highway",
+           bool(payload.get("road_reserve_risk")))
+
+    deduct(10, "KCAA aviation height restriction — building height capped",
+           bool(payload.get("aviation_height_restriction")))
+
+    # ── ENVIRONMENTAL / FLOOD RISKS ───────────────────────────────────────────────────
+    deduct(20, "JRC confirmed flood history at this coordinate",
+           bool(payload.get("flood_history")))
+
+    deduct(8, "Seasonal surface water — periodic inundation detected",
+           bool(payload.get("seasonal_water")))
+
+    deduct(8, "Topographical sinkhole — drainage depression detected",
+           bool(payload.get("is_topographical_sinkhole")))
+
+    # ── SOIL / GEOTECHNICAL ─────────────────────────────────────────────────────────────────
+    clay_pct = payload.get("soil_clay_pct")
+    cec = payload.get("soil_cec_cmolc_kg")
+    if clay_pct is not None and clay_pct > 45 and cec is not None and cec > 30:
+        deduct(12, f"ISRIC: Black Cotton Clay confirmed (clay {clay_pct:.1f}%, CEC {cec:.1f} cmol/kg)",
+               True)
+    elif clay_pct is not None and clay_pct > 45:
+        deduct(8, f"ISRIC: High clay content ({clay_pct:.1f}%) — elevated foundation risk",
+               True)
+    elif clay_pct is not None and clay_pct > 30:
+        deduct(4, f"ISRIC: Moderate clay ({clay_pct:.1f}%) — soil investigation required",
+               True)
+
+    # ── TERRAIN / SLOPE ───────────────────────────────────────────────────────────────────
+    slope = payload.get("slope_percent")
+    try:
+        slope_val = float(slope) if slope is not None else None
+    except (TypeError, ValueError):
+        slope_val = None
+
+    if slope_val is not None and slope_val >= 20:
+        deduct(10, f"Steep terrain ({slope_val:.1f}%) — raft/piled foundation mandatory",
+               True)
+    elif slope_val is not None and slope_val >= 12:
+        deduct(5, f"Moderate slope ({slope_val:.1f}%) — retaining walls likely required",
+               True)
+
+    # ── AIR QUALITY ─────────────────────────────────────────────────────────────────────────
+    env = payload.get("environment") or {}
+    deduct(10, "Sentinel-5P: Severe chronic NO₂ air pollution detected",
+           bool(env.get("severe_air_pollution")))
+
+    # ── GROUNDWATER SCARCITY ────────────────────────────────────────────────────────────
+    gw = payload.get("groundwater") or {}
+    deduct(5, "BGS: Water scarcity risk — low productivity aquifer, deep drilling required",
+           bool(gw.get("water_scarcity_risk")))
+
+    score = max(0, min(100, score))
+
+    if score >= 80:
+        label = "SAFE"
+    elif score >= 60:
+        label = "MODERATE WARNINGS"
+    elif score >= 40:
+        label = "HIGH RISK"
+    else:
+        label = "CRITICAL / HIGH RISK"
+
+    return score, label, deductions
 
 
 # ── New free API fetchers ─────────────────────────────────────────────────────
@@ -914,6 +1028,15 @@ def analyze():
     tier = analysis_payload.get('_zone_tier', '?')
     print(f"[Terra AI] Zone Tier: {analysis_payload.get('_zone_tier_label', 'Unknown')}. Calling Gemini…")
 
+    # ── Deterministic score computation (MUST happen before Gemini call) ──────
+    det_score, det_label, det_deductions = _compute_deterministic_score(analysis_payload)
+    analysis_payload["_deterministic_score"] = det_score
+    analysis_payload["_deterministic_label"] = det_label
+    analysis_payload["_score_deductions"] = det_deductions
+
+    print(f"[Terra AI] Deterministic score: {det_score}/100 ({det_label})")
+    print(f"[Terra AI] Deductions: {det_deductions if det_deductions else 'None'}")
+
     # ── Gemini synthesis ──────────────────────────────────────────────────────
     report_source = "gemini"
     try:
@@ -921,7 +1044,7 @@ def analyze():
     except Exception as gemini_err:
         print(f"[Terra AI] Gemini error (falling back): {gemini_err}")
         report_source = "fallback"
-        ai_report = _build_fallback_report(analysis_payload, str(gemini_err))
+        ai_report = _build_fallback_report(analysis_payload, str(gemini_err), det_deductions)
 
     model_used = ai_report.pop("_model_used", None) if isinstance(ai_report, dict) else None
 

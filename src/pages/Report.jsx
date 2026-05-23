@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  AlertTriangle, CheckCircle2, Download, ArrowLeft,
+  AlertTriangle, CheckCircle2, XCircle, Download, ArrowLeft,
   MapPin, Zap, Droplets, Mountain, Shield, Building2,
   Sun, TreePine, Activity, DollarSign, ChevronRight, Cpu, ExternalLink, WifiOff
 } from 'lucide-react';
@@ -481,6 +481,80 @@ export default function Report() {
             {landValue && <p className="text-xs text-terra-muted mt-2">{landValue}</p>}
           </div>
         </motion.div>
+
+        {/* ── Score Breakdown + Pros/Cons ── */}
+        {(() => {
+          const pros = Array.isArray(report.pros) ? report.pros : [];
+          const cons = Array.isArray(report.cons) ? report.cons : [];
+          const breakdown = report.score_breakdown ?? null;
+          if (pros.length === 0 && cons.length === 0) return null;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"
+            >
+              {pros.length > 0 && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Positive Indicators ({pros.length})
+                  </p>
+                  <div className="space-y-2">
+                    {pros.map((pro, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                        <p className="text-sm text-emerald-900 leading-snug">{pro}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {cons.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+                  <p className="text-xs font-bold text-red-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5" /> Risk & Cost Flags ({cons.length})
+                  </p>
+                  <div className="space-y-2">
+                    {cons.map((con, i) => {
+                      const isRisk = con.startsWith('RISK:');
+                      const isCost = con.startsWith('COST:');
+                      return (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${isRisk ? 'bg-red-500' : isCost ? 'bg-amber-500' : 'bg-red-400'}`} />
+                          <p className={`text-sm leading-snug ${isRisk ? 'text-red-900 font-medium' : 'text-red-800'}`}>{con}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {breakdown && breakdown.deductions && breakdown.deductions.length > 0 && (
+                <div className="sm:col-span-2 bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                    Score Breakdown — How {breakdown.final_score}/100 Was Calculated
+                  </p>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-sm font-bold text-slate-700">Base score: 100</span>
+                    {breakdown.deductions.map((d, i) => (
+                      <span key={i} className="text-xs text-red-600 font-semibold bg-red-50 border border-red-100 px-2 py-1 rounded-lg">
+                        {d.split(':')[0]}
+                      </span>
+                    ))}
+                    <span className="text-sm font-black text-terra-heading">= {breakdown.final_score}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {breakdown.deductions.map((d, i) => (
+                      <p key={i} className="text-xs text-slate-600">{d}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
 
         {/* ── Key Flags ── */}
         {flags.length > 0 && (

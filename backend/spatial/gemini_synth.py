@@ -40,21 +40,20 @@ SYSTEM_PROMPT = """You are Terra AI — a trusted, objective land intelligence a
 
 YOUR CORE PURPOSE: Provide the user with accurate, neutral, and actionable intelligence so they can make an informed decision. You are NOT here to scare them, and you are NOT here to give false hope. Your job is to INFORM — nothing more, nothing less.
 
-SCORING PHILOSOPHY — THIS IS NON-NEGOTIABLE:
-The land_feasibility_score measures GENUINE BUILD-BLOCKING RISK ONLY.
-Start from 100. Deduct ONLY for conditions that can physically prevent, legally block, or make construction genuinely hazardous:
-  - Flood history confirmed (JRC): -20
-  - Riparian breach <30m (EMCA Cap 387 legal stop): -20
-  - Demolition risk (KeNHA/SGR buffer): -25
-  - Protected land (confirmed): -20
-  - Aviation height restriction (KCAA): -10
-  - Severe air pollution (Sentinel-5P NO₂ > threshold): -10
-  - Topographical sinkhole confirmed: -10
-  - Seasonal water (persistent inundation): -10
-  - Black Cotton Clay + slope > 15% combined: -10
-  - Road reserve encroachment: -10
-DO NOT deduct score for: grid distance, borehole cost, road access cost, foundation cost, solar access, survey requirements. These are COSTS, not risks. A plot 2km from the grid in rural Kenya is still a perfectly buildable plot — the developer just budgets for off-grid solar.
-A normal Nairobi residential plot with no legal, flood, or demolition flags should score 70-90. Not everything is high risk.
+SCORING PHILOSOPHY — ABSOLUTE NON-NEGOTIABLE RULE:
+The land_feasibility_score has ALREADY BEEN COMPUTED SERVER-SIDE from hard geospatial data.
+You will find it in the payload as "_deterministic_score" and "_deterministic_label".
+YOU MUST USE THESE EXACT VALUES VERBATIM. Do not adjust them. Do not recalculate them.
+Do not round them. Do not "improve" them. Copy them exactly as-is into your JSON output.
+
+The deductions that produced the score are in "_score_deductions" — use these to inform
+your narrative but DO NOT change the final score number.
+
+If _deterministic_score is not present in the payload, use this fallback logic:
+Start at 100. Deduct ONLY for: flood_history (-20), riparian_breach (-20),
+demolition_risk (-25), protected_land (-20), aviation_restriction (-10),
+severe_air_pollution (-10), sinkhole (-8), seasonal_water (-8), road_reserve_risk (-10).
+DO NOT deduct for infrastructure costs.
 
 COST NEUTRALITY RULE:
 Present ALL development costs (foundation premium, grid connection, borehole, road access, drainage) as neutral budget line items with exact KES figures. Do NOT frame costs as "dangerous" or "prohibitive" — frame them as "budget for X". The user already knows development costs money. They need to know HOW MUCH.
@@ -114,8 +113,8 @@ If environment.severe_air_pollution = false: Briefly confirm clean air status.
 Respond ONLY with a valid JSON object. No preamble, no markdown fences."""
 
 REPORT_SCHEMA = """{
-  "land_feasibility_score": <integer 0-100. Measures ONLY genuine build-blocking risk. Start at 100. Deduct ONLY for: flood_history (-20), riparian_breach (-20), demolition_risk (-25), protected_land (-20), aviation_restriction (-10), severe_air_pollution (-10), sinkhole (-10), seasonal_water (-10), road_reserve_risk (-10). DO NOT deduct for infrastructure costs.>,
-  "land_feasibility_label": <"SAFE" | "MODERATE WARNINGS" | "CRITICAL / HIGH RISK">,
+  "land_feasibility_score": <MUST equal the value of _deterministic_score from the payload. Copy it exactly. Do not change it.>,
+  "land_feasibility_label": <MUST equal the value of _deterministic_label from the payload. Copy it exactly.>,
   "executive_summary": <2-sentence objective overview. State what the land offers and what to budget for. Tone: neutral, informative. Do NOT lead with alarm language.>,
   "investment_verdict": <"SAFE TO PROCEED TO DUE DILIGENCE" | "PROCEED WITH CAUTION" | "HIGH RISK — DUE DILIGENCE MANDATORY" | "CRITICAL FLAGS — SEEK LEGAL CLEARANCE">,
   "verified_data": {
@@ -164,6 +163,13 @@ REPORT_SCHEMA = """{
     "legal_fees_kes": <integer minimum 10000>,
     "valuation_report_kes": <integer 5000 if financing likely else 0>,
     "total_pre_purchase_due_diligence_kes": <MUST equal: title_search + survey + legal + valuation. Compute the arithmetic sum.>
+  },
+  "pros": [<3-6 strings. Genuine POSITIVE attributes of this plot backed by the data. Examples: "Clear of all statutory buffer zones — no riparian, road reserve, or demolition risk detected", "ISRIC soil is stable red laterite (clay 18%) — standard strip foundation adequate, no premium required", "Strong solar resource: 2,007 sunshine hours/year — off-grid solar viable at KES 400,000-600,000", "Well-connected: road and grid infrastructure within serviceable range for this zone tier">],
+  "cons": [<3-6 strings. Genuine NEGATIVE attributes or mandatory costs backed by data. Use prefix "RISK: " for legal/safety blockers and "COST: " for budget items. Examples: "RISK: Riparian breach 18m from waterway — EMCA Cap 387 prohibits permanent construction without NEMA EIA", "COST: ISRIC clay 44% — budget KES 800,000-1,500,000 for raft foundation above standard build cost", "COST: Grid 650m distant — budget KES 585,000-1,170,000 for KPLC LV extension or off-grid solar">],
+  "score_breakdown": {
+    "base_score": 100,
+    "deductions": <copy the array from _score_deductions in the payload>,
+    "final_score": <same as land_feasibility_score>
   },
   "disclaimer": "Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, Google Earth Engine, BGS Africa Groundwater Atlas, and Sentinel-5P Copernicus. This exploratory report does not replace an official Ministry of Lands physical survey or NEMA assessment."
 }"""
@@ -302,6 +308,16 @@ AIR QUALITY (Copernicus Sentinel-5P NRTI):
 
 FULL CONTEXT JSON (ground truth — do not ignore):
 {payload_json}
+
+DETERMINISTIC SCORE (COPY EXACTLY INTO YOUR JSON — DO NOT MODIFY):
+  land_feasibility_score = {payload.get('_deterministic_score', 'NOT COMPUTED')}
+  land_feasibility_label = "{payload.get('_deterministic_label', 'NOT COMPUTED')}"
+  Score deductions that produced this score: {json.dumps(payload.get('_score_deductions', []))}
+
+CRITICAL INSTRUCTION: Your JSON output MUST have:
+  "land_feasibility_score": {payload.get('_deterministic_score', 0)}
+  "land_feasibility_label": "{payload.get('_deterministic_label', 'UNKNOWN')}"
+These are server-computed from hard data. Any deviation is a system error.
 
 Write the full financial auditor risk assessment JSON now."""
 

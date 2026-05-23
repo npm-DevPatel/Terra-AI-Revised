@@ -104,38 +104,53 @@ export default function ExecutiveBrief({ payload, report, date }) {
         <PageFooter pageNum={2} />
       </Page>
 
-      {/* Page 3: Flags */}
+      {/* Page 3: Pros, Cons, Flags */}
       <Page size="A4" style={S.page}>
         <PageHeader date={date} />
         <View style={S.body}>
           <View style={S.grid2}>
-            {/* Red flags */}
+            {/* Pros */}
             <View style={S.col}>
-              <Text style={[S.sectionLabel, { marginBottom: 10 }]}>⚠ Risk Flags ({flags.length})</Text>
-              {flags.length === 0
-                ? <Text style={styles.summaryText}>No critical flags identified.</Text>
-                : flags.map((f, i) => (
-                  <View key={i} style={styles.flagRow}>
-                    <View style={styles.flagBullet} />
-                    <Text style={styles.flagText}>{f}</Text>
+              <Text style={[S.sectionLabel, { marginBottom: 10 }]}>✓ Positive Indicators</Text>
+              {(Array.isArray(report?.pros) && report.pros.length > 0 ? report.pros : greenFlags).length === 0
+                ? <Text style={styles.summaryText}>No positive indicators available.</Text>
+                : (Array.isArray(report?.pros) && report.pros.length > 0 ? report.pros : greenFlags).map((f, i) => (
+                  <View key={i} style={styles.greenRow}>
+                    <View style={styles.greenBullet} />
+                    <Text style={styles.greenText}>{String(f)}</Text>
                   </View>
                 ))
               }
             </View>
-            {/* Green flags */}
+            {/* Cons / Risk flags */}
             <View style={S.col}>
-              <Text style={[S.sectionLabel, { marginBottom: 10 }]}>✓ Positive Indicators</Text>
-              {greenFlags.length === 0
-                ? <Text style={styles.summaryText}>Insufficient data for positive indicators.</Text>
-                : greenFlags.map((f, i) => (
-                  <View key={i} style={styles.greenRow}>
-                    <View style={styles.greenBullet} />
-                    <Text style={styles.greenText}>{f}</Text>
+              <Text style={[S.sectionLabel, { marginBottom: 10 }]}>⚠ Risk & Cost Flags</Text>
+              {(Array.isArray(report?.cons) && report.cons.length > 0 ? report.cons : flags).length === 0
+                ? <Text style={styles.summaryText}>No critical flags identified.</Text>
+                : (Array.isArray(report?.cons) && report.cons.length > 0 ? report.cons : flags).map((f, i) => (
+                  <View key={i} style={styles.flagRow}>
+                    <View style={styles.flagBullet} />
+                    <Text style={styles.flagText}>{String(f)}</Text>
                   </View>
                 ))
               }
             </View>
           </View>
+
+          {report?.score_breakdown?.deductions?.length > 0 && (
+            <>
+              <View style={S.divider} />
+              <Text style={[S.sectionLabel, { marginBottom: 8 }]}>Score Breakdown — How {report.score_breakdown.final_score}/100 Was Computed</Text>
+              <View style={{ backgroundColor: COLORS.slate50, borderRadius: 8, padding: 12 }}>
+                <Text style={{ fontSize: 8.5, color: COLORS.slate600, marginBottom: 6 }}>
+                  {'Base score: 100 → after deductions → Final: ' + String(report.score_breakdown.final_score)}
+                </Text>
+                {report.score_breakdown.deductions.map((d, i) => (
+                  <Text key={i} style={{ fontSize: 8, color: COLORS.red600, marginBottom: 3 }}>{'• ' + String(d)}</Text>
+                ))}
+              </View>
+            </>
+          )}
         </View>
         <PageFooter pageNum={3} />
       </Page>
