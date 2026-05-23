@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Shield, Zap, FileText, Star, LogIn, LogOut, User } from 'lucide-react';
@@ -35,6 +35,40 @@ export default function Home() {
     ? user.email.slice(0, 2).toUpperCase()
     : 'T';
 
+  const [serverStatus, setServerStatus] = useState('idle');
+
+  useEffect(() => {
+    // Initial silent check
+    fetch('/health', { method: 'GET', signal: AbortSignal.timeout(3000) })
+      .then(res => {
+        if (res.ok) setServerStatus('active');
+      })
+      .catch(() => {});
+  }, []);
+
+  const wakeBackend = () => {
+    if (serverStatus === 'active' || serverStatus === 'waking') return;
+    setServerStatus('waking');
+    
+    const checkHealth = async (retries = 8) => {
+      try {
+        const res = await fetch('/health', { method: 'GET', signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          setServerStatus('active');
+          return;
+        }
+      } catch (err) {}
+      
+      if (retries > 0) {
+        setTimeout(() => checkHealth(retries - 1), 5000);
+      } else {
+        setServerStatus('idle');
+      }
+    };
+    
+    checkHealth();
+  };
+
   return (
     <div className="min-h-screen bg-terra-bg">
       {/* ── AuthModal ── */}
@@ -52,6 +86,23 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <button 
+            onClick={wakeBackend}
+            disabled={serverStatus === 'waking' || serverStatus === 'active'}
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+              serverStatus === 'active' 
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                : serverStatus === 'waking'
+                ? 'bg-amber-50 border-amber-200 text-amber-700 animate-pulse'
+                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 cursor-pointer'
+            }`}
+            title="Start backend server (takes ~30s if asleep)"
+          >
+            <div className={`w-2 h-2 rounded-full ${
+              serverStatus === 'active' ? 'bg-emerald-500' : serverStatus === 'waking' ? 'bg-amber-500' : 'bg-slate-300'
+            }`} />
+            {serverStatus === 'active' ? 'Backend Ready' : serverStatus === 'waking' ? 'Waking...' : 'Wake Backend'}
+          </button>
           <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')} className="hidden xs:inline-flex">Pricing</Button>
 
           {user ? (
