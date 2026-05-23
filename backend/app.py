@@ -10,8 +10,8 @@ from vision.routes import bp as vision_bp
 from spatial.routes import bp as spatial_bp
 
 try:
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
+    from flask_limiter import Limiter  # type: ignore
+    from flask_limiter.util import get_remote_address  # type: ignore
     _HAS_LIMITER = True
 except ImportError:
     Limiter = None
