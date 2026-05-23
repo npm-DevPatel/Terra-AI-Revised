@@ -75,8 +75,7 @@ def _reverse_geocode(lat: float, lng: float) -> str:
             if "locality" in component["types"]:
                 return component["long_name"]
     # Last resort: first formatted address segment
-    first_addr = results_list[0].get("formatted_address", "")
-    return first_addr.split(",")[0] if first_addr else "Nairobi"
+    return first_addr.split(",")[0] if first_addr else "Kenya"
 
 
 def _nearest_place(lat: float, lng: float, place_type: str) -> float | None:

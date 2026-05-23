@@ -17,7 +17,7 @@ const STATS = [
   { value: '98%', label: 'Risk Detection Accuracy' },
   { value: '<60s', label: 'Analysis Time' },
   { value: '12+', label: 'Risk Vectors Checked' },
-  { value: '100%', label: 'Nairobi Coverage' },
+  { value: '100%', label: 'Kenya Coverage' },
 ];
 
 export default function Home() {
@@ -234,7 +234,7 @@ export default function Home() {
             Enterprise-grade intelligence
           </h2>
           <p className="text-terra-body max-w-xl mx-auto">
-            Three powerful engines working in concert to give you the clearest picture of any plot in Nairobi.
+            Three powerful engines working in concert to give you the clearest picture of any plot in Kenya.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">

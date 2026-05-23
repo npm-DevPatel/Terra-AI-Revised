@@ -378,8 +378,8 @@ def _classify_zone_tier(payload: dict) -> int:
     for kw in _TIER1_KEYWORDS:
         if kw in text:
             return 1
-    # Any Nairobi location not in Tier 1 is at least Tier 2
-    if 'nairobi' in text:
+    # Any major Kenyan city location not in Tier 1 is at least Tier 2
+    if any(city in text for city in ['nairobi', 'mombasa', 'kisumu', 'nakuru', 'eldoret']):
         return 2
     for kw in _TIER2_KEYWORDS:
         if kw in text:

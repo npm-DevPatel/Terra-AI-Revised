@@ -7,7 +7,7 @@
 [![YOLOv8](https://img.shields.io/badge/Computer%20Vision-YOLOv8--seg-FF2F2F?style=for-the-badge&logo=ultralytics)](https://ultralytics.com/)
 [![Gemini](https://img.shields.io/badge/AI%20Synthesis-Gemini%201.5%20Flash-4285F4?style=for-the-badge&logo=googlegemini)](https://deepmind.google/technologies/gemini/)
 
-Terra AI is an enterprise-grade, land pre-purchase due diligence and risk assessment platform designed specifically for the Kenyan real estate market (with a high-fidelity focus on the Nairobi Metropolitan Area). 
+Terra AI is an enterprise-grade, land pre-purchase due diligence and risk assessment platform designed specifically for the Kenyan real estate market (with high-fidelity coverage spanning the entirety of Kenya). 
 
 By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospatial intelligence (**Shapely, OpenStreetMap, Google Maps, Google Earth Engine, Open-Meteo, BGS Africa Groundwater Atlas, and Sentinel-5P Air Quality**), Terra AI detects physical, environmental, infrastructure, and legal risks *before* a buyer commits to a purchase. The platform evaluates riparian buffer zones, road reserves, terrain slope, soil type foundations, aquifer depth, air pollution, grid connectivity, solar potential, and administrative zoning, synthesizing a professional architectural-grade **PDF Dossier** with estimated financial premiums.
 
@@ -40,7 +40,7 @@ By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospati
 6. [Environment Variables Config](#%EF%B8%8F-environment-variables-config)
 7. [Step-by-Step Installation & Run Guide](#-step-by-step-installation--run-guide)
 8. [API Endpoints Reference](#-api-endpoints-reference)
-9. [Nairobi-Focused Spatial Heuristics & Rules](#%EF%B8%8F-nairobi-focused-spatial-heuristics--rules)
+9. [Kenya-Wide Spatial Heuristics & Rules](#%EF%B8%8F-kenya-wide-spatial-heuristics--rules)
 10. [Verification & Development Commands](#-verification--development-commands)
 11. [Legal Disclaimer](#-legal-disclaimer)
 
@@ -522,7 +522,7 @@ From the project root, run the pre-configured automation script. It automaticall
 
 ---
 
-## 🏛️ Nairobi-Focused Spatial Heuristics & Rules
+## 🏛️ Kenya-Wide Spatial Heuristics & Rules
 
 To ensure industry relevance and high precision, the backend embeds local Kenyan regulations and geological characteristics:
 

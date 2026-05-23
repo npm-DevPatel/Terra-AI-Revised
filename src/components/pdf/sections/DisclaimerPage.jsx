@@ -56,7 +56,7 @@ export default function DisclaimerPage({ report, date }) {
           },
           {
             title: 'Infrastructure Proximity — OpenStreetMap (Overpass API)',
-            body: 'Distances to roads, waterways, power lines, schools, markets, and other features are computed by querying the OpenStreetMap Overpass API within a 2km radius, then calculating Euclidean distance via the Shapely geometry engine. OSM data quality varies by region; urban Nairobi is typically well-mapped.',
+            body: 'Distances to roads, waterways, power lines, schools, markets, and other features are computed by querying the OpenStreetMap Overpass API within a 2km radius, then calculating Euclidean distance via the Shapely geometry engine. OSM data quality varies by region; urban areas across Kenya are typically well-mapped.',
           },
           {
             title: 'Flood & Land Cover — Google Earth Engine (JRC / Dynamic World)',
@@ -76,7 +76,7 @@ export default function DisclaimerPage({ report, date }) {
           },
           {
             title: 'Legal Risk Engine — Shapely Geometry + HydroSHEDS',
-            body: 'Riparian buffer compliance (30m rule under EMCA), road reserve overlap, and aviation zone analysis are computed by the Shapely planar geometry engine against OpenStreetMap feature polygons and known airport coordinates for Nairobi (JKIA, Wilson Airport).',
+            body: 'Riparian buffer compliance (30m rule under EMCA), road reserve overlap, and aviation zone analysis are computed by the Shapely planar geometry engine against OpenStreetMap feature polygons, continent-wide HydroSHEDS rivers, and known major airport coordinates for Kenya.',
           },
         ].map(({ title, body }) => (
           <View key={title} style={styles.methodBox}>
