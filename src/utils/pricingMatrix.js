@@ -434,48 +434,98 @@ export const PRICING_MATRIX_PER_ACRE = {
 
 /**
  * Fuzzy-match helper: finds the closest pricing key for a given location string.
- * Tries exact match first, then partial match, then falls back by county/region context.
+ *
+ * Strategy (in order):
+ *   1. Exact match (case-insensitive) — globally
+ *   2. County-aware partial match — only scan keys that are plausibly in the same county/region
+ *   3. Global partial match — with minimum token length guard (>= 4 chars) to prevent
+ *      spurious cross-county hits (e.g. "Jomvu" matching "Runda" because of a substring)
+ *   4. County fallback tiers (DEFAULT_*)
  *
  * @param {string} locationInput - ward name, place name, or county from payload
- * @param {string} [county] - optional county name for better fallback routing
+ * @param {string} [county] - county name for county-aware matching
  * @returns {{ pricePerAcre: number, matchedKey: string, confidence: string }}
  */
+
+// County-to-key-prefix mapping for county-aware partial match
+const _COUNTY_KEY_GROUPS = {
+  nairobi:   ["Upperhill","Westlands","Kilimani","Parklands","Spring Valley","Muthaiga","Lavington",
+               "Upper Hill","Kileleshwa","Riverside","Loresho","Runda","Karen","Gigiri","Hurlingham",
+               "Milimani","Woodlands","Langata","South C","South B","Madaraka","Nairobi West",
+               "Industrial Area","Eastleigh","Pangani","Buru Buru","Umoja","Donholm","Embakasi",
+               "Imara Daima","Utawala","Ruai",
+               "Juja","Ruaka","Syokimau","Kikuyu","Thika","Athi River","Ruiru","Ngong",
+               "Kitengela","Kiserian","Limuru","Kiambu Town","Tigoni","Banana","Githurai",
+               "Kahawa","Kasarani","Roysambu","Zimmermann","Kahawa Wendani","Membley",
+               "Joska","Malaa","Kamulu","Matuu","Isinya","Mlolongo","Mavoko","Katani"],
+  mombasa:   ["Mombasa CBD","Nyali","Nyali Beach","Bamburi","Bombolulu","Shanzu","Kisauni",
+               "Likoni","Changamwe","Miritini","Jomvu","Port Reitz"],
+  kwale:     ["Diani","Ukunda","Diani Beach","Msambweni","Lunga Lunga","Kwale Town","Shimba Hills area"],
+  kilifi:    ["Kilifi Town","Watamu","Malindi","Malindi Beach","Vipingo","Takaungu","Kaloleni","Ganze"],
+  kisumu:    ["Kisumu CBD","Kisumu Town","Milimani (Kisumu)","Kondele","Nyalenda","Mamboleo",
+               "Ahero","Maseno","Muhoroni","Nyando","Katito"],
+  nakuru:    ["Nakuru Town","Nakuru CBD","Nakuru Suburbs","Naivasha Town","Naivasha Outskirts",
+               "Gilgil","Bahati","Rongai (Nakuru)","Njoro","Molo","Subukia","Kuresoi"],
+  "uasin gishu": ["Eldoret Town","Eldoret CBD","Elgon View","Langas","Huruma (Eldoret)",
+                  "Kipkenyo","Kapsaret","Burnt Forest","Moiben","Ainabkoi"],
+  kiambu:    ["Kiambu","Thika Town","Thika Road (off)","Thigio","Wangige","Karuri","Ndenderu",
+               "Ruiru Town","Githunguri","Gatundu","Lari","Kinoo"],
+};
+
 export function getPriceEstimate(locationInput, county = "") {
   const input = locationInput?.trim().toLowerCase() || "";
   const countyLower = county?.trim().toLowerCase() || "";
+  const allKeys = Object.keys(PRICING_MATRIX_PER_ACRE).filter(k => !k.startsWith("DEFAULT_"));
 
-  // 1. Exact match (case-insensitive)
-  const exactKey = Object.keys(PRICING_MATRIX_PER_ACRE).find(
-    (k) => k.toLowerCase() === input
-  );
+  // 1. Exact match (case-insensitive) — globally
+  const exactKey = allKeys.find((k) => k.toLowerCase() === input);
   if (exactKey) {
     return { pricePerAcre: PRICING_MATRIX_PER_ACRE[exactKey], matchedKey: exactKey, confidence: "HIGH" };
   }
 
-  // 2. Partial match — input is contained in key or key is contained in input
-  const partialKey = Object.keys(PRICING_MATRIX_PER_ACRE).find(
-    (k) => k.toLowerCase().includes(input) || input.includes(k.toLowerCase())
-  );
-  if (partialKey) {
-    return { pricePerAcre: PRICING_MATRIX_PER_ACRE[partialKey], matchedKey: partialKey, confidence: "MEDIUM" };
+  // 2. County-aware partial match — only within keys for the identified county.
+  // This prevents "Jomvu" (Mombasa) from accidentally matching a Nairobi key.
+  const countyGroup = Object.entries(_COUNTY_KEY_GROUPS).find(([cKey]) => countyLower.includes(cKey));
+  if (countyGroup && input.length >= 3) {
+    const groupKeys = countyGroup[1];
+    const countyExact = groupKeys.find((k) => k.toLowerCase() === input);
+    if (countyExact) {
+      return { pricePerAcre: PRICING_MATRIX_PER_ACRE[countyExact], matchedKey: countyExact, confidence: "HIGH" };
+    }
+    const countyPartial = groupKeys.find(
+      (k) => k.toLowerCase().includes(input) || (input.length >= 4 && input.includes(k.toLowerCase()))
+    );
+    if (countyPartial) {
+      return { pricePerAcre: PRICING_MATRIX_PER_ACRE[countyPartial], matchedKey: countyPartial, confidence: "MEDIUM" };
+    }
   }
 
-  // 3. County-based fallback
+  // 3. Global partial match — with minimum 4-character guard to avoid short-token false positives
+  if (input.length >= 4) {
+    const partialKey = allKeys.find(
+      (k) => k.toLowerCase().includes(input) || input.includes(k.toLowerCase())
+    );
+    if (partialKey) {
+      return { pricePerAcre: PRICING_MATRIX_PER_ACRE[partialKey], matchedKey: partialKey, confidence: "MEDIUM" };
+    }
+  }
+
+  // 4. County-based tier fallback
   if (countyLower.includes("nairobi")) {
-    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_NAIROBI_SATELLITE"], matchedKey: "DEFAULT_NAIROBI_SATELLITE", confidence: "LOW" };
+    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_NAIROBI_SATELLITE"], matchedKey: "Nairobi (general)", confidence: "LOW" };
   }
   if (countyLower.includes("mombasa") || countyLower.includes("kilifi") || countyLower.includes("kwale") || countyLower.includes("lamu")) {
-    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_COASTAL"], matchedKey: "DEFAULT_COASTAL", confidence: "LOW" };
+    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_COASTAL"], matchedKey: "Coastal Kenya (general)", confidence: "LOW" };
   }
   if (["kisumu","nakuru","eldoret","uasin gishu","meru","nyeri","kisii","kakamega","kiambu","machakos"].some(c => countyLower.includes(c))) {
-    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_MAJOR_UPCOUNTRY"], matchedKey: "DEFAULT_MAJOR_UPCOUNTRY", confidence: "LOW" };
+    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_MAJOR_UPCOUNTRY"], matchedKey: `${county} (general)`, confidence: "LOW" };
   }
   if (["turkana","marsabit","mandera","wajir","garissa","tana river","isiolo","samburu"].some(c => countyLower.includes(c))) {
-    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_ASAL"], matchedKey: "DEFAULT_ASAL", confidence: "LOW" };
+    return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_ASAL"], matchedKey: `${county} (ASAL)`, confidence: "LOW" };
   }
 
-  // 4. Generic rural fallback
-  return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_RURAL"], matchedKey: "DEFAULT_RURAL", confidence: "LOW" };
+  // 5. Generic rural fallback
+  return { pricePerAcre: PRICING_MATRIX_PER_ACRE["DEFAULT_RURAL"], matchedKey: "Unknown (rural estimate)", confidence: "LOW" };
 }
 
 /**

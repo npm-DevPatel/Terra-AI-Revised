@@ -40,10 +40,14 @@ function fmtKes(val) {
 function renderBody(text) {
   if (!text) return null;
   function parseBold(str) {
-    const parts = str.split(/(\*\*[^*]+\*\*)/);
+    // Handle **bold** and *italic* — both should render as strong/em, not show *
+    const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return <strong key={i} className="font-semibold text-terra-heading">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+        return <em key={i} className="text-terra-body">{part.slice(1, -1)}</em>;
       }
       return part;
     });
@@ -52,7 +56,9 @@ function renderBody(text) {
   return (
     <div className="space-y-1.5">
       {lines.map((line, i) => {
-        const numbered = line.match(/^(\d+)\.\s+(.*)$/);
+        const trimmed = line.trimStart();
+        // Numbered list: "1. text" or "1) text"
+        const numbered = trimmed.match(/^(\d+)[.)\s]\s*(.*)$/);
         if (numbered) {
           return (
             <div key={i} className="flex gap-2">
@@ -61,7 +67,17 @@ function renderBody(text) {
             </div>
           );
         }
-        return <p key={i} className="text-sm text-terra-body leading-relaxed">{parseBold(line)}</p>;
+        // Bullet: "* text" or "- text" or "• text"
+        const bullet = trimmed.match(/^[*\-•]\s+(.*)$/);
+        if (bullet) {
+          return (
+            <div key={i} className="flex gap-2">
+              <span className="text-terra-muted mt-0.5 shrink-0">–</span>
+              <p className="text-sm text-terra-body leading-relaxed">{parseBold(bullet[1])}</p>
+            </div>
+          );
+        }
+        return <p key={i} className="text-sm text-terra-body leading-relaxed">{parseBold(trimmed)}</p>;
       })}
     </div>
   );
@@ -198,9 +214,35 @@ function PricingCalculator({ payload, onResultChange }) {
   const [plotSizeKey, setPlotSizeKey] = useState('50x100 ft (0.115 acres)');
 
   const acreage = PLOT_SIZE_TO_ACRES[plotSizeKey];
-  const locationInput = payload.ward || payload.place_name || '';
+
+  // Location lookup: try progressively broader tokens.
+  // Pass county separately so getPriceEstimate uses it as fallback.
+  // Order: ward → place_name → subcounty → neighborhood → county fallback.
   const county = payload.county || '';
-  const { pricePerAcre, matchedKey, confidence } = getPriceEstimate(locationInput, county);
+  const locationTokens = [
+    payload.ward,
+    payload.place_name,
+    payload.subcounty,
+    payload.neighborhood,
+  ].filter(Boolean);
+
+  let priceEstimate = null;
+  for (const token of locationTokens) {
+    const result = getPriceEstimate(token, county);
+    // Prefer a match that isn\'t a generic DEFAULT_* fallback
+    if (!result.matchedKey.startsWith('DEFAULT_')) {
+      priceEstimate = result;
+      break;
+    }
+    // Keep the first fallback as backup
+    if (!priceEstimate) priceEstimate = result;
+  }
+  // If nothing matched at all, run county-only lookup
+  if (!priceEstimate) {
+    priceEstimate = getPriceEstimate('', county);
+  }
+
+  const { pricePerAcre, matchedKey, confidence } = priceEstimate;
 
   const userPricePerAcre = askingPrice && acreage ? parseFloat(askingPrice) / acreage : null;
   const overchargePercent = userPricePerAcre
@@ -627,15 +669,30 @@ function DueDiligenceChecklist() {
 }
 
 // ─── COST BREAKDOWN COMPONENT ─────────────────────────────────
-function CostBreakdown({ costSum }) {
+function CostBreakdown({ costSum, report }) {
   const foundation  = costSum?.estimated_foundation_premium_kes || 0;
   const legalRisk   = costSum?.estimated_legal_risk_kes || 0;
   const totalHidden = costSum?.total_hidden_cost_estimate_kes || 0;
-  const gridCost    = costSum?.estimated_grid_connection_kes || 0;
+  // Grid cost: Gemini doesn\'t output this field, but the fallback report does.
+  // Also check inside report.sections[] for the infrastructure section.
+  const gridCost    = costSum?.estimated_grid_connection_kes || (
+    (Array.isArray(report?.sections)
+      ? report.sections.find(s => s.id === 'infrastructure')?.estimated_grid_connection_cost_kes
+      : null) || 0
+  );
+  // Due diligence costs (from fallback report)
+  const titleSearch   = costSum?.title_search_cost_kes || 0;
+  const surveyorCost  = costSum?.recommended_survey_cost_kes || 0;
+  const totalDueDil   = costSum?.total_pre_purchase_due_diligence_kes || 0;
 
   // Show the section if ANY cost is non-zero
-  const hasAnyCost = foundation || legalRisk || totalHidden || gridCost;
+  const hasAnyCost = foundation || legalRisk || totalHidden || gridCost || titleSearch || surveyorCost;
   if (!hasAnyCost) return null;
+
+  // Compute display total: prefer Gemini\'s total_hidden_cost_estimate_kes,
+  // otherwise sum the individual items we have.
+  const computedTotal = totalHidden || (foundation + gridCost +
+    (typeof legalRisk === 'number' ? legalRisk : 0));
 
   return (
     <motion.div
@@ -660,19 +717,29 @@ function CostBreakdown({ costSum }) {
             <span className="text-sm font-bold text-terra-heading">{fmtKes(gridCost)}</span>
           </div>
         )}
-        {legalRisk > 0 && (
+        {(typeof legalRisk === 'number' ? legalRisk > 0 : !!legalRisk) && (
           <div className="flex justify-between items-center py-2 border-b border-slate-100">
             <span className="text-sm text-terra-body">Legal / Repossession Risk</span>
             <span className="text-sm font-bold text-red-600">{typeof legalRisk === 'number' ? fmtKes(legalRisk) : legalRisk}</span>
           </div>
         )}
-        {(totalHidden > 0 || (foundation + gridCost + (typeof legalRisk === 'number' ? legalRisk : 0)) > 0) && (
+        {titleSearch > 0 && (
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-sm text-terra-body">Title Search (Ardhisasa)</span>
+            <span className="text-sm font-bold text-terra-heading">{fmtKes(titleSearch)}</span>
+          </div>
+        )}
+        {surveyorCost > 0 && (
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-sm text-terra-body">Surveyor / Soil Investigation</span>
+            <span className="text-sm font-bold text-terra-heading">{fmtKes(surveyorCost)}</span>
+          </div>
+        )}
+        {computedTotal > 0 && (
           <div className="flex justify-between items-center pt-3 border-t-2 border-terra-heading">
             <span className="text-sm font-black text-terra-heading">Total Hidden Cost Estimate</span>
             <span className="text-sm font-black text-terra-heading">
-              {totalHidden
-                ? (typeof totalHidden === 'number' ? fmtKes(totalHidden) : totalHidden)
-                : fmtKes(foundation + gridCost + (typeof legalRisk === 'number' ? legalRisk : 0))}
+              {fmtKes(computedTotal)}
             </span>
           </div>
         )}
@@ -952,16 +1019,16 @@ export default function Report() {
               <StatBlock icon={Droplets} label="Dist. to River/Stream" value={waterDist} highlight={payload.riparian_breach} />
             )}
             {payload.demolition_risk != null && (
-              <StatBlock icon={Shield} label="Demolition Risk" value={payload.demolition_risk ? '⚠ YES' : '✓ Clear'} highlight={payload.demolition_risk} />
+              <StatBlock icon={Shield} label="Demolition Risk" value={payload.demolition_risk ? 'RISK' : 'Clear'} highlight={payload.demolition_risk} />
             )}
             {payload.road_reserve_risk != null && (
-              <StatBlock icon={Shield} label="Road Reserve" value={payload.road_reserve_risk ? '⚠ Encroachment' : '✓ Clear'} highlight={payload.road_reserve_risk} />
+              <StatBlock icon={Shield} label="Road Reserve" value={payload.road_reserve_risk ? 'Encroachment' : 'Clear'} highlight={payload.road_reserve_risk} />
             )}
             {payload.riparian_breach != null && (
-              <StatBlock icon={Droplets} label="Riparian Violation" value={payload.riparian_breach ? '⚠ YES' : '✓ Clear'} highlight={payload.riparian_breach} />
+              <StatBlock icon={Droplets} label="Riparian Violation" value={payload.riparian_breach ? 'RISK' : 'Clear'} highlight={payload.riparian_breach} />
             )}
             {payload.aviation_risk != null && (
-              <StatBlock icon={Shield} label="Aviation Height Cap" value={payload.aviation_risk ? '⚠ YES' : '✓ Clear'} highlight={payload.aviation_risk} />
+              <StatBlock icon={Shield} label="Aviation Height Cap" value={payload.aviation_risk ? 'RISK' : 'Clear'} highlight={payload.aviation_risk} />
             )}
             {payload.distance_to_grid_m != null && (
               <StatBlock icon={Zap} label="Distance to Grid" value={gridDist} />
@@ -987,7 +1054,7 @@ export default function Report() {
         )}
 
         {/* ── Hidden Cost Estimate ── */}
-        <CostBreakdown costSum={costSum} />
+        <CostBreakdown costSum={costSum} report={report} />
 
         {/* ── Full Due Diligence Checklist ── */}
         <DueDiligenceChecklist />
