@@ -1053,6 +1053,9 @@ def analyze():
     # Embed report into the payload for DB storage so a single column holds everything
     # needed to reconstruct the full UI without calling Flask again.
     # We use a private key so it doesn't pollute the normal payload consumers.
+    # Stamp schema version so Sidebar.jsx can trivially detect old vs new rows.
+    if isinstance(ai_report, dict):
+        ai_report["_schema_version"] = 2   # bump this when the report schema changes
     analysis_payload_for_db = dict(analysis_payload)
     analysis_payload_for_db["_report"] = ai_report
     analysis_payload_for_db["_report_source"] = report_source

@@ -21,6 +21,125 @@ import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
 
+// ─── Schema Migration ─────────────────────────────────────────────────
+/**
+ * Normalises a stored _report (from Supabase payload._report) to the
+ * current new-pivot schema that Report.jsx expects.
+ *
+ * Old schema keys:  pros, cons, key_flags, land_feasibility_score,
+ *                   land_feasibility_label, score_breakdown, sections[]
+ *                   (sections may have old id values like "legal")
+ * New schema keys:  investment_verdict, executive_summary, risk_flags[],
+ *                   cost_summary, sections[], disclaimer
+ *
+ * If the report is already new-schema (has investment_verdict), return as-is.
+ * If _report is null/undefined, return a minimal empty shell.
+ */
+function migrateOldReport(report, payload) {
+  // If null / missing — build a minimal shell from payload booleans
+  if (!report || typeof report !== 'object') {
+    return buildShellReport(payload);
+  }
+
+  // Already new schema — either stamped with version 2, or has new-pivot keys
+  const hasNewSchema = (
+    report._schema_version >= 2 ||
+    'investment_verdict' in report ||
+    Array.isArray(report.risk_flags)
+  );
+  if (hasNewSchema) return report;
+
+  // ── OLD schema migration ─────────────────────────────────
+  const score = report.land_feasibility_score ?? 100;
+  const label = report.land_feasibility_label ?? 'SAFE';
+
+  // Convert old verdict
+  let verdict;
+  if (score < 50 || (payload?.demolition_risk || payload?.riparian_breach)) {
+    verdict = 'DO NOT BUY — FATAL LEGAL FLAW';
+  } else if (score < 80) {
+    verdict = 'PROCEED WITH CAUTION';
+  } else {
+    verdict = 'CLEAR FOR DUE DILIGENCE';
+  }
+
+  // Convert old key_flags / cons[] into new risk_flags[]
+  const rawFlags = [
+    ...(report.key_flags ?? []),
+    ...(report.cons ?? []),
+  ];
+  const risk_flags = rawFlags
+    .filter(f => typeof f === 'string' && f.trim())
+    .map(f => {
+      const isRisk    = f.startsWith('RISK:');
+      const isBudget  = f.startsWith('BUDGET:');
+      const clean     = f.replace(/^(RISK|BUDGET|ADVISORY):\s*/i, '').trim();
+      return {
+        flag_name: clean.split(' — ')[0].split(' (')[0].slice(0, 60),
+        severity:  isRisk ? 'CAUTION' : 'ADVISORY',
+        explanation: clean,
+        estimated_kes_impact: null,
+      };
+    });
+
+  // Convert old sections[] (may have different ids)
+  const ID_MAP = {
+    legal:          'legal_risks',
+    topography:     'foundation_costs',
+    environmental:  'legal_risks',
+    infrastructure: 'infrastructure',
+    zoning:         'legal_risks',
+    solar:          'infrastructure',
+    fraud_checklist:'legal_risks',
+    recommendation: 'infrastructure',
+  };
+  const sections = (report.sections ?? []).map(s => ({
+    ...s,
+    id: ID_MAP[s.id] ?? s.id,
+  }));
+
+  // Reconstruct cost_summary from old fields
+  const cost_summary = report.cost_summary ?? {
+    estimated_foundation_premium_kes:
+      report.sections?.find(s => s.estimated_foundation_cost_kes)?.estimated_foundation_cost_kes ?? 0,
+    estimated_grid_connection_kes:
+      report.sections?.find(s => s.estimated_grid_connection_cost_kes)?.estimated_grid_connection_cost_kes ?? 0,
+    estimated_legal_risk_kes: 0,
+    total_hidden_cost_estimate_kes: 0,
+    title_search_cost_kes: 500,
+    recommended_survey_cost_kes: 25000,
+    total_pre_purchase_due_diligence_kes: 25500,
+  };
+
+  return {
+    investment_verdict:   verdict,
+    executive_summary:    report.executive_summary ?? (report.pros?.[0] ?? 'Archived report — data from previous schema version.'),
+    land_feasibility_score: score,
+    land_feasibility_label: label,
+    risk_flags,
+    cost_summary,
+    sections,
+    disclaimer:           report.disclaimer ?? 'Archived report. Data computed at time of original analysis.',
+    _migrated_from_v1:    true,
+  };
+}
+
+/** Build a minimal new-schema report when _report is completely absent */
+function buildShellReport(payload) {
+  const p = payload || {};
+  const isFatal   = p.demolition_risk || p.riparian_breach;
+  const isCaution = !isFatal && (p.aviation_risk || p.road_reserve_risk || p.flood_history);
+  return {
+    investment_verdict:   isFatal ? 'DO NOT BUY — FATAL LEGAL FLAW' : isCaution ? 'PROCEED WITH CAUTION' : 'CLEAR FOR DUE DILIGENCE',
+    executive_summary:    'This is an archived report. The AI narrative is not available, but the geospatial risk indicators below are computed directly from satellite data and remain accurate.',
+    risk_flags:           [],
+    cost_summary:         { estimated_foundation_premium_kes: 0, estimated_grid_connection_kes: 0, estimated_legal_risk_kes: 0, total_hidden_cost_estimate_kes: 0 },
+    sections:             [],
+    disclaimer:           'Archived report. Data computed at time of original analysis.',
+    _migrated_from_v1:    true,
+  };
+}
+
 const NAV_ITEMS = [
   { to: '/',        icon: LayoutDashboard, label: 'Home' },
   { to: '/analyze', icon: ScanLine,        label: 'Analyze Land' },
@@ -73,11 +192,15 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
       if (error) throw error;
 
       const stored = data.payload;
-      const report       = stored._report       ?? null;
+      const rawReport    = stored._report       ?? null;
       const reportSource = stored._report_source ?? 'database';
       const { _report, _report_source, ...cleanPayload } = stored;
 
-      setActiveReport(item.id, cleanPayload, report);
+      // Normalize old-schema reports (pre-pivot) to the current schema
+      // so Report.jsx always receives investment_verdict / risk_flags / sections
+      const migratedReport = migrateOldReport(rawReport, cleanPayload);
+
+      setActiveReport(item.id, cleanPayload, migratedReport);
       navigate('/report');
     } catch (err) {
       setLoadError(`Could not load "${item.location_name}". Please try again.`);
