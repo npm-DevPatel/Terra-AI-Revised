@@ -1,70 +1,32 @@
-import { useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle, CheckCircle2, XCircle, Download, ArrowLeft,
-  MapPin, Zap, Droplets, Mountain, Shield, Building2,
-  Sun, TreePine, Activity, DollarSign, ChevronRight, Cpu, ExternalLink, WifiOff
+  MapPin, Zap, Droplets, Shield, Building2,
+  Activity, DollarSign, ChevronRight, Cpu, ExternalLink, WifiOff,
+  ChevronDown, ChevronUp, Printer
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { pdf } from '@react-pdf/renderer';
 import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import ChatAssistant from '../components/results/ChatAssistant';
 import useTerraStore from '../store/useTerraStore';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import TerraReportDocument from '../components/pdf/TerraReportDocument';
+import { TerraReportDocument } from '../components/pdf/TerraReportDocument';
+import { getPriceEstimate, PLOT_SIZE_TO_ACRES, OVERCHARGE_THRESHOLD_PERCENT } from '../utils/pricingMatrix';
 
 /**
- * Report.jsx
+ * Report.jsx — Terra AI Pre-Purchase Land Screener
  * ─────────────────────────────────────────────────────────────
- * Engine response schema (from /api/spatial/analyze):
- *   engineState.payload = {
- *     elevation_m, slope_percent, flood_history, nearest_waterway_m,
- *     nearest_road_m, distance_to_grid_m, aviation_risk, nearest_airport_km,
- *     riparian_breach, protected_land_risk, county, ward, place_name,
- *     ndvi_score, ndvi_interpretation, land_cover_label, soil_moisture,
- *     nearest_hospital_km, nearest_school_km, solar_available, annual_sunshine_hours,
- *     coordinates: { lat, lng }, ...
- *   }
- *   engineState.report = {
- *     overall_risk_score, overall_risk_label, executive_summary,
- *     investment_verdict, estimated_land_value_context,
- *     sections: [{ id, title, risk_level, body, estimated_foundation_cost_kes? }],
- *     key_flags: string[],
- *     cost_summary: {
- *       estimated_foundation_premium_kes, estimated_grid_connection_kes,
- *       title_search_cost_kes, recommended_survey_cost_kes,
- *       total_pre_purchase_due_diligence_kes
- *     },
- *     disclaimer: string
- *   }
+ * Pivoted from "Geospatial Data Platform" to "Pre-Purchase Screener & Fraud Detector".
+ * Answers three buyer questions instantly:
+ *   1. Is this land legally safe? (Red/Yellow/Green VerdictBanner)
+ *   2. Is the broker overcharging me? (PricingCalculator)
+ *   3. What exact steps must I take next? (DueDiligenceChecklist)
  */
 
-// ─── Risk level helpers ────────────────────────────────────────
-function riskColor(score) {
-  if (score >= 80) return { text: 'text-emerald-600',  bg: 'bg-emerald-50', bar: 'bg-emerald-500' };
-  if (score >= 50) return { text: 'text-amber-600', bg: 'bg-amber-50',  bar: 'bg-amber-500' };
-  return               { text: 'text-red-600',   bg: 'bg-red-50',    bar: 'bg-red-500' };
-}
-
-const SECTION_ICONS = {
-  legal:          Shield,
-  topography:     Mountain,
-  environmental:  Droplets,
-  infrastructure: Zap,
-  zoning:         Building2,
-  solar:          Sun,
-  fraud_checklist: Shield,
-  recommendation: ChevronRight,
-};
-
-const RISK_BADGE = {
-  high:   'bg-red-50 border-red-200 text-red-700',
-  medium: 'bg-amber-50 border-amber-200 text-amber-700',
-  low:    'bg-emerald-50 border-emerald-200 text-emerald-700',
-  info:   'bg-blue-50 border-blue-200 text-blue-700',
-};
-
+// ─── Utility formatters ────────────────────────────────────────
 function fmt(val, suffix = '') {
   if (val == null) return '—';
   return `${val}${suffix}`;
@@ -75,11 +37,9 @@ function fmtKes(val) {
   return `KES ${Number(val).toLocaleString()}`;
 }
 
-// ─── Inline Markdown Renderer (handles **bold**, numbered lists, newlines) ───
+// ─── Inline Markdown Renderer ─────────────────────────────────
 function renderBody(text) {
   if (!text) return null;
-
-  // Parse **bold** spans
   function parseBold(str) {
     const parts = str.split(/(\*\*[^*]+\*\*)/);
     return parts.map((part, i) => {
@@ -89,7 +49,6 @@ function renderBody(text) {
       return part;
     });
   }
-
   const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
   return (
     <div className="space-y-1.5">
@@ -109,10 +68,33 @@ function renderBody(text) {
   );
 }
 
+// ─── Section Card (for AI sections) ───────────────────────────
+const SECTION_ICONS = {
+  legal_risks:      Shield,
+  foundation_costs: Building2,
+  infrastructure:   Zap,
+  legal:            Shield,
+  topography:       Activity,
+  environmental:    Droplets,
+  zoning:           Building2,
+  solar:            Activity,
+  fraud_checklist:  Shield,
+  recommendation:   ChevronRight,
+  soil_geotech:     Building2,
+  drainage_flood:   Droplets,
+};
+
+const RISK_BADGE = {
+  high:     'bg-red-50 border-red-200 text-red-700',
+  critical: 'bg-red-100 border-red-300 text-red-800',
+  medium:   'bg-amber-50 border-amber-200 text-amber-700',
+  low:      'bg-emerald-50 border-emerald-200 text-emerald-700',
+  info:     'bg-blue-50 border-blue-200 text-blue-700',
+};
+
 function SectionCard({ section, index }) {
   const Icon = SECTION_ICONS[section.id] ?? Activity;
   const badgeClass = RISK_BADGE[section.risk_level] ?? RISK_BADGE.info;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -132,11 +114,6 @@ function SectionCard({ section, index }) {
         </span>
       </div>
       {renderBody(section.body)}
-      {section.estimated_foundation_cost_kes > 0 && (
-        <p className="mt-2 text-xs font-semibold text-terra-heading">
-          Est. Foundation Premium: {fmtKes(section.estimated_foundation_cost_kes)}
-        </p>
-      )}
       {section.estimated_grid_connection_cost_kes > 0 && (
         <p className="mt-2 text-xs font-semibold text-terra-heading">
           Est. Grid Connection: {fmtKes(section.estimated_grid_connection_cost_kes)}
@@ -145,121 +122,6 @@ function SectionCard({ section, index }) {
     </motion.div>
   );
 }
-
-// ─── Cost Breakdown Component (Bulletproof Math) ──────────────────────────
-// Totals are ALWAYS computed from the rendered line items.
-// It is mathematically impossible for a hidden cost to exist in the total.
-function CostBreakdown({ costSum }) {
-  const { dueDiligence, development, totalDueDiligence, totalDevelopment, grandTotal } = useMemo(() => {
-    const s = (val, fallback = 0) =>
-      typeof val === 'number' && Number.isFinite(val) && val > 0 ? val : fallback;
-
-    // ─ Due Diligence (pre-purchase mandatory costs) ─────────────────────────
-    const dueDiligence = [
-      { label: 'Ardhisasa Title Search', amount: s(costSum.title_search_cost_kes, 500),
-        note: 'Fixed government fee — ardhisasa.go.ke' },
-      { label: 'Beacon Survey (ISK Surveyor)', amount: s(costSum.recommended_survey_cost_kes, 25000),
-        note: 'Confirm beacons match title dimensions' },
-      { label: 'Legal Conveyancing Fees', amount: s(costSum.legal_fees_kes, 15000),
-        note: '1–2% of purchase price, min KES 10,000' },
-      ...(s(costSum.valuation_report_kes) > 0
-        ? [{ label: 'Valuation Report', amount: s(costSum.valuation_report_kes),
-             note: 'Required if using mortgage financing' }]
-        : []),
-    ];
-    const totalDueDiligence = dueDiligence.reduce((sum, item) => sum + item.amount, 0);
-
-    // ─ Development Costs (construction phase) ──────────────────────────────
-    const development = [
-      ...(s(costSum.estimated_foundation_premium_kes) > 0
-        ? [{ label: 'Foundation Premium', amount: s(costSum.estimated_foundation_premium_kes),
-             note: 'Slope/soil condition premium above standard cost' }]
-        : []),
-      ...(s(costSum.estimated_grid_connection_kes) > 0
-        ? [{ label: 'KPLC Grid Connection', amount: s(costSum.estimated_grid_connection_kes),
-             note: 'Service connection + LV extension if applicable' }]
-        : []),
-    ];
-    const totalDevelopment = development.reduce((sum, item) => sum + item.amount, 0);
-    const grandTotal = totalDueDiligence + totalDevelopment;
-
-    return { dueDiligence, development, totalDueDiligence, totalDevelopment, grandTotal };
-  }, [costSum]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.35 }}
-      className="bg-white border border-terra-border rounded-2xl p-4 sm:p-6 mb-6"
-    >
-      <h2 className="text-base font-black text-terra-heading mb-4 sm:mb-5 flex items-center gap-2">
-        <DollarSign className="w-4 h-4 text-emerald-500" /> Estimated Cost Breakdown
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-
-        {/* ─ Due Diligence ───────────────────────────────────────────── */}
-        <div>
-          <p className="text-xs font-bold text-terra-muted uppercase tracking-widest mb-3">Pre-Purchase Due Diligence</p>
-          <div className="space-y-0">
-            {dueDiligence.map(({ label, amount, note }) => (
-              <div key={label} className="flex justify-between items-start py-2.5 border-b border-slate-100 last:border-0 gap-3">
-                <div>
-                  <p className="text-sm text-terra-body">{label}</p>
-                  {note && <p className="text-[11px] text-terra-muted mt-0.5">{note}</p>}
-                </div>
-                <span className="text-sm font-bold text-terra-heading whitespace-nowrap">{fmtKes(amount)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between items-center pt-3 mt-1 border-t-2 border-terra-heading">
-            <span className="text-sm font-black text-terra-heading">Total Due Diligence</span>
-            <span className="text-sm font-black text-terra-heading">{fmtKes(totalDueDiligence)}</span>
-          </div>
-        </div>
-
-        {/* ─ Development Costs ────────────────────────────────────────── */}
-        <div>
-          <p className="text-xs font-bold text-terra-muted uppercase tracking-widest mb-3">Development Cost Flags</p>
-          {development.length === 0 ? (
-            <div className="flex items-center gap-2 py-4">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-              <p className="text-sm text-emerald-700">No major infrastructure cost flags detected for this zone.</p>
-            </div>
-          ) : (
-            <div className="space-y-0">
-              {development.map(({ label, amount, note }) => (
-                <div key={label} className="flex justify-between items-start py-2.5 border-b border-slate-100 last:border-0 gap-3">
-                  <div>
-                    <p className="text-sm text-terra-body">{label}</p>
-                    {note && <p className="text-[11px] text-terra-muted mt-0.5">{note}</p>}
-                  </div>
-                  <span className="text-sm font-bold text-terra-heading whitespace-nowrap">{fmtKes(amount)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {totalDevelopment > 0 && (
-            <div className="flex justify-between items-center pt-3 mt-1 border-t-2 border-terra-heading">
-              <span className="text-sm font-black text-terra-heading">Total Development</span>
-              <span className="text-sm font-black text-terra-heading">{fmtKes(totalDevelopment)}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Grand Total */}
-      <div className="mt-5 pt-4 border-t border-slate-200 bg-slate-50 rounded-xl px-4 py-3 flex justify-between items-center">
-        <div>
-          <p className="text-sm font-black text-terra-heading">Combined Estimate</p>
-          <p className="text-[11px] text-terra-muted">Due diligence + known infrastructure costs</p>
-        </div>
-        <span className="text-xl font-black text-emerald-600">{fmtKes(grandTotal)}</span>
-      </div>
-    </motion.div>
-  );
-}
-
 
 // ─── AI Engine Status Bar ───────────────────────────────────────
 function AIEngineStatus({ reportSource, modelUsed }) {
@@ -326,7 +188,8 @@ function AIEngineStatus({ reportSource, modelUsed }) {
     </motion.div>
   );
 }
-// ─── Stat Block ────────────────────────────────────────────────
+
+// ─── Stat Block (for filtered geo stats) ──────────────────────
 function StatBlock({ icon: Icon, label, value, highlight }) {
   return (
     <div className={clsx('bg-white rounded-2xl border p-4 flex flex-col gap-1', highlight ? 'border-amber-200' : 'border-terra-border')}>
@@ -339,11 +202,601 @@ function StatBlock({ icon: Icon, label, value, highlight }) {
   );
 }
 
+// ─── VERDICT BANNER COMPONENT ─────────────────────────────────
+function VerdictBanner({ payload }) {
+  const isFatal  = payload.demolition_risk || payload.riparian_breach;
+  const isCaution = !isFatal && (payload.aviation_risk || (payload.cost_summary?.estimated_foundation_premium_kes > 0));
+  const isClear  = !isFatal && !isCaution;
+
+  if (isFatal) return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="verdict-banner verdict-red"
+    >
+      <span className="verdict-icon">🔴</span>
+      <div>
+        <h2>DO NOT PROCEED</h2>
+        <p>High risk of government demolition or forced repossession detected. <strong>Do not pay any deposit until these flags are legally resolved.</strong></p>
+        <p className="verdict-subtext">Trigger: {payload.demolition_risk ? 'Demolition / Road Reserve Risk' : 'Riparian Zone Breach'}</p>
+      </div>
+    </motion.div>
+  );
+
+  if (isCaution) return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="verdict-banner verdict-yellow"
+    >
+      <span className="verdict-icon">🟡</span>
+      <div>
+        <h2>PROCEED WITH CAUTION</h2>
+        <p>Legal height restrictions or expensive soil conditions detected. <strong>Adjust your budget before committing.</strong></p>
+        <p className="verdict-subtext">Trigger: {payload.aviation_risk ? 'Aviation height cap' : 'Foundation cost premium'}</p>
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="verdict-banner verdict-green"
+    >
+      <span className="verdict-icon">🟢</span>
+      <div>
+        <h2>CLEAR FOR DUE DILIGENCE</h2>
+        <p>No major geospatial red flags detected by our satellite analysis. <strong>Proceed to the legal checks below before paying anything.</strong></p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── PRICING CALCULATOR COMPONENT ────────────────────────────
+/**
+ * Calculates whether the broker's asking price is fair for this area.
+ * Lifts result up to parent via onResultChange so it can be passed into the PDF.
+ */
+function PricingCalculator({ payload, onResultChange }) {
+  const [askingPrice, setAskingPrice] = useState('');
+  const [plotSizeKey, setPlotSizeKey] = useState('50x100 ft (0.115 acres)');
+
+  const acreage = PLOT_SIZE_TO_ACRES[plotSizeKey];
+  const locationInput = payload.ward || payload.place_name || '';
+  const county = payload.county || '';
+  const { pricePerAcre, matchedKey, confidence } = getPriceEstimate(locationInput, county);
+
+  const userPricePerAcre = askingPrice && acreage ? parseFloat(askingPrice) / acreage : null;
+  const overchargePercent = userPricePerAcre
+    ? Math.round(((userPricePerAcre - pricePerAcre) / pricePerAcre) * 100)
+    : null;
+
+  const isOvercharged  = overchargePercent !== null && overchargePercent > OVERCHARGE_THRESHOLD_PERCENT;
+  const isUnderpriced  = overchargePercent !== null && overchargePercent < -25;
+
+  // Lift result to parent whenever calculation changes
+  const handlePriceChange = useCallback((newPrice) => {
+    setAskingPrice(newPrice);
+    const price = parseFloat(newPrice);
+    if (newPrice && acreage && !isNaN(price)) {
+      const calcPricePerAcre = price / acreage;
+      const calcOvercharge   = Math.round(((calcPricePerAcre - pricePerAcre) / pricePerAcre) * 100);
+      onResultChange({
+        askingPrice:      price,
+        plotSizeKey,
+        acreage,
+        pricePerAcre,
+        matchedKey,
+        confidence,
+        overchargePercent: calcOvercharge,
+        isOvercharged:    calcOvercharge > OVERCHARGE_THRESHOLD_PERCENT,
+        isUnderpriced:    calcOvercharge < -25,
+      });
+    } else {
+      onResultChange(null);
+    }
+  }, [acreage, pricePerAcre, matchedKey, confidence, plotSizeKey, onResultChange]);
+
+  const handleSizeChange = useCallback((newKey) => {
+    setPlotSizeKey(newKey);
+    if (askingPrice) {
+      const price = parseFloat(askingPrice);
+      const newAcreage = PLOT_SIZE_TO_ACRES[newKey];
+      if (newAcreage && !isNaN(price)) {
+        const calcPricePerAcre = price / newAcreage;
+        const calcOvercharge   = Math.round(((calcPricePerAcre - pricePerAcre) / pricePerAcre) * 100);
+        onResultChange({
+          askingPrice:      price,
+          plotSizeKey:      newKey,
+          acreage:          newAcreage,
+          pricePerAcre,
+          matchedKey,
+          confidence,
+          overchargePercent: calcOvercharge,
+          isOvercharged:    calcOvercharge > OVERCHARGE_THRESHOLD_PERCENT,
+          isUnderpriced:    calcOvercharge < -25,
+        });
+      }
+    }
+  }, [askingPrice, pricePerAcre, matchedKey, confidence, onResultChange]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+      className="calculator-card"
+    >
+      <h3 className="text-base font-black text-terra-heading mb-1 flex items-center gap-2">
+        <DollarSign className="w-4 h-4 text-emerald-500" /> 💰 Broker Price Check
+      </h3>
+      <p className="calculator-subtitle">
+        Area benchmark: <strong>{matchedKey}</strong> —{' '}
+        <strong>KES {pricePerAcre.toLocaleString()}/acre</strong>{' '}
+        <span className={`confidence-badge confidence-${confidence.toLowerCase()}`}>{confidence} confidence</span>
+      </p>
+
+      <div className="calc-inputs">
+        <label>
+          Broker's Asking Price (KES)
+          <input
+            id="asking-price-input"
+            type="number"
+            placeholder="e.g. 3500000"
+            value={askingPrice}
+            onChange={(e) => handlePriceChange(e.target.value)}
+          />
+        </label>
+        <label>
+          Plot Size
+          <select
+            id="plot-size-select"
+            value={plotSizeKey}
+            onChange={(e) => handleSizeChange(e.target.value)}
+          >
+            {Object.keys(PLOT_SIZE_TO_ACRES).map((k) => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {userPricePerAcre && (
+        <div className={`calc-result ${isOvercharged ? 'result-red' : isUnderpriced ? 'result-blue' : 'result-green'}`}>
+          {isOvercharged && (
+            <>
+              <span>⚠️ OVERCHARGE DETECTED</span>
+              <p>
+                The broker is asking <strong>KES {parseFloat(askingPrice).toLocaleString()}</strong> for this plot
+                (KES {Math.round(userPricePerAcre).toLocaleString()}/acre).
+                This area averages <strong>KES {pricePerAcre.toLocaleString()}/acre</strong>.
+                You are being asked to pay <strong>{overchargePercent}% above market rate</strong>.
+                Negotiate hard or walk away.
+              </p>
+            </>
+          )}
+          {isUnderpriced && (
+            <>
+              <span>🚩 SUSPICIOUSLY LOW PRICE</span>
+              <p>
+                This price is <strong>{Math.abs(overchargePercent)}% below</strong> the area average.
+                A deal that seems too good to be true is a major fraud red flag.
+                Proceed with extreme caution and do NOT pay anything before completing every step in the checklist below.
+              </p>
+            </>
+          )}
+          {!isOvercharged && !isUnderpriced && (
+            <>
+              <span>✅ FAIR MARKET RANGE</span>
+              <p>
+                The asking price of <strong>KES {parseFloat(askingPrice).toLocaleString()}</strong> is within the fair market range for <strong>{matchedKey}</strong>.
+                This does not mean the land is legally safe — complete all due diligence steps below.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {confidence === 'LOW' && (
+        <p className="confidence-warning">
+          ⚠️ Price data for this specific location is limited. The benchmark shown is a regional estimate.
+          Verify prices locally before using this as your sole reference.
+        </p>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── DUE DILIGENCE CHECKLIST DATA ─────────────────────────────
+const DUE_DILIGENCE_STEPS = [
+  {
+    id: 1,
+    title: 'Official Title Search (Ardhisasa / eCitizen)',
+    cost: 'KES 500',
+    time: '24 hours – 3 working days',
+    urgency: 'DO THIS FIRST — before any viewing, before any deposit',
+    why: 'Land fraud is Kenya\'s most devastating financial scam. Thousands of buyers every year pay for land that has multiple owners, is repossessed by a bank, or whose title is an outright forgery. This single search, costing KES 500, will confirm the legal owner\'s name, the exact registered size of the land, the tenure type (freehold or leasehold), and most critically — any encumbrances such as bank charges, court caveats, or cautions registered by a third party claiming interest. If the name on the title deed does not match the person selling you the land, stop immediately.',
+    how: 'For Nairobi: visit ardhisasa.lands.go.ke, register with your National ID and KRA PIN, navigate to Land Search, enter the exact L.R. number from the title deed, upload a copy of the title deed and your ID, and pay KES 500 via M-Pesa. Results arrive in 24–72 hours. For all other counties: use ecitizen.go.ke → Ministry of Lands → Land Search.',
+    redFlags: [
+      'Registered owner name does not match the seller — stop the transaction immediately',
+      'Any \'charge\' listed means a bank has the land as loan collateral — you can lose it even after buying',
+      'A \'caution\' or \'caveat\' means someone has filed a legal claim — do not proceed until it is removed',
+      'The seller refuses to give you the L.R. number — this is a massive red flag',
+    ],
+    link: 'https://ardhisasa.lands.go.ke',
+    linkText: 'ardhisasa.lands.go.ke',
+  },
+  {
+    id: 2,
+    title: 'Manual \'Green Card\' Search at Land Registry',
+    cost: 'KES 500–1,000 + lawyer time',
+    time: '1–3 working days',
+    urgency: 'Strongly recommended for any title older than 5 years',
+    why: 'Ardhisasa is powerful but covers mainly Nairobi and selected counties. The physical Green Card at the land registry is the master ownership record and shows every historical owner and transaction since the land was first registered.',
+    how: 'Visit the relevant county Land Registry with the title deed number and your ID. Ask the registry clerk for a historical Green Card search. Your conveyancing lawyer can do this on your behalf.',
+    redFlags: [
+      'Multiple transfers in a short period (could indicate a title being \'laundered\')',
+      'Gaps in ownership history',
+      'Previous owner was a company that no longer exists',
+    ],
+    link: 'https://lands.go.ke',
+    linkText: 'Ministry of Lands',
+  },
+  {
+    id: 3,
+    title: 'Physical Site Visit & Boundary Confirmation',
+    cost: 'Your time + transport',
+    time: 'Half day',
+    urgency: 'Before any payment',
+    why: 'Documents describe land. Your eyes confirm it exists. Fraudsters have sold land that is underwater, under a power line, or does not exist at the coordinates described. You must physically visit the parcel to confirm it is accessible, the topography matches what you were told, there are no squatters, and no high-voltage power lines run through it.',
+    how: 'Go with the seller or agent. Bring a printed copy of the survey map. Walk the perimeter. Look for the corner beacons. Talk to at least two neighbours to confirm who owns the land.',
+    redFlags: [
+      'Agent refuses to take you to the actual plot, only shows you \'nearby\' land',
+      'Neighbours say the land is disputed or already sold to someone else',
+      'There is an active seasonal stream or swamp',
+      'High-voltage power lines cross the plot',
+    ],
+    link: null,
+    linkText: null,
+  },
+  {
+    id: 4,
+    title: 'Licensed Surveyor — Beacon Verification & RIM Check',
+    cost: 'KES 15,000–40,000 depending on location and plot size',
+    time: '1–3 days',
+    urgency: 'Required before signing any sale agreement',
+    why: 'A licensed surveyor physically confirms that the beacons (corner markers) are in the correct positions and match the Registry Index Map (RIM). This prevents \'beacon shifting\' fraud — where a seller moves beacons to make a plot look bigger, or to sell you a plot that belongs to someone else.',
+    how: 'Hire only an ISK-registered surveyor (Institution of Surveyors of Kenya). You can verify registration at isk.or.ke. Provide them with the L.R. number and RIM number from the title deed.',
+    redFlags: [
+      'Beacons are missing, obviously new, or made of informal material (stones, sticks)',
+      'The physical area measured by the surveyor differs from the title deed size',
+      'The surveyor finds the plot is partly on a road reserve or public utility space',
+    ],
+    link: 'https://isk.or.ke',
+    linkText: 'ISK Surveyor Registry',
+  },
+  {
+    id: 5,
+    title: 'Land Rates Clearance Certificate (County Government)',
+    cost: 'Free to check; seller pays arrears if any',
+    time: '1–3 working days',
+    urgency: 'Before paying anything — you inherit any unpaid rates',
+    why: 'Under Kenyan law, unpaid land rates follow the land — not the seller. If you buy land with KES 500,000 in unpaid land rates, you now owe that money to the county government. This debt will block you from registering the transfer and from obtaining a building permit.',
+    how: 'Visit the County Government revenue offices (e.g., Nairobi City County Hall, Kiambu County Revenue Office). Provide the L.R. number. The seller must pay all arrears and obtain a Rates Clearance Certificate before the transaction can be completed.',
+    redFlags: [
+      'Seller refuses or delays providing rates clearance certificate',
+      'Rates outstanding for more than 3 years (major red flag — this compounds with penalties)',
+    ],
+    link: null,
+    linkText: null,
+  },
+  {
+    id: 6,
+    title: 'Land Rent Clearance (Leasehold Land Only — NLC/Ministry of Lands)',
+    cost: 'Free to check; seller pays arrears',
+    time: '2–5 working days',
+    urgency: 'Critical for leasehold parcels — check tenure on your Ardhisasa results',
+    why: 'If the land is leasehold, the seller owes annual land rent to the National Land Commission or Ministry of Lands. Like county rates, this debt follows the land. Unpaid land rent will block your title transfer and, in extreme cases, can lead to forfeiture of the lease to the government.',
+    how: 'For leasehold: Contact the National Land Commission (NLC) or the relevant Ministry of Lands regional office with the title deed number. Your conveyancing lawyer handles this routinely.',
+    redFlags: [
+      'Lease period is expiring soon (e.g. less than 30 years left) — renewal is expensive and not guaranteed',
+      'Land rent is in arrears — government can repossess in extreme cases',
+    ],
+    link: 'https://www.nlc.go.ke',
+    linkText: 'National Land Commission',
+  },
+  {
+    id: 7,
+    title: 'Zoning & Change of User Verification (County Physical Planning)',
+    cost: 'Free to verify; Change of User can cost KES 50,000–300,000+',
+    time: '1–2 days to verify; months if change required',
+    urgency: 'Before signing — especially for any agricultural land you plan to build on',
+    why: 'Building a house on agricultural land, or opening a business on residential land, without a formal Change of User approval is illegal and can result in the structure being demolished.',
+    how: 'Visit the County Government\'s Physical Planning Department with the L.R. number and approximate GPS coordinates. They will confirm the land\'s designated use in the county spatial plan.',
+    redFlags: [
+      'Land is in an agricultural zone and the seller says \'you can just build\' — this is illegal without change of user',
+      'County plan shows the land is earmarked for a public road, school, or green space',
+    ],
+    link: null,
+    linkText: null,
+  },
+  {
+    id: 8,
+    title: 'Land Control Board (LCB) Consent (Agricultural Land)',
+    cost: 'Minimal official fee (~KES 1,000); lawyer\'s time',
+    time: 'LCB meets monthly — plan for 4–6 weeks',
+    urgency: 'Legally mandatory for any land classified as agricultural',
+    why: 'Under the Land Control Act (Cap 302), any transaction involving agricultural land requires prior consent from the local Land Control Board. Without LCB consent, the sale is null and void under Kenyan law — even if you have paid, even if the title is transferred.',
+    how: 'Your conveyancing lawyer applies for consent at the local Sub-County Land Control Board offices. The board meets monthly. The seller (and all co-owners, including spouse) must appear.',
+    redFlags: [
+      'Seller says LCB consent is \'not needed\' for agricultural land — this is legally false',
+      'Spousal consent is missing — required under the Matrimonial Property Act 2013',
+    ],
+    link: null,
+    linkText: null,
+  },
+  {
+    id: 9,
+    title: 'Conveyancing Lawyer — Sale Agreement & Escrow',
+    cost: '~1% of land value (minimum ~KES 30,000–50,000)',
+    time: 'Ongoing from offer to title transfer',
+    urgency: 'Do NOT sign anything or pay anything without a lawyer',
+    why: 'A conveyancing lawyer conducts court searches, drafts the legally binding Sale Agreement, handles all encumbrance clearances, submits for stamp duty, files the transfer at the Land Registry, and ensures the new title deed comes out in your name.',
+    how: 'Find a lawyer registered with the Law Society of Kenya (LSK). Verify their LSK number at lsk.or.ke. Do not use the seller\'s lawyer for your protection — always hire your own.',
+    redFlags: [
+      'Seller insists you use their lawyer — a major conflict of interest',
+      'Anyone asking you to pay directly in cash or to a personal M-Pesa number',
+      'Being pressured to sign documents quickly \'before someone else buys it\'',
+    ],
+    link: 'https://lsk.or.ke',
+    linkText: 'Verify Lawyers at LSK',
+  },
+  {
+    id: 10,
+    title: 'Stamp Duty Payment (KRA)',
+    cost: '2% for agricultural land; 4% for other land',
+    time: 'Processing: 1–2 days via iTax',
+    urgency: 'Required to complete the title transfer at the Land Registry',
+    why: 'Without paying stamp duty, the Ministry of Lands will not process the transfer of the title deed into your name.',
+    how: 'Your lawyer files the stamp duty assessment on KRA\'s iTax portal. Once assessed, you pay via the generated payment slip.',
+    redFlags: [
+      'Being asked to under-declare the purchase price to reduce stamp duty — this is tax fraud and can void the transaction',
+    ],
+    link: 'https://itax.kra.go.ke',
+    linkText: 'KRA iTax Portal',
+  },
+  {
+    id: 11,
+    title: 'Community & Neighbour Inquiry',
+    cost: 'Free',
+    time: '1 hour on site',
+    urgency: 'Do this during your physical site visit',
+    why: 'No official document will tell you that the seller\'s family disputes the land, that the plot was informally sold to someone else 10 years ago, or that the ground floods every April. Your neighbours know all of this.',
+    how: 'On your physical visit, walk up to at least two neighbouring properties. Ask: who is the owner, how long have they owned it, have there been any problems. Also visit the local chief\'s office.',
+    redFlags: [
+      'Neighbours are evasive or say \'talk to the seller\' about ownership',
+      'Multiple neighbours independently mention a dispute',
+      'Chief is unaware of the seller or says ownership is contested',
+    ],
+    link: null,
+    linkText: null,
+  },
+  {
+    id: 12,
+    title: 'Mutation & Subdivision Verification (for subdivided plots)',
+    cost: 'Included in surveyor\'s fee',
+    time: 'Surveyor will check during beacon verification',
+    urgency: 'Critical if the plot was carved out of a larger parcel',
+    why: 'The majority of plots sold in Nairobi\'s satellite towns were created by subdividing a larger agricultural parcel. If your plot was informally subdivided, your title deed may not legally correspond to any registered parcel.',
+    how: 'Ask the seller to produce the Mutation Form showing the subdivision was legally registered. Your surveyor will verify this against the RIM.',
+    redFlags: [
+      'No mutation form can be produced',
+      'The title deed number matches the original large farm title, not a sub-plot title',
+      'The subdivision appears on no county plan',
+    ],
+    link: null,
+    linkText: null,
+  },
+];
+
+// ─── DUE DILIGENCE CHECKLIST COMPONENT ────────────────────────
+function DueDiligenceChecklist() {
+  const [checkedSteps, setCheckedSteps] = useState({});
+  const [expandedStep, setExpandedStep] = useState(null);
+
+  const toggleCheck = (id) => {
+    setCheckedSteps(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const completedCount = Object.values(checkedSteps).filter(Boolean).length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="checklist-container"
+    >
+      <div className="checklist-header">
+        <h2>🔎 Your Full Due Diligence Checklist</h2>
+        <p className="checklist-subtitle">
+          Complete every step before transferring any money. Kenya loses billions of shillings to land fraud every year.
+          This checklist is your protection.
+        </p>
+        <div className="checklist-progress">
+          <span>{completedCount} / {DUE_DILIGENCE_STEPS.length} steps completed</span>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: `${(completedCount / DUE_DILIGENCE_STEPS.length) * 100}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {DUE_DILIGENCE_STEPS.map((step) => (
+        <div key={step.id} className={`checklist-step ${checkedSteps[step.id] ? 'step-done' : ''}`}>
+          <div className="step-header" onClick={() => setExpandedStep(expandedStep === step.id ? null : step.id)}>
+            <input
+              type="checkbox"
+              id={`step-check-${step.id}`}
+              checked={!!checkedSteps[step.id]}
+              onChange={() => toggleCheck(step.id)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="step-title-group">
+              <span className="step-number">Step {step.id}</span>
+              <h3 className="step-title">{step.title}</h3>
+              <div className="step-meta">
+                <span className="step-cost">💰 {step.cost}</span>
+                <span className="step-time">⏱ {step.time}</span>
+              </div>
+            </div>
+            <span className="step-expand">
+              {expandedStep === step.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </span>
+          </div>
+
+          {expandedStep === step.id && (
+            <div className="step-body">
+              <div className="step-urgency">⚡ {step.urgency}</div>
+              <div className="step-why">
+                <strong>Why this matters:</strong>
+                <p>{step.why}</p>
+              </div>
+              <div className="step-how">
+                <strong>How to do it:</strong>
+                <p>{step.how}</p>
+              </div>
+              {step.redFlags && (
+                <div className="step-redflags">
+                  <strong>🚩 Red flags to watch for:</strong>
+                  <ul>
+                    {step.redFlags.map((flag, i) => <li key={i}>{flag}</li>)}
+                  </ul>
+                </div>
+              )}
+              {step.link && (
+                <a href={step.link} target="_blank" rel="noopener noreferrer" className="step-link">
+                  🔗 {step.linkText}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      <button id="print-checklist-btn" className="download-checklist-btn" onClick={() => window.print()}>
+        <Printer className="w-4 h-4" /> Download / Print This Checklist
+      </button>
+    </motion.div>
+  );
+}
+
+// ─── COST BREAKDOWN COMPONENT ─────────────────────────────────
+function CostBreakdown({ costSum }) {
+  const foundation = costSum?.estimated_foundation_premium_kes || 0;
+  const legalRisk  = costSum?.estimated_legal_risk_kes || 0;
+  const totalHidden = costSum?.total_hidden_cost_estimate_kes || 0;
+
+  if (!foundation && !legalRisk && !totalHidden) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="bg-white border border-terra-border rounded-2xl p-4 sm:p-6 mb-6"
+    >
+      <h2 className="text-base font-black text-terra-heading mb-4 flex items-center gap-2">
+        <DollarSign className="w-4 h-4 text-emerald-500" /> Hidden Cost Estimate
+      </h2>
+      <div className="space-y-3">
+        {foundation > 0 && (
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-sm text-terra-body">Foundation Premium</span>
+            <span className="text-sm font-bold text-terra-heading">{fmtKes(foundation)}</span>
+          </div>
+        )}
+        {legalRisk > 0 && (
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-sm text-terra-body">Legal / Repossession Risk</span>
+            <span className="text-sm font-bold text-red-600">{typeof legalRisk === 'number' ? fmtKes(legalRisk) : legalRisk}</span>
+          </div>
+        )}
+        {totalHidden > 0 && (
+          <div className="flex justify-between items-center pt-3 border-t-2 border-terra-heading">
+            <span className="text-sm font-black text-terra-heading">Total Hidden Cost Estimate</span>
+            <span className="text-sm font-black text-terra-heading">
+              {typeof totalHidden === 'number' ? fmtKes(totalHidden) : totalHidden}
+            </span>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── RISK FLAGS (from new Gemini schema) ──────────────────────
+function RiskFlagsList({ riskFlags }) {
+  if (!Array.isArray(riskFlags) || riskFlags.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.15 }}
+      className="mb-6"
+    >
+      <h2 className="text-base font-black text-terra-heading mb-3">⚠ Risk Flags Identified</h2>
+      <div className="space-y-3">
+        {riskFlags.map((flag, i) => {
+          const isFatal   = flag.severity === 'FATAL';
+          const isCaution = flag.severity === 'CAUTION';
+          return (
+            <div key={i} className={clsx(
+              'rounded-2xl border p-4',
+              isFatal   ? 'bg-red-50 border-red-200' :
+              isCaution ? 'bg-amber-50 border-amber-200' :
+                          'bg-slate-50 border-slate-200'
+            )}>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h3 className={clsx('text-sm font-black',
+                  isFatal   ? 'text-red-800' :
+                  isCaution ? 'text-amber-800' : 'text-slate-700'
+                )}>{flag.flag_name}</h3>
+                <span className={clsx('text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border',
+                  isFatal   ? 'bg-red-100 border-red-300 text-red-700' :
+                  isCaution ? 'bg-amber-100 border-amber-300 text-amber-700' :
+                              'bg-slate-100 border-slate-300 text-slate-600'
+                )}>{flag.severity}</span>
+              </div>
+              <p className="text-sm text-terra-body mb-1">{flag.explanation}</p>
+              {flag.estimated_kes_impact && (
+                <p className={clsx('text-xs font-bold mt-1',
+                  isFatal ? 'text-red-700' : isCaution ? 'text-amber-700' : 'text-slate-600'
+                )}>
+                  💸 KES Impact: {typeof flag.estimated_kes_impact === 'number'
+                    ? `KES ${flag.estimated_kes_impact.toLocaleString()}`
+                    : flag.estimated_kes_impact}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── MAIN REPORT COMPONENT ────────────────────────────────────
 export default function Report() {
   const navigate = useNavigate();
   const { engineState } = useTerraStore();
 
-  // No data yet
+  // State for the lifted PricingCalculator result (passed into PDF)
+  const [askingPriceResult, setAskingPriceResult] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // No data yet guard
   if (engineState.status !== 'done' || !engineState.payload) {
     return (
       <MainLayout>
@@ -365,50 +818,74 @@ export default function Report() {
   const report   = engineState.report ?? {};
   const coords   = payload.coordinates ?? {};
 
-  // From report (Gemini structured output)
-  const score    = typeof report.land_feasibility_score === 'number' ? report.land_feasibility_score : 0;
-  const label    = String(report.land_feasibility_label ?? '—');
-  const rawSummary = String(report.executive_summary ?? '');
-  // Detect fallback report (Gemini API failure) — don't dump raw JSON
-  const isFallback = rawSummary.startsWith('Basic report only');
-  const summary  = isFallback
-    ? 'Gemini AI synthesis is temporarily unavailable. The risk score and geospatial data below are computed directly from satellite and mapping APIs and remain fully accurate.'
+  // Gemini report fields (new schema)
+  const rawSummary  = String(report.executive_summary ?? '');
+  const isFallback  = rawSummary.startsWith('Basic report only');
+  const summary     = isFallback
+    ? 'Gemini AI synthesis is temporarily unavailable. The risk flags and geospatial data below are computed directly from satellite and mapping APIs and remain fully accurate.'
     : rawSummary || 'Analysis complete.';
-  const verdict  = report.investment_verdict ? String(report.investment_verdict) : null;
-  const sections = Array.isArray(report.sections) ? report.sections : [];
-  const flags    = Array.isArray(report.key_flags) ? report.key_flags.map(String) : [];
-  const costSum  = report.cost_summary ?? {};
-  const disclaimer = report.disclaimer ? String(report.disclaimer) : null;
-  const landValue  = (!isFallback && report.estimated_land_value_context)
-    ? String(report.estimated_land_value_context) : null;
+  const sections    = Array.isArray(report.sections) ? report.sections : [];
+  const costSum     = report.cost_summary ?? {};
+  const riskFlags   = Array.isArray(report.risk_flags) ? report.risk_flags : [];
+  const disclaimer  = report.disclaimer ? String(report.disclaimer) : null;
 
-  // From payload (raw geo data)
-  const { text: scoreText, bar: scoreBar } = riskColor(score);
+  // Merge payload + report for verdict and cost access
+  const mergedPayload = {
+    ...payload,
+    ...report,
+    // Ensure hard geospatial booleans from payload always win
+    demolition_risk:  payload.demolition_risk  ?? report.demolition_risk  ?? false,
+    riparian_breach:  payload.riparian_breach  ?? report.riparian_breach  ?? false,
+    aviation_risk:    payload.aviation_risk    ?? report.aviation_risk    ?? false,
+    cost_summary:     costSum,
+  };
 
-  const place    = [payload.place_name, payload.ward, payload.county].filter(Boolean).join(', ') || '—';
-  const elevation = fmt(payload.elevation_m, 'm');
-  const slope     = fmt(payload.slope_percent, '%');
+  const place = [payload.place_name, payload.ward, payload.county].filter(Boolean).join(', ') || '—';
+
+  // Only show buyer-relevant geo stats — remove NDVI, Vegetation, Sunshine, Solar, Soil Moisture
   const floodStr  = payload.flood_history ? 'Yes — Detected' : payload.flood_history === false ? 'Clear' : '—';
   const waterDist = payload.nearest_waterway_m != null ? `${payload.nearest_waterway_m}m` : '—';
-  const roadDist  = payload.nearest_road_m     != null ? `${payload.nearest_road_m}m`     : '—';
   const gridDist  = payload.distance_to_grid_m != null ? `${payload.distance_to_grid_m}m` : '—';
   const airportKm = payload.nearest_airport_km != null ? `${payload.nearest_airport_km}km` : '—';
-  const moisture  = payload.soil_moisture != null ? `${payload.soil_moisture}` : '—';
-  const sunshine  = payload.annual_sunshine_hours != null ? `${payload.annual_sunshine_hours} hrs/yr` : '~2007 hrs/yr';
-  const hospital  = payload.nearest_hospital_km != null ? `${payload.nearest_hospital_km}km` : '—';
-  const school    = payload.nearest_school_km   != null ? `${payload.nearest_school_km}km`   : '—';
+
+  // ─── PDF download handler (programmatic blob approach) ────────
+  const handleDownloadPDF = useCallback(async () => {
+    setIsDownloading(true);
+    try {
+      const blob = await pdf(
+        <TerraReportDocument
+          payload={mergedPayload}
+          askingPriceResult={askingPriceResult}
+        />
+      ).toBlob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `TerraAI_Report_${payload.place_name || payload.ward || 'land'}_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[Terra AI] PDF generation failed:', err);
+      alert('PDF generation failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [mergedPayload, askingPriceResult, payload.place_name, payload.ward]);
 
   return (
     <MainLayout>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        {/* Header */}
+
+        {/* ── Header ── */}
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6 sm:mb-8">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/analyze')} className="text-terra-muted hover:text-terra-heading transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-black text-terra-heading">Risk Assessment Report</h1>
+              <h1 className="text-2xl font-black text-terra-heading">Land Pre-Purchase Report</h1>
               {place !== '—' && (
                 <div className="flex items-center gap-1.5 text-terra-muted text-sm mt-0.5">
                   <MapPin className="w-3.5 h-3.5" />
@@ -418,58 +895,35 @@ export default function Report() {
               )}
             </div>
           </div>
-          <PDFDownloadLink
-            document={<TerraReportDocument payload={payload} report={report} coordinates={coords} />}
-            fileName="terra-ai-report.pdf"
+          {/* Programmatic PDF download — no PDFDownloadLink wrapper */}
+          <Button
+            id="download-pdf-btn"
+            variant="primary"
+            size="md"
+            icon={Download}
+            loading={isDownloading}
+            onClick={handleDownloadPDF}
           >
-            {({ loading }) => (
-              <Button variant="primary" size="md" icon={Download} loading={loading}>
-                {loading ? 'Generating PDF…' : 'Download Full PDF'}
-              </Button>
-            )}
-          </PDFDownloadLink>
+            {isDownloading ? 'Generating PDF…' : 'Download Full PDF'}
+          </Button>
         </div>
 
-        {/* ── Score Banner ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl border border-terra-border shadow-md p-5 sm:p-8 mb-6"
-        >
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="flex items-end gap-4">
-              <div className="flex items-end gap-2">
-                <span className={clsx('text-5xl sm:text-7xl font-black leading-none', scoreText)}>{score}</span>
-                <span className="text-terra-muted text-2xl mb-2">/100</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-2 font-medium italic mb-2">
-                (100 = Ideal, 0 = Unbuildable)
-              </p>
-              <div className="mb-1">
-                <span className={clsx('text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border',
-                  score >= 80 ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                  : score >= 50 ? 'bg-amber-50 border-amber-200 text-amber-700'
-                  : 'bg-red-50 border-red-200 text-red-700')}>
-                  {label}
-                </span>
-              </div>
-            </div>
-            {/* Score bar */}
-            <div className="flex-1 max-w-xs">
-              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                <motion.div
-                  className={clsx('h-full rounded-full', scoreBar)}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${score}%` }}
-                  transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
-                />
-              </div>
-              {verdict && <p className="text-xs text-terra-body font-semibold mt-2">{verdict}</p>}
-            </div>
-          </div>
+        {/* ── AI Engine Status ── */}
+        <AIEngineStatus reportSource={reportSource} modelUsed={modelUsed} />
 
-          {/* Executive Summary */}
-          <div className="mt-5 pt-5 border-t border-slate-100">
+        {/* ── Traffic Light Verdict Banner ── */}
+        <div className="mb-6">
+          <VerdictBanner payload={mergedPayload} />
+        </div>
+
+        {/* ── Executive Summary ── */}
+        {summary && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="bg-white rounded-2xl border border-terra-border p-5 mb-6 shadow-sm"
+          >
             <p className="text-xs font-semibold text-terra-muted uppercase tracking-widest mb-2">Executive Summary</p>
             {isFallback && (
               <div className="flex items-center gap-2 text-amber-600 text-xs font-semibold mb-2">
@@ -478,167 +932,79 @@ export default function Report() {
               </div>
             )}
             <p className="text-terra-body text-sm leading-relaxed">{summary}</p>
-            {landValue && <p className="text-xs text-terra-muted mt-2">{landValue}</p>}
-          </div>
-        </motion.div>
-
-        {/* ── Score Breakdown + Pros/Cons ── */}
-        {(() => {
-          const pros = Array.isArray(report.pros) ? report.pros : [];
-          const cons = Array.isArray(report.cons) ? report.cons : [];
-          const breakdown = report.score_breakdown ?? null;
-          if (pros.length === 0 && cons.length === 0) return null;
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"
-            >
-              {pros.length > 0 && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
-                  <p className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Positive Indicators ({pros.length})
-                  </p>
-                  <div className="space-y-2">
-                    {pros.map((pro, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
-                        <p className="text-sm text-emerald-900 leading-snug">{pro}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {cons.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-                  <p className="text-xs font-bold text-red-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                    <XCircle className="w-3.5 h-3.5" /> Risk & Cost Flags ({cons.length})
-                  </p>
-                  <div className="space-y-2">
-                    {cons.map((con, i) => {
-                      const isRisk = con.startsWith('RISK:');
-                      const isCost = con.startsWith('COST:');
-                      return (
-                        <div key={i} className="flex items-start gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${isRisk ? 'bg-red-500' : isCost ? 'bg-amber-500' : 'bg-red-400'}`} />
-                          <p className={`text-sm leading-snug ${isRisk ? 'text-red-900 font-medium' : 'text-red-800'}`}>{con}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {breakdown && breakdown.deductions && breakdown.deductions.length > 0 && (
-                <div className="sm:col-span-2 bg-slate-50 border border-slate-200 rounded-2xl p-5">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-                    Score Breakdown — How {breakdown.final_score}/100 Was Calculated
-                  </p>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-sm font-bold text-slate-700">Base score: 100</span>
-                    {breakdown.deductions.map((d, i) => (
-                      <span key={i} className="text-xs text-red-600 font-semibold bg-red-50 border border-red-100 px-2 py-1 rounded-lg">
-                        {d.split(':')[0]}
-                      </span>
-                    ))}
-                    <span className="text-sm font-black text-terra-heading">= {breakdown.final_score}</span>
-                  </div>
-                  <div className="space-y-1">
-                    {breakdown.deductions.map((d, i) => (
-                      <p key={i} className="text-xs text-slate-600">{d}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          );
-        })()}
-
-        {/* ── Key Flags ── */}
-        {flags.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6"
-          >
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" /> Key Risk Flags ({flags.length})
-            </p>
-            <div className="space-y-2">
-              {flags.map((flag, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
-                  <p className="text-sm text-amber-900 leading-snug">{flag}</p>
-                </div>
-              ))}
-            </div>
           </motion.div>
         )}
 
-        {/* ── Raw Geo Stats Grid ── */}
+        {/* ── Risk Flags from AI ── */}
+        <RiskFlagsList riskFlags={riskFlags} />
+
+        {/* ── Interactive Pricing Calculator ── */}
         <div className="mb-6">
-          <h2 className="text-base font-black text-terra-heading mb-4">Satellite & Mapping Data</h2>
+          <PricingCalculator payload={mergedPayload} onResultChange={setAskingPriceResult} />
+        </div>
+
+        {/* ── Filtered Geo Stats (buyer-relevant only) ── */}
+        <div className="mb-6">
+          <h2 className="text-base font-black text-terra-heading mb-4">📡 Satellite Risk Indicators</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {payload.elevation_m != null && <StatBlock icon={Mountain} label="Elevation" value={elevation} />}
-            {payload.slope_percent != null && <StatBlock icon={Mountain} label="Slope" value={slope} highlight={parseFloat(payload.slope_percent) >= 12} />}
-            {payload.flood_history != null && <StatBlock icon={Droplets} label="Flood Risk" value={floodStr} highlight={payload.flood_history} />}
-            {payload.nearest_waterway_m != null && <StatBlock icon={Droplets} label="Water Dist" value={waterDist} highlight={payload.riparian_breach} />}
-            {payload.nearest_road_m != null && <StatBlock icon={Activity} label="Road Dist" value={roadDist} />}
-            {payload.distance_to_grid_m != null && <StatBlock icon={Zap} label="Grid Dist" value={gridDist} />}
-            {payload.nearest_airport_km != null && <StatBlock icon={Shield} label="Airport" value={airportKm} highlight={payload.aviation_risk} />}
-            {payload.nearest_hospital_km != null && <StatBlock icon={Building2} label="Hospital" value={hospital} />}
-            {payload.nearest_school_km != null && <StatBlock icon={Building2} label="School" value={school} />}
-            {payload.nearest_market_km != null && (
-              <StatBlock icon={Building2} label="Market"      value={`${payload.nearest_market_km}km`} />
+            {payload.flood_history != null && (
+              <StatBlock icon={Droplets} label="Flood Risk Level" value={floodStr} highlight={payload.flood_history} />
             )}
-            {(payload.ndvi_interpretation && payload.ndvi_interpretation !== "unknown" && payload.ndvi_interpretation !== "Unknown") && <StatBlock icon={TreePine} label="Vegetation" value={String(payload.ndvi_interpretation)} />}
-            {payload.soil_moisture != null && <StatBlock icon={Droplets} label="Soil Moisture" value={moisture} />}
-            {payload.annual_sunshine_hours != null && <StatBlock icon={Sun} label="Sunshine" value={sunshine} />}
-            {(payload.land_cover_label && payload.land_cover_label !== "Unknown" && payload.land_cover_label !== "unknown") && (
-              <StatBlock icon={TreePine} label="Land Cover" value={String(payload.land_cover_label)} />
+            {payload.nearest_waterway_m != null && (
+              <StatBlock icon={Droplets} label="Dist. to River/Stream" value={waterDist} highlight={payload.riparian_breach} />
             )}
-            {payload.ndvi_score != null && (
-              <StatBlock icon={Activity} label="NDVI Score"   value={`${payload.ndvi_score}`} highlight={payload.ndvi_score < 0.1} />
+            {payload.demolition_risk != null && (
+              <StatBlock icon={Shield} label="Demolition Risk" value={payload.demolition_risk ? '⚠ YES' : '✓ Clear'} highlight={payload.demolition_risk} />
             )}
-            {payload.riparian_breach === true && <StatBlock icon={Shield} label="Riparian" value="⚠ Breach" highlight />}
-            {payload.protected_land_risk === true && <StatBlock icon={Shield} label="Protected Land" value="⚠ Risk" highlight />}
-            {payload.landuse_zone && payload.landuse_zone !== 'Not mapped' && (
-              <StatBlock icon={Building2} label="Land Use" value={String(payload.landuse_zone)} />
+            {payload.road_reserve_risk != null && (
+              <StatBlock icon={Shield} label="Road Reserve" value={payload.road_reserve_risk ? '⚠ Encroachment' : '✓ Clear'} highlight={payload.road_reserve_risk} />
             )}
-            {payload._zone_tier_label && (
-              <StatBlock icon={MapPin} label="Zone Tier"
-                value={String(payload._zone_tier_label).replace('Tier 1 (Hyper-Urban)','Urban').replace('Tier 2 (Peri-Urban)','Peri-Urban').replace('Tier 3 (Rural)','Rural')} />
+            {payload.riparian_breach != null && (
+              <StatBlock icon={Droplets} label="Riparian Violation" value={payload.riparian_breach ? '⚠ YES' : '✓ Clear'} highlight={payload.riparian_breach} />
             )}
-            {payload.water_connection_nearby === true && <StatBlock icon={Droplets} label="Water Supply" value="Nearby (<200m)" />}
+            {payload.aviation_risk != null && (
+              <StatBlock icon={Shield} label="Aviation Height Cap" value={payload.aviation_risk ? '⚠ YES' : '✓ Clear'} highlight={payload.aviation_risk} />
+            )}
+            {payload.distance_to_grid_m != null && (
+              <StatBlock icon={Zap} label="Distance to Grid" value={gridDist} />
+            )}
+            {payload.nearest_airport_km != null && (
+              <StatBlock icon={Activity} label="Nearest Airport" value={airportKm} highlight={payload.aviation_risk} />
+            )}
           </div>
         </div>
 
-        {/* ── Analysis Sections ── */}
+        {/* ── AI Analysis Sections (legal_risks, foundation_costs, infrastructure) ── */}
         {sections.length > 0 && (
           <div className="mb-6">
             <h2 className="text-base font-black text-terra-heading mb-4">Detailed Analysis</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {sections
-              .filter(s => typeof s.body === 'string' && s.body.length > 0)
-              .map((section, i) => (
-                <SectionCard key={section.id ?? i} section={section} index={i} />
-              ))}
+              {sections
+                .filter(s => typeof s.body === 'string' && s.body.length > 0)
+                .map((section, i) => (
+                  <SectionCard key={section.id ?? i} section={section} index={i} />
+                ))}
             </div>
           </div>
         )}
 
-        {/* ── Cost Breakdown ── */}
-        {Object.keys(costSum).length > 0 && (
-          <CostBreakdown costSum={costSum} />
-        )}
+        {/* ── Hidden Cost Estimate ── */}
+        <CostBreakdown costSum={costSum} />
 
-        {/* Disclaimer */}
+        {/* ── Full Due Diligence Checklist ── */}
+        <DueDiligenceChecklist />
+
+        {/* ── Disclaimer ── */}
         {disclaimer && (
-          <p className="text-xs text-terra-muted italic leading-relaxed border-t border-terra-border pt-4">
+          <p className="text-xs text-terra-muted italic leading-relaxed border-t border-terra-border pt-4 mt-4">
             ⚠ {disclaimer}
+          </p>
+        )}
+        {!disclaimer && (
+          <p className="text-xs text-terra-muted italic leading-relaxed border-t border-terra-border pt-4 mt-4">
+            ⚠ Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, Google Earth Engine, BGS Africa Groundwater Atlas, and Sentinel-5P Copernicus.
+            This exploratory report does not replace an official Ministry of Lands physical survey or NEMA assessment.
+            Always engage a licensed conveyancing lawyer and ISK-registered surveyor before completing any land transaction in Kenya.
           </p>
         )}
       </div>

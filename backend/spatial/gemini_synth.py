@@ -1,16 +1,19 @@
 """
 Gemini 2.5 Flash synthesis — Terra AI land risk report generator
 
-Uses google.generativeai (v0.8.x) with a precise Kenya-expert system prompt
-and an expanded JSON schema covering investment verdict, cost summary, fraud
-checklist, solar potential, and zoning guidance.
+Uses google.generativeai (v0.8.x) with a ruthless Kenya pre-purchase screener
+system prompt focused on fatal legal flaws, financial burdens, and actionable
+due diligence — NOT solar potential or soil moisture fluff.
 """
 
 import json
+import logging
 import os
 import re
 import warnings
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -110,68 +113,37 @@ RULE 10 — CHRONIC AIR POLLUTION (Sentinel-5P):
 If environment.severe_air_pollution = true: State clearly: "Sentinel-5P satellite data indicates elevated NO₂ at this coordinate, consistent with adjacent industrial zoning. This is a health consideration and may affect residential tenant demand. A NEMA air quality assessment is recommended."
 If environment.severe_air_pollution = false: Briefly confirm clean air status.
 
+RULE 11 — NO FLUFF: You MUST NOT mention sunshine hours, solar potential, NDVI, or soil moisture unless it directly triggers a massive mandatory cost (e.g. black cotton soil requiring special foundation). Focus ONLY on fatal legal flaws (Demolitions, Riparian, Road Reserves) and massive financial burdens (foundation clay, aviation height caps).
+
+RULE 12 — RUTHLESS SCREENER TONE: Act as a ruthless pre-purchase screener. Your only job is to tell the user whether they should RUN AWAY, PROCEED WITH CAUTION, or if the land is CLEAR FOR DUE DILIGENCE based on geospatial data alone.
+
+RULE 13 — COST QUANTIFICATION: Every risk you flag MUST come with an estimated KES cost or consequence. Do not mention a risk without attaching money to it. Example: "Riparian breach: land within 30m of river — government can repossess with zero compensation."
+
+RULE 14 — KENYA-SPECIFIC LEGAL CONTEXT: Apply Kenyan law only. Reference the Physical and Land Use Planning Act (2019), Water Act (2016) riparian rules, and Kenya Civil Aviation Authority height restrictions where relevant.
+
 Respond ONLY with a valid JSON object. No preamble, no markdown fences."""
 
 REPORT_SCHEMA = """{
-  "land_feasibility_score": <MUST equal the value of _deterministic_score from the payload. Copy it exactly. Do not change it.>,
-  "land_feasibility_label": <MUST equal the value of _deterministic_label from the payload. Copy it exactly.>,
-  "executive_summary": <2-sentence objective overview. State what the land offers and what to budget for. Tone: neutral, informative. Do NOT lead with alarm language.>,
-  "investment_verdict": <"SAFE TO PROCEED TO DUE DILIGENCE" | "PROCEED WITH CAUTION" | "HIGH RISK — DUE DILIGENCE MANDATORY" | "CRITICAL FLAGS — SEEK LEGAL CLEARANCE">,
-  "verified_data": {
-    "soil_classification": <soil_type from ISRIC>,
-    "clay_pct": <clay_pct from payload or null>,
-    "cec_cmolc_kg": <cec from payload or null>,
-    "gee_slope_pct": <slope_percent from GEE or null>,
-    "is_topographical_sinkhole": <boolean from payload>,
-    "chirps_rainfall_index": <"Low" | "Moderate" | "High" | "Unknown">,
-    "flash_flood_susceptibility": <"Low" | "Moderate" | "High" | "Critical">,
-    "riparian_breach": <boolean>,
-    "riparian_distance_m": <nearest_waterway_m or null>,
-    "riparian_data_source": <"hydrosheds" | "osm" | "none">,
-    "demolition_risk": <boolean>,
-    "aviation_height_restriction": <boolean>,
-    "foundation_premium_kes": <integer from ISRIC classification>,
-    "drainage_premium_kes": <integer — 0 if no sinkhole/high rainfall, else 150000-400000>
-  },
-  "unverified_pending_data": {
-    "title_search": "Pending — conduct Ardhisasa search (ardhisasa.go.ke, KES 500) to confirm no caution, charge, or injunction.",
-    "physical_survey": "Pending — ISK-registered surveyor must verify beacon positions match title dimensions.",
-    "nema_assessment": <"Required — riparian zone" if riparian_breach else "Not required at exploratory stage">,
-    "kenha_wayleave": <"Required — within KeNHA buffer" if demolition_risk else "Not required">,
-    "kcaa_height_certificate": <"Required — KCAA zone detected" if aviation_height_restriction else "Not required">
+  "investment_verdict": "DO NOT BUY — FATAL LEGAL FLAW | PROCEED WITH CAUTION | CLEAR FOR DUE DILIGENCE",
+  "executive_summary": "MAX 2 SENTENCES. State the single biggest risk or the all-clear. No lists. No bullet points.",
+  "risk_flags": [
+    {
+      "flag_name": "string — e.g. 'Riparian Breach'",
+      "severity": "FATAL | CAUTION | ADVISORY",
+      "explanation": "string — plain English, 1-2 sentences max",
+      "estimated_kes_impact": "number or string — e.g. 'Full repossession, zero compensation'"
+    }
+  ],
+  "cost_summary": {
+    "estimated_foundation_premium_kes": "number",
+    "estimated_legal_risk_kes": "number or string",
+    "total_hidden_cost_estimate_kes": "number or string"
   },
   "sections": [
-    {"id": "soil_geotech", "title": "Soil & Foundation Analysis (ISRIC SoilGrids)", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <state exact clay%, CEC, soil type, required foundation type, exact KES budget figure. Neutral tone.>},
-    {"id": "drainage_flood", "title": "Drainage, Sinkhole & Flash Flood Risk", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <sinkhole status, CHIRPS rainfall index, flash flood susceptibility, drainage budget in KES if applicable>},
-    {"id": "legal", "title": "Legal & Regulatory", "risk_level": <"low"|"medium"|"high"|"critical">, "body": <riparian breach with exact distance and EMCA Cap 387 reference, demolition risk with Kenya Roads Act, KCAA status. If all clear, state clearly.>},
-    {"id": "topography", "title": "Topography & Terrain", "risk_level": <"low"|"medium"|"high">, "body": <GEE slope%, aspect, elevation, slope tier classification. State foundation implication.>},
-    {"id": "environmental", "title": "Environmental & Flood Risk", "risk_level": <"low"|"medium"|"high">, "body": <JRC flood history, seasonal water, wetland risk, NDVI, land cover. State implications clearly.>},
-    {"id": "infrastructure", "title": "Infrastructure Budget", "risk_level": "info", "body": <grid distance with KPLC connection cost, water supply options with KES estimates, road access quality. Tone: neutral budget planning.>, "estimated_grid_connection_cost_kes": <integer>},
-    {"id": "zoning", "title": "Zoning & Development Rights", "risk_level": <"low"|"medium"|"high">, "body": <OSM land use, county zoning, Change of User requirement if applicable>},
-    {"id": "solar", "title": "Solar & Sustainability Potential", "risk_level": "info", "body": <annual_sunshine_hours from payload, Kenya 5.5-6.0 peak sun hours/day, 5kWp off-grid KES 400,000-600,000>},
-    {"id": "fraud_checklist", "title": "Fraud & Title Risk Checklist", "risk_level": <"low"|"medium"|"high">, "body": <5 numbered steps: Ardhisasa search, Title Deed verification, beacon survey, rates clearance, caveat search>},
-    {"id": "recommendation", "title": "Next Steps", "risk_level": "info", "body": <3 sequenced actions with institution, cost, timeframe>}
-  ],
-  "key_flags": [<3-6 strings. Use prefix "RISK: " for genuine build-blocking hazards (flooding, legal, demolition). Use prefix "BUDGET: " for cost transparency items (foundation cost, grid connection, borehole). Example: "RISK: Riparian breach 18m — EMCA Cap 387 buffer applies", "BUDGET: Foundation — ISRIC clay 44% — budget KES 800,000-1,500,000 for raft foundation", "BUDGET: Grid connection — budget KES 120,000 for KPLC service connection">],
-  "cost_summary": {
-    "estimated_foundation_premium_kes": <integer from ISRIC — NEVER null>,
-    "estimated_drainage_premium_kes": <integer — 0 if no sinkhole/high rainfall, else 150000-400000>,
-    "estimated_grid_connection_kes": <integer>,
-    "borehole_premium_kes": <integer — 2000000 if groundwater.water_scarcity_risk=true, else 0>,
-    "title_search_cost_kes": 500,
-    "recommended_survey_cost_kes": <integer 15000-45000>,
-    "legal_fees_kes": <integer minimum 10000>,
-    "valuation_report_kes": <integer 5000 if financing likely else 0>,
-    "total_pre_purchase_due_diligence_kes": <MUST equal: title_search + survey + legal + valuation. Compute the arithmetic sum.>
-  },
-  "pros": [<3-6 strings. Genuine POSITIVE attributes of this plot backed by the data. Examples: "Clear of all statutory buffer zones — no riparian, road reserve, or demolition risk detected", "ISRIC soil is stable red laterite (clay 18%) — standard strip foundation adequate, no premium required", "Strong solar resource: 2,007 sunshine hours/year — off-grid solar viable at KES 400,000-600,000", "Well-connected: road and grid infrastructure within serviceable range for this zone tier">],
-  "cons": [<3-6 strings. Genuine NEGATIVE attributes or mandatory costs backed by data. Use prefix "RISK: " for legal/safety blockers and "COST: " for budget items. Examples: "RISK: Riparian breach 18m from waterway — EMCA Cap 387 prohibits permanent construction without NEMA EIA", "COST: ISRIC clay 44% — budget KES 800,000-1,500,000 for raft foundation above standard build cost", "COST: Grid 650m distant — budget KES 585,000-1,170,000 for KPLC LV extension or off-grid solar">],
-  "score_breakdown": {
-    "base_score": 100,
-    "deductions": <copy the array from _score_deductions in the payload>,
-    "final_score": <same as land_feasibility_score>
-  },
-  "disclaimer": "Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, Google Earth Engine, BGS Africa Groundwater Atlas, and Sentinel-5P Copernicus. This exploratory report does not replace an official Ministry of Lands physical survey or NEMA assessment."
+    {"id": "legal_risks", "title": "Legal & Regulatory Risks", "risk_level": "<low|medium|high|critical>", "body": "<riparian breach, demolition risk, road reserve, KCAA — attach KES cost or consequence to every flag>"},
+    {"id": "foundation_costs", "title": "Foundation & Geotechnical Costs", "risk_level": "<low|medium|high>", "body": "<ISRIC clay%, required foundation type, exact KES premium — use RULE 2 thresholds>"},
+    {"id": "infrastructure", "title": "Infrastructure Budget", "risk_level": "info", "body": "<KPLC connection cost, water supply, road access — neutral budget items with KES figures>"}
+  ]
 }"""
 
 
@@ -357,37 +329,112 @@ Write the full financial auditor risk assessment JSON now."""
     if raw_text is None:
         raise RuntimeError(f"All Gemini models failed. Last error: {last_model_error}")
 
-    # Clean markdown formatting if present
-    cleaned_text = raw_text.strip()
-    if cleaned_text.startswith("```json"):
-        cleaned_text = cleaned_text[7:]
-    elif cleaned_text.startswith("```"):
-        cleaned_text = cleaned_text[3:]
-    if cleaned_text.endswith("```"):
-        cleaned_text = cleaned_text[:-3]
-    cleaned_text = cleaned_text.strip()
+    # Parse Gemini response with safe fallback — never crash on malformed JSON
+    parsed = safe_gemini_parse(raw_text)
+    parsed["_model_used"] = _succeeded_model
 
-    # Primary: direct parse
+    # Merge hard boolean flags from the spatial payload — these always win over AI output
+    for bool_key in ("demolition_risk", "riparian_breach", "aviation_risk",
+                      "road_reserve_risk", "flood_history"):
+        if bool_key in payload:
+            parsed[bool_key] = payload[bool_key]
+
+    # Validate that all required fields exist with correct types / default values
+    parsed = validate_payload(parsed)
+
+    # Deterministically override investment_verdict based on hard geospatial flags
+    parsed = enforce_verdict(parsed)
+
+    return parsed
+
+
+# ─── Verdict Enforcement ─────────────────────────────────────────────────────
+
+def enforce_verdict(payload: dict) -> dict:
+    """Override AI verdict with hard geospatial rules. Never trust AI alone for fatal flags.
+
+    Priority order:
+      1. demolition_risk OR riparian_breach → FATAL
+      2. aviation_risk OR foundation_premium > 500,000 → CAUTION
+      3. Otherwise trust the AI verdict (CLEAR)
+    """
+    if payload.get("demolition_risk") or payload.get("riparian_breach"):
+        payload["investment_verdict"] = "DO NOT BUY — FATAL LEGAL FLAW"
+    elif payload.get("aviation_risk") or (
+        payload.get("cost_summary", {}).get("estimated_foundation_premium_kes", 0) > 500000
+    ):
+        payload["investment_verdict"] = "PROCEED WITH CAUTION"
+    # If AI returned CLEAR and no fatal/caution flags → trust it
+    return payload
+
+
+def validate_payload(payload: dict) -> dict:
+    """Ensure all required fields are present with correct types. Fill defaults if missing."""
+    defaults = {
+        "demolition_risk": False,
+        "riparian_breach": False,
+        "aviation_risk": False,
+        "road_reserve_breach": False,
+        "flood_risk": False,
+        "distance_to_waterway_m": 0.0,
+        "grid_distance_km": 0.0,
+        "ward": "",
+        "place_name": "",
+        "county": "",
+        "cost_summary": {
+            "estimated_foundation_premium_kes": 0,
+            "estimated_legal_risk_kes": 0,
+            "total_hidden_cost_estimate_kes": 0,
+        },
+        "investment_verdict": "CLEAR FOR DUE DILIGENCE",
+        "executive_summary": "",
+        "risk_flags": [],
+    }
+    for key, default in defaults.items():
+        if key not in payload or payload[key] is None:
+            payload[key] = default
+        if isinstance(default, dict):
+            for subkey, subdefault in default.items():
+                if subkey not in payload[key] or payload[key][subkey] is None:
+                    payload[key][subkey] = subdefault
+    return payload
+
+
+def safe_gemini_parse(raw_text: str) -> dict:
+    """
+    Attempt to parse Gemini's response as JSON.
+    If Gemini returns malformed JSON or an error, return a safe minimal payload
+    rather than crashing the entire report generation.
+    """
     try:
-        parsed = json.loads(cleaned_text)
-        parsed["_model_used"] = _succeeded_model
-        return parsed
-    except json.JSONDecodeError as e:
-        print(f"[Terra AI] JSON Decode Error on cleaned text: {e}")
-        pass
-
-    # Fallback: extract first JSON object from response
-    match = re.search(r"\{[\s\S]*\}", cleaned_text)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError as e:
-            print(f"[Terra AI] JSON Decode Error on regex matched text: {e}")
-            pass
-
-    raise ValueError(
-        f"Gemini returned invalid JSON. First 300 chars: {cleaned_text[:300]}"
-    )
+        cleaned = raw_text.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        return json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(
+            f"Gemini JSON parse failure: {e}. "
+            f"Raw response (first 500 chars): {raw_text[:500]}"
+        )
+        return {
+            "investment_verdict": "CLEAR FOR DUE DILIGENCE",
+            "executive_summary": (
+                "Our AI analysis could not be completed for this parcel. "
+                "Geospatial risk flags below were calculated independently and are reliable. "
+                "Complete all due diligence steps before proceeding."
+            ),
+            "risk_flags": [],
+            "cost_summary": {
+                "estimated_foundation_premium_kes": 0,
+                "estimated_legal_risk_kes": 0,
+                "total_hidden_cost_estimate_kes": 0,
+            },
+        }
 
 
 def answer_questions_with_gemini(

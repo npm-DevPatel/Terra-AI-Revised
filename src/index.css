@@ -66,3 +66,164 @@
   .text-balance { @apply text-balance; }
 }
 
+/* ── Verdict Banner ──────────────────────────────────────────────────────── */
+.verdict-banner {
+  @apply rounded-2xl p-5 sm:p-7 mb-6 flex items-start gap-4 shadow-lg;
+}
+.verdict-banner .verdict-icon {
+  @apply text-3xl flex-shrink-0 mt-0.5;
+}
+.verdict-banner h2 {
+  @apply text-lg sm:text-xl font-black mb-1;
+}
+.verdict-banner p {
+  @apply text-sm leading-relaxed mb-1;
+}
+.verdict-banner .verdict-subtext {
+  @apply text-xs font-medium opacity-75;
+}
+.verdict-red {
+  @apply bg-red-600 text-white;
+}
+.verdict-yellow {
+  @apply bg-amber-500 text-white;
+}
+.verdict-green {
+  @apply bg-emerald-600 text-white;
+}
+
+/* ── Pricing Calculator ──────────────────────────────────────────────────── */
+.calculator-card {
+  @apply bg-white border border-terra-border rounded-2xl p-5 sm:p-7 shadow-sm;
+}
+.calculator-subtitle {
+  @apply text-sm text-terra-body mb-4;
+}
+.calc-inputs {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4;
+}
+.calc-inputs label {
+  @apply flex flex-col gap-1.5 text-xs font-semibold text-terra-muted uppercase tracking-wide;
+}
+.calc-inputs input,
+.calc-inputs select {
+  @apply w-full border border-terra-border rounded-xl px-3 py-2.5 text-sm text-terra-heading bg-white
+         focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all;
+}
+.calc-result {
+  @apply rounded-xl p-4 mt-2;
+}
+.calc-result span {
+  @apply text-sm font-black block mb-2;
+}
+.calc-result p {
+  @apply text-sm leading-relaxed;
+}
+.result-red  { @apply bg-red-50  border border-red-200  text-red-900; }
+.result-blue { @apply bg-blue-50 border border-blue-200 text-blue-900; }
+.result-green{ @apply bg-emerald-50 border border-emerald-200 text-emerald-900; }
+
+.confidence-badge {
+  @apply text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border;
+}
+.confidence-high   { @apply bg-emerald-50 border-emerald-200 text-emerald-700; }
+.confidence-medium { @apply bg-amber-50   border-amber-200   text-amber-700;   }
+.confidence-low    { @apply bg-slate-50   border-slate-200   text-slate-600;   }
+
+.confidence-warning {
+  @apply text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-3;
+}
+
+/* ── Due Diligence Checklist ─────────────────────────────────────────────── */
+.checklist-container {
+  @apply bg-white border border-terra-border rounded-2xl p-4 sm:p-7 shadow-sm mb-6;
+}
+.checklist-header {
+  @apply mb-5;
+}
+.checklist-header h2 {
+  @apply text-lg font-black text-terra-heading mb-1;
+}
+.checklist-subtitle {
+  @apply text-sm text-terra-body leading-relaxed mb-4;
+}
+.checklist-progress {
+  @apply flex flex-col gap-2;
+}
+.checklist-progress span {
+  @apply text-xs font-semibold text-terra-muted;
+}
+.progress-bar {
+  @apply w-full h-2 bg-slate-100 rounded-full overflow-hidden;
+}
+.progress-fill {
+  @apply h-full bg-emerald-500 rounded-full transition-all duration-500;
+}
+
+.checklist-step {
+  @apply border border-terra-border rounded-xl mb-3 overflow-hidden transition-all duration-200;
+}
+.checklist-step.step-done {
+  @apply border-emerald-200 bg-emerald-50/40;
+}
+.step-header {
+  @apply flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50 transition-colors;
+}
+.step-header input[type="checkbox"] {
+  @apply w-4 h-4 accent-emerald-600 flex-shrink-0 cursor-pointer;
+}
+.step-title-group {
+  @apply flex-1 min-w-0;
+}
+.step-number {
+  @apply text-[10px] font-bold text-terra-muted uppercase tracking-wider;
+}
+.step-title {
+  @apply text-sm font-bold text-terra-heading truncate;
+}
+.step-meta {
+  @apply flex items-center gap-3 mt-0.5;
+}
+.step-cost, .step-time {
+  @apply text-[11px] text-terra-muted;
+}
+.step-expand {
+  @apply text-terra-muted flex-shrink-0;
+}
+
+.step-body {
+  @apply border-t border-terra-border p-4 space-y-3 bg-slate-50/50;
+}
+.step-urgency {
+  @apply text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2;
+}
+.step-why, .step-how {
+  @apply space-y-1;
+}
+.step-why strong, .step-how strong {
+  @apply text-xs font-bold text-terra-heading uppercase tracking-wider;
+}
+.step-why p, .step-how p {
+  @apply text-sm text-terra-body leading-relaxed;
+}
+.step-redflags {
+  @apply space-y-1;
+}
+.step-redflags strong {
+  @apply text-xs font-bold text-red-700;
+}
+.step-redflags ul {
+  @apply list-disc pl-4 space-y-1;
+}
+.step-redflags li {
+  @apply text-xs text-red-800;
+}
+.step-link {
+  @apply inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium
+         underline underline-offset-2 transition-colors;
+}
+.download-checklist-btn {
+  @apply mt-4 w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl
+         border border-terra-border text-sm font-semibold text-terra-heading
+         hover:bg-slate-100 transition-colors;
+}
