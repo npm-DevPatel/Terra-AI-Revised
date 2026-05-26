@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, Leaf, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Send } from 'lucide-react';
+import { X, Mail, Lock, Leaf, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Send, KeyRound } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 // ── Tiny input field wrapper ──────────────────────────────────
@@ -94,6 +94,13 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
         const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
         if (signInErr) throw signInErr;
         onClose();
+      } else if (tab === 'forgot') {
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/reset-password',
+        });
+        if (resetErr) throw resetErr;
+        setSuccess('Password reset link sent! Please check your email.');
+        setTab('signin');
       } else {
         const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
         if (signUpErr) throw signUpErr;
@@ -227,17 +234,19 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                           <p className="text-sm text-white/90 leading-snug">{message}</p>
                         </div>
                         <h2 className="text-xl font-black text-white">
-                          {tab === 'signin' ? 'Sign in to continue' : 'Create your account'}
+                          {tab === 'signin' ? 'Sign in to continue' : tab === 'forgot' ? 'Reset password' : 'Create your account'}
                         </h2>
                       </>
                     ) : (
                       <h2 className="text-2xl font-black text-white">
-                        {tab === 'signin' ? 'Welcome back' : 'Join Terra AI'}
+                        {tab === 'signin' ? 'Welcome back' : tab === 'forgot' ? 'Reset password' : 'Join Terra AI'}
                       </h2>
                     )}
                     <p className="text-emerald-200 text-sm mt-1">
                       {tab === 'signin'
                         ? 'Sign in to access your land analysis reports.'
+                        : tab === 'forgot'
+                        ? "Enter your email and we'll send you a reset link."
                         : 'Free account. Run your first analysis in 60 seconds.'}
                     </p>
                   </div>
@@ -252,24 +261,26 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                 </div>
 
                 {/* Overlap tab switcher */}
-                <div className="relative -mt-5 flex justify-center z-10">
-                  <div className="flex bg-[#0d1117] border border-white/10 rounded-2xl p-1 shadow-xl">
-                    {['signin', 'signup'].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        className={`
-                          relative px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200
-                          ${tab === t
-                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50'
-                            : 'text-slate-400 hover:text-slate-200'}
-                        `}
-                      >
-                        {t === 'signin' ? 'Sign In' : 'Sign Up'}
-                      </button>
-                    ))}
+                {tab !== 'forgot' && (
+                  <div className="relative -mt-5 flex justify-center z-10">
+                    <div className="flex bg-[#0d1117] border border-white/10 rounded-2xl p-1 shadow-xl">
+                      {['signin', 'signup'].map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTab(t)}
+                          className={`
+                            relative px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200
+                            ${tab === t
+                              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50'
+                              : 'text-slate-400 hover:text-slate-200'}
+                          `}
+                        >
+                          {t === 'signin' ? 'Sign In' : 'Sign Up'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* ── Form body ── */}
                 <div className="px-5 sm:px-8 pt-6 pb-6 sm:pb-8">
@@ -313,20 +324,35 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                       icon={Mail}
                       autoComplete="email"
                     />
-                    <AuthField
-                      id="auth-password"
-                      label="Password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPass(e.target.value)}
-                      icon={Lock}
-                      autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
-                    />
+                    
+                    {tab !== 'forgot' && (
+                      <AuthField
+                        id="auth-password"
+                        label="Password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPass(e.target.value)}
+                        icon={Lock}
+                        autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+                      />
+                    )}
+
+                    {tab === 'signin' && (
+                      <div className="flex justify-end mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setTab('forgot')}
+                          className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                        >
+                          Forgot your password?
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       id="auth-submit-btn"
                       type="submit"
-                      disabled={loading || !email || !password}
+                      disabled={loading || !email || (tab !== 'forgot' && !password)}
                       className="
                         w-full mt-2 flex items-center justify-center gap-2.5
                         bg-gradient-to-r from-emerald-500 to-emerald-600
@@ -339,17 +365,20 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                     >
                       {loading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : tab === 'forgot' ? (
+                        <KeyRound className="w-4 h-4" />
                       ) : null}
                       {loading
-                        ? (tab === 'signin' ? 'Signing in…' : 'Creating account…')
-                        : (tab === 'signin' ? 'Sign In →' : 'Create Account →')}
+                        ? (tab === 'signin' ? 'Signing in…' : tab === 'forgot' ? 'Sending link…' : 'Creating account…')
+                        : (tab === 'signin' ? 'Sign In →' : tab === 'forgot' ? 'Send Reset Link' : 'Create Account →')}
                     </button>
                   </form>
 
                   {/* Footer link */}
                   <p className="text-center text-xs text-slate-500 mt-5">
-                    {tab === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+                    {tab === 'signin' ? "Don't have an account? " : tab === 'forgot' ? "Remember your password? " : 'Already have an account? '}
                     <button
+                      type="button"
                       onClick={() => setTab(tab === 'signin' ? 'signup' : 'signin')}
                       className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
                     >

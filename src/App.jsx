@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Analyze from './pages/Analyze';
 import Pricing from './pages/Pricing';
 import Report from './pages/Report';
+import UpdatePassword from './pages/UpdatePassword';
 import { supabase } from './lib/supabaseClient';
 import useTerraStore from './store/useTerraStore';
 
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="/analyze"  element={<Analyze />} />
         <Route path="/pricing"  element={<Pricing />} />
         <Route path="/report"   element={<Report />} />
+        <Route path="/reset-password" element={<UpdatePassword />} />
         {/* Catch-all → home */}
         <Route path="*"         element={<Navigate to="/" replace />} />
       </Routes>
