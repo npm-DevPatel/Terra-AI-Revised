@@ -70,7 +70,7 @@ export default function Analyze() {
     visionState, mapState, engineState,
     setScanStatus, setAnnotations,
     setEngineStatus, setEngineResult, setEngineError, resetEngineState,
-    setReportHistory,
+    setReportHistory, setApprovedLocationData,
   } = useTerraStore();
 
   // ─── Refresh history sidebar after a successful analysis ──
@@ -258,6 +258,22 @@ export default function Analyze() {
         const modelUsed  = data.model_used ?? null;
 
         setEngineResult(payload, report, reportSrc, modelUsed);
+
+        // Sync location data from backend into mapState so the
+        // LocationSearch input and the report header both show the
+        // same authoritative place name (backend reverse-geocode wins).
+        if (payload) {
+          const backendPlace = payload.place_name || payload.ward || payload.neighborhood || null;
+          if (backendPlace) {
+            setApprovedLocationData({
+              address:   [payload.ward, payload.subcounty, payload.county].filter(Boolean).join(', '),
+              placeName: backendPlace,
+              country:   'Kenya',
+              latitude:  mapState.pinnedCoordinates.lat,
+              longitude: mapState.pinnedCoordinates.lng,
+            });
+          }
+        }
 
         if (user?.id) {
           refreshHistory(user.id);

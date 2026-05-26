@@ -70,8 +70,8 @@
 .verdict-banner {
   @apply rounded-2xl p-5 sm:p-7 mb-6 flex items-start gap-4 shadow-lg;
 }
-.verdict-banner .verdict-icon {
-  @apply text-3xl flex-shrink-0 mt-0.5;
+.verdict-banner .verdict-icon-svg {
+  @apply w-8 h-8 flex-shrink-0 mt-0.5 opacity-90;
 }
 .verdict-banner h2 {
   @apply text-lg sm:text-xl font-black mb-1;
@@ -196,6 +196,9 @@
 }
 .step-urgency {
   @apply text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2;
+  /* Prepend triangle indicator via CSS instead of emoji */
+  padding-left: 0.85rem;
+  border-left: 3px solid theme('colors.amber.400');
 }
 .step-why, .step-how {
   @apply space-y-1;

@@ -3,38 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, XCircle, Download, ChevronRight,
-  Flame, Droplets, Mountain, Building2, ShieldAlert, Shovel,
-  Landmark, Leaf, ExternalLink, Wind, Droplet
+  Droplets, Mountain, Building2, Shovel, Wind, Droplet,
+  Shield, AlertCircle, FileText,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
 
 /**
- * RiskSummaryCard — Step 3.1 redesign
+ * RiskSummaryCard — Pre-Purchase Screener Summary
  *
- * Three-section layout per blueprint:
- *   TOP    — "Data-Verified Risks" (binary flag chips)
- *   MIDDLE — "What This Means For Your Build" (financial impact)
- *   BOTTOM — "Recommended Before Purchase" (upsell CTA)
+ * Matches the new pivot schema:
+ *   TOP    — Verdict status (DO NOT BUY / PROCEED WITH CAUTION / CLEAR)
+ *   MIDDLE — Data-Verified Risk flag chips from live geospatial payload
+ *   BOTTOM — CTA to view full report
+ *
+ * Scoring system removed. Official Title Search CTA removed.
+ * All emojis removed.
  */
-
-function riskConfig(score) {
-  if (score >= 80) return {
-    color: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500',
-    icon: CheckCircle2, badge: 'bg-emerald-50 border-emerald-300 text-emerald-700',
-    glow: 'shadow-emerald-100'
-  };
-  if (score >= 50) return {
-    color: 'text-amber-600', bg: 'bg-amber-50', bar: 'bg-amber-500',
-    icon: AlertTriangle, badge: 'bg-amber-50 border-amber-300 text-amber-700',
-    glow: 'shadow-amber-100'
-  };
-  return {
-    color: 'text-red-600', bg: 'bg-red-50', bar: 'bg-red-500',
-    icon: XCircle, badge: 'bg-red-50 border-red-300 text-red-700',
-    glow: 'shadow-red-100'
-  };
-}
 
 /** Single binary flag chip */
 function FlagChip({ label, triggered, icon: Icon }) {
@@ -48,28 +33,45 @@ function FlagChip({ label, triggered, icon: Icon }) {
     )}>
       <Icon className="w-3 h-3 flex-shrink-0" />
       <span>{label}</span>
-      <span className="ml-0.5">{isTriggered ? '⚠' : '✓'}</span>
+      <span className="ml-0.5">{isTriggered ? '!' : 'OK'}</span>
     </div>
   );
 }
 
-/** Financial premium row */
-function PremiumRow({ label, amount, isRisk }) {
-  if (amount == null || amount === 0) return null;
-  const formatted = typeof amount === 'number'
-    ? `KES ${amount.toLocaleString('en-KE')}`
-    : String(amount);
-  return (
-    <div className={clsx(
-      'flex items-center justify-between py-2 border-b border-slate-100 last:border-0',
-      isRisk ? 'text-red-700' : 'text-slate-700'
-    )}>
-      <span className="text-[11px] font-medium">{label}</span>
-      <span className={clsx('text-[11px] font-black', isRisk ? 'text-red-600' : 'text-slate-900')}>
-        {formatted}
-      </span>
-    </div>
+/** Verdict config driven by geospatial booleans, not score */
+function getVerdictConfig(payload, report) {
+  const isFatal   = Boolean(payload.demolition_risk || payload.riparian_breach);
+  const isCaution = !isFatal && Boolean(
+    payload.aviation_risk ||
+    (report?.cost_summary?.estimated_foundation_premium_kes > 0)
   );
+
+  if (isFatal) return {
+    label:    'DO NOT PROCEED',
+    sub:      payload.demolition_risk ? 'Demolition / Road Reserve Risk' : 'Riparian Zone Breach',
+    bg:       'bg-red-600 text-white',
+    badgeBg:  'bg-red-100 border-red-300 text-red-700',
+    icon:     XCircle,
+    iconCls:  'text-red-100',
+  };
+
+  if (isCaution) return {
+    label:    'PROCEED WITH CAUTION',
+    sub:      payload.aviation_risk ? 'Aviation height cap detected' : 'Foundation cost premium applies',
+    bg:       'bg-amber-500 text-white',
+    badgeBg:  'bg-amber-100 border-amber-300 text-amber-700',
+    icon:     AlertTriangle,
+    iconCls:  'text-amber-100',
+  };
+
+  return {
+    label:    'CLEAR FOR DUE DILIGENCE',
+    sub:      'No major geospatial red flags detected',
+    bg:       'bg-emerald-600 text-white',
+    badgeBg:  'bg-emerald-100 border-emerald-300 text-emerald-700',
+    icon:     CheckCircle2,
+    iconCls:  'text-emerald-100',
+  };
 }
 
 export default function RiskSummaryCard() {
@@ -81,44 +83,31 @@ export default function RiskSummaryCard() {
   const report  = engineState.report  ?? {};
   const payload = engineState.payload ?? {};
 
-  const score   = typeof report.land_feasibility_score === 'number' ? report.land_feasibility_score : 0;
-  const label   = String(report.land_feasibility_label ?? 'UNKNOWN');
-  const verdict = report.investment_verdict ? String(report.investment_verdict) : null;
-  const flags   = Array.isArray(report.key_flags) ? report.key_flags : [];
+  // Verdict from report or deterministic geospatial override
+  const verdict = report.investment_verdict ?? null;
 
-  // Verified risk flags from payload
-  const riparianBreach        = Boolean(payload.riparian_breach);
-  const demolitionRisk        = Boolean(payload.demolition_risk);
-  const aviationHeightCap     = Boolean(payload.aviation_height_restriction);
-  const isTopographicalSink   = Boolean(payload.is_topographical_sinkhole);
+  // Verified risk flags from payload booleans
+  const riparianBreach      = Boolean(payload.riparian_breach);
+  const demolitionRisk      = Boolean(payload.demolition_risk);
+  const aviationHeightCap   = Boolean(payload.aviation_height_restriction ?? payload.aviation_risk);
+  const isTopographicalSink = Boolean(payload.is_topographical_sinkhole);
 
-  // New: Groundwater and Air Quality flags
-  const groundwaterData       = payload.groundwater ?? {};
-  const environmentData       = payload.environment ?? {};
-  const waterScarcityRisk     = Boolean(groundwaterData.water_scarcity_risk);
-  const severeAirPollution    = Boolean(environmentData.severe_air_pollution);
-  const boreholeDepth         = groundwaterData.depth_to_groundwater_m ?? null;
-
-  // Financial premiums from ISRIC & Gemini
-  const costSummary      = report.cost_summary ?? {};
-  const verifiedData     = report.verified_data ?? {};
-  const foundationPremium = costSummary.estimated_foundation_premium_kes
-    ?? verifiedData.foundation_premium_kes
-    ?? payload.soil_foundation_premium_kes
-    ?? 0;
-  const drainagePremium   = costSummary.estimated_drainage_premium_kes
-    ?? verifiedData.drainage_premium_kes
-    ?? 0;
-  const gridCost          = costSummary.estimated_grid_connection_kes ?? 0;
-  const totalDueDiligence = costSummary.total_pre_purchase_due_diligence_kes ?? 0;
+  // Groundwater and Air Quality flags
+  const groundwaterData    = payload.groundwater ?? {};
+  const environmentData    = payload.environment ?? {};
+  const waterScarcityRisk  = Boolean(groundwaterData.water_scarcity_risk);
+  const severeAirPollution = Boolean(environmentData.severe_air_pollution);
 
   // Soil info
-  const soilType   = payload.soil_type ?? verifiedData.soil_classification ?? null;
-  const clayPct    = payload.soil_clay_pct ?? verifiedData.clay_pct ?? null;
-  const chirps     = payload.chirps_rainfall_index ?? verifiedData.chirps_rainfall_index ?? null;
-  const floodRisk  = verifiedData.flash_flood_susceptibility ?? null;
+  const soilType = payload.soil_type ?? null;
+  const clayPct  = payload.soil_clay_pct ?? null;
+  const chirps   = payload.chirps_rainfall_index ?? null;
+  const floodRisk = payload.verified_data?.flash_flood_susceptibility ?? null;
 
-  const { color, bar, badge, icon: RiskIcon, glow } = riskConfig(score);
+  const { label, sub, bg, icon: VerdictIcon, iconCls } = getVerdictConfig(payload, report);
+
+  // Top risk flags from AI (capped at 3) — or nothing if empty
+  const riskFlags = Array.isArray(report.risk_flags) ? report.risk_flags.slice(0, 3) : [];
 
   return (
     <motion.div
@@ -128,62 +117,36 @@ export default function RiskSummaryCard() {
       className="absolute bottom-3 left-3 right-3 z-20 md:left-auto md:right-3 md:w-[360px] flex flex-col"
       style={{ maxHeight: 'calc(100% - 24px)' }}
     >
-      <div className={[
-        'bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-y-auto flex-1 min-h-0',
-        'scrollbar-thin scrollbar-thumb-slate-200',
-        glow,
-      ].join(' ')}
-      >
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-y-auto flex-1 min-h-0 scrollbar-thin scrollbar-thumb-slate-200">
 
-        {/* ── Score header ── */}
-        <div className="px-5 pt-5 pb-4 border-b border-slate-100">
+        {/* ── Verdict Header ── */}
+        <div className={clsx('px-5 pt-5 pb-4 rounded-t-2xl', bg)}>
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
-                Land Feasibility Score
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest opacity-75 mb-1">
+                Geospatial Verdict
               </p>
-              <div className="flex items-end gap-2">
-                <span className={clsx('text-5xl font-black leading-none', color)}>{score}</span>
-                <span className="text-slate-400 text-lg mb-1 font-medium">/100</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1 font-medium italic">
-                (100 = Ideal, 0 = Unbuildable)
-              </p>
-              {verdict && (
-                <p className="text-[11px] font-semibold text-slate-600 mt-1.5">{verdict}</p>
+              <h2 className="text-base font-black leading-tight mb-1">{label}</h2>
+              {sub && (
+                <p className="text-[11px] font-medium opacity-80">{sub}</p>
               )}
             </div>
-            <span className={clsx(
-              'flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-full border',
-              badge
-            )}>
-              <RiskIcon className="w-3 h-3" />
-              {label}
-            </span>
-          </div>
-          {/* Score bar */}
-          <div className="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
-            <motion.div
-              className={clsx('h-full rounded-full', bar)}
-              initial={{ width: 0 }}
-              animate={{ width: `${score}%` }}
-              transition={{ duration: 1.2, ease: 'easeOut', delay: 0.4 }}
-            />
+            <VerdictIcon className={clsx('w-8 h-8 flex-shrink-0', iconCls)} />
           </div>
         </div>
 
-        {/* ── SECTION 1: Data-Verified Risks ── */}
+        {/* ── SECTION 1: Data-Verified Risk Chips ── */}
         <div className="px-5 pt-3 pb-3 border-b border-slate-100">
           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-2.5">
-            📡 Data-Verified Risks
+            Data-Verified Risks
           </p>
           <div className="flex flex-wrap gap-1.5">
-            <FlagChip label="Riparian" triggered={riparianBreach} icon={Droplets} />
-            <FlagChip label="Demolition" triggered={demolitionRisk} icon={Shovel} />
-            <FlagChip label="Aviation Cap" triggered={aviationHeightCap} icon={Building2} />
-            <FlagChip label="Sinkhole" triggered={isTopographicalSink} icon={Mountain} />
-            <FlagChip label="Air Quality" triggered={severeAirPollution} icon={Wind} />
-            <FlagChip label="Groundwater" triggered={waterScarcityRisk} icon={Droplet} />
+            <FlagChip label="Riparian"    triggered={riparianBreach}      icon={Droplets}  />
+            <FlagChip label="Demolition"  triggered={demolitionRisk}      icon={Shovel}    />
+            <FlagChip label="Aviation Cap" triggered={aviationHeightCap}  icon={Building2} />
+            <FlagChip label="Sinkhole"    triggered={isTopographicalSink} icon={Mountain}  />
+            <FlagChip label="Air Quality" triggered={severeAirPollution}  icon={Wind}      />
+            <FlagChip label="Groundwater" triggered={waterScarcityRisk}   icon={Droplet}   />
           </div>
 
           {/* Soil + Rainfall quick stats */}
@@ -214,15 +177,13 @@ export default function RiskSummaryCard() {
           )}
         </div>
 
-        {/* ── SECTION 2 REMOVED: Financial Impact (Moved to full report) ── */}
-
-        {/* ── Key flags (capped at 3) ── */}
-        {flags.length > 0 && (
+        {/* ── AI Risk Flags Preview (capped at 3) ── */}
+        {riskFlags.length > 0 && (
           <div className="px-5 py-3 border-b border-slate-100">
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">
-              🚩 Key Risk Flags
+              Key Risk Flags
             </p>
-            {flags.slice(0, 3).map((flag, i) => (
+            {riskFlags.map((flag, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
@@ -230,36 +191,26 @@ export default function RiskSummaryCard() {
                 transition={{ delay: 0.15 + i * 0.07 }}
                 className="flex items-start gap-2 py-1.5 border-b border-slate-100 last:border-0"
               >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-                <p className="text-[11px] text-slate-700 leading-snug">{flag}</p>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] text-slate-700 leading-snug">{flag.flag_name}</p>
               </motion.div>
             ))}
-            {flags.length > 3 && (
-              <p className="text-[10px] text-slate-400 mt-1">+{flags.length - 3} more in full report</p>
+            {Array.isArray(report.risk_flags) && report.risk_flags.length > 3 && (
+              <p className="text-[10px] text-slate-400 mt-1">
+                +{report.risk_flags.length - 3} more in full report
+              </p>
             )}
           </div>
         )}
 
-        {/* ── SECTION 3: Recommended Before Purchase (CTA) ── */}
+        {/* ── CTA ── */}
         <div className="px-5 py-4 bg-slate-50">
-          {/* Upsell CTA */}
-          <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-            <Landmark className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[10px] font-bold text-amber-800">Official Title Search (Ardhisasa)</p>
-              <p className="text-[10px] text-amber-700 mt-0.5 leading-snug">
-                Pending Verification.{' '}
-                <span className="underline cursor-pointer">Contact us to initiate.</span>
-              </p>
-            </div>
-          </div>
-
           <button
             onClick={() => navigate('/report')}
             className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all"
           >
-            <Download className="w-4 h-4" />
-            Download Full PDF Report
+            <FileText className="w-4 h-4" />
+            View Full Report
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>

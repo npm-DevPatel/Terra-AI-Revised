@@ -46,9 +46,10 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
   const { user, reportHistory, setActiveReport, setReportHistory, resetAll } = useTerraStore();
 
   // ─── Rename state ──────────────────────────────────────────
-  const [renamingId, setRenamingId]     = useState(null);
-  const [renameValue, setRenameValue]   = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(null); // id pending confirmation
+  const [renamingId, setRenamingId]         = useState(null);
+  const [renameValue, setRenameValue]       = useState('');
+  const [confirmDelete, setConfirmDelete]   = useState(null); // id pending confirmation
+  const [confirmClearAll, setConfirmClearAll] = useState(false); // two-step clear-all
   const renameInputRef = useRef(null);
 
   const handleNewAnalysis = () => {
@@ -110,6 +111,24 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
   };
 
   const cancelRename = () => setRenamingId(null);
+
+  // ─── Clear All History ─────────────────────────────────────
+  const handleClearAll = async () => {
+    if (!confirmClearAll) {
+      // First click: arm the confirmation
+      setConfirmClearAll(true);
+      // Auto-disarm after 4 seconds if user doesn't confirm
+      setTimeout(() => setConfirmClearAll(false), 4000);
+      return;
+    }
+    // Second click: execute
+    setConfirmClearAll(false);
+    setReportHistory([]);
+    // Delete all user's reports from Supabase (non-fatal)
+    if (user?.id) {
+      supabase.from('reports').delete().eq('user_id', user.id).then();
+    }
+  };
 
   // ─── Delete handlers ───────────────────────────────────────
   const handleDelete = async (e, item) => {
@@ -258,11 +277,29 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
 
       {/* ── History Panel ── */}
       <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin scrollbar-thumb-slate-200">
-        {/* Section header */}
+        {/* Section header + Clear All */}
         {!collapsed && (
-          <p className="text-[10px] font-semibold text-terra-muted uppercase tracking-widest px-2 mb-3 flex items-center gap-1.5">
-            <History className="w-3 h-3" /> Analysis History
-          </p>
+          <div className="flex items-center justify-between px-2 mb-3">
+            <p className="text-[10px] font-semibold text-terra-muted uppercase tracking-widest flex items-center gap-1.5">
+              <History className="w-3 h-3" /> Analysis History
+            </p>
+            {user && reportHistory.length > 0 && (
+              <button
+                id="sidebar-clear-history-btn"
+                onClick={handleClearAll}
+                title={confirmClearAll ? 'Click again to confirm — this cannot be undone' : 'Clear all history'}
+                className={clsx(
+                  'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg transition-colors',
+                  confirmClearAll
+                    ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                    : 'text-slate-400 hover:text-red-500 hover:bg-red-50'
+                )}
+              >
+                <Trash2 className="w-3 h-3" />
+                {confirmClearAll ? 'Confirm clear' : 'Clear all'}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Load error */}

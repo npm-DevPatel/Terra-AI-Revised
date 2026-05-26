@@ -4,8 +4,7 @@ import { motion } from 'framer-motion';
 import {
   AlertTriangle, CheckCircle2, XCircle, Download, ArrowLeft,
   MapPin, Zap, Droplets, Shield, Building2,
-  Activity, DollarSign, ChevronRight, Cpu, ExternalLink, WifiOff,
-  ChevronDown, ChevronUp, Printer
+  Activity, DollarSign, ChevronRight, ChevronDown, ChevronUp, Printer
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { pdf } from '@react-pdf/renderer';
@@ -123,71 +122,8 @@ function SectionCard({ section, index }) {
   );
 }
 
-// ─── AI Engine Status Bar ───────────────────────────────────────
-function AIEngineStatus({ reportSource, modelUsed }) {
-  const isGemini   = reportSource === 'gemini';
-  const isDatabase = reportSource === 'database';
-  const modelLabel = modelUsed
-    ? modelUsed.replace('gemini-', 'Gemini ').replace('-', ' ').replace('flash', 'Flash').replace('pro', 'Pro')
-    : isGemini ? 'Gemini' : 'Fallback';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.05 }}
-      className="flex items-center justify-between gap-3 bg-white border border-terra-border rounded-2xl px-4 sm:px-5 py-3 mb-6 shadow-sm flex-wrap"
-    >
-      <div className="flex items-center gap-3">
-        <div className={clsx(
-          'flex items-center justify-center w-8 h-8 rounded-xl',
-          isGemini ? 'bg-emerald-50' : isDatabase ? 'bg-indigo-50' : 'bg-amber-50'
-        )}>
-          {isGemini
-            ? <Cpu className="w-4 h-4 text-emerald-600" />
-            : isDatabase
-              ? <Activity className="w-4 h-4 text-indigo-500" />
-              : <WifiOff className="w-4 h-4 text-amber-500" />
-          }
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-terra-muted uppercase tracking-wider">AI Synthesis Engine</p>
-          <p className={clsx('text-sm font-black',
-            isGemini ? 'text-emerald-700' : isDatabase ? 'text-indigo-600' : 'text-amber-600'
-          )}>
-            {isGemini
-              ? `${modelLabel} — Live synthesis`
-              : isDatabase
-                ? 'Loaded from History — Instant rehydration'
-                : 'Gemini unavailable — data-only report'}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {isGemini && (
-          <span className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-            Active
-          </span>
-        )}
-        {isDatabase && (
-          <span className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
-            Cached
-          </span>
-        )}
-        <a
-          href="https://aistudio.google.com/app/plan_information"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-terra-muted hover:text-terra-heading transition-colors font-medium"
-        >
-          Check quota <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
-    </motion.div>
-  );
-}
+// ─── AI Engine Status Bar REMOVED ─────────────────────────────
+// Replaced per user request — "remove the Gemini 2.5 AI synthesis engine section"
 
 // ─── Stat Block (for filtered geo stats) ──────────────────────
 function StatBlock({ icon: Icon, label, value, highlight }) {
@@ -204,9 +140,8 @@ function StatBlock({ icon: Icon, label, value, highlight }) {
 
 // ─── VERDICT BANNER COMPONENT ─────────────────────────────────
 function VerdictBanner({ payload }) {
-  const isFatal  = payload.demolition_risk || payload.riparian_breach;
+  const isFatal   = payload.demolition_risk || payload.riparian_breach;
   const isCaution = !isFatal && (payload.aviation_risk || (payload.cost_summary?.estimated_foundation_premium_kes > 0));
-  const isClear  = !isFatal && !isCaution;
 
   if (isFatal) return (
     <motion.div
@@ -214,7 +149,7 @@ function VerdictBanner({ payload }) {
       animate={{ opacity: 1, y: 0 }}
       className="verdict-banner verdict-red"
     >
-      <span className="verdict-icon">🔴</span>
+      <XCircle className="verdict-icon-svg" />
       <div>
         <h2>DO NOT PROCEED</h2>
         <p>High risk of government demolition or forced repossession detected. <strong>Do not pay any deposit until these flags are legally resolved.</strong></p>
@@ -229,7 +164,7 @@ function VerdictBanner({ payload }) {
       animate={{ opacity: 1, y: 0 }}
       className="verdict-banner verdict-yellow"
     >
-      <span className="verdict-icon">🟡</span>
+      <AlertTriangle className="verdict-icon-svg" />
       <div>
         <h2>PROCEED WITH CAUTION</h2>
         <p>Legal height restrictions or expensive soil conditions detected. <strong>Adjust your budget before committing.</strong></p>
@@ -244,7 +179,7 @@ function VerdictBanner({ payload }) {
       animate={{ opacity: 1, y: 0 }}
       className="verdict-banner verdict-green"
     >
-      <span className="verdict-icon">🟢</span>
+      <CheckCircle2 className="verdict-icon-svg" />
       <div>
         <h2>CLEAR FOR DUE DILIGENCE</h2>
         <p>No major geospatial red flags detected by our satellite analysis. <strong>Proceed to the legal checks below before paying anything.</strong></p>
@@ -329,7 +264,7 @@ function PricingCalculator({ payload, onResultChange }) {
       className="calculator-card"
     >
       <h3 className="text-base font-black text-terra-heading mb-1 flex items-center gap-2">
-        <DollarSign className="w-4 h-4 text-emerald-500" /> 💰 Broker Price Check
+        <DollarSign className="w-4 h-4 text-emerald-500" /> Broker Price Check
       </h3>
       <p className="calculator-subtitle">
         Area benchmark: <strong>{matchedKey}</strong> —{' '}
@@ -366,7 +301,7 @@ function PricingCalculator({ payload, onResultChange }) {
         <div className={`calc-result ${isOvercharged ? 'result-red' : isUnderpriced ? 'result-blue' : 'result-green'}`}>
           {isOvercharged && (
             <>
-              <span>⚠️ OVERCHARGE DETECTED</span>
+              <span>OVERCHARGE DETECTED</span>
               <p>
                 The broker is asking <strong>KES {parseFloat(askingPrice).toLocaleString()}</strong> for this plot
                 (KES {Math.round(userPricePerAcre).toLocaleString()}/acre).
@@ -378,7 +313,7 @@ function PricingCalculator({ payload, onResultChange }) {
           )}
           {isUnderpriced && (
             <>
-              <span>🚩 SUSPICIOUSLY LOW PRICE</span>
+              <span>SUSPICIOUSLY LOW PRICE</span>
               <p>
                 This price is <strong>{Math.abs(overchargePercent)}% below</strong> the area average.
                 A deal that seems too good to be true is a major fraud red flag.
@@ -388,7 +323,7 @@ function PricingCalculator({ payload, onResultChange }) {
           )}
           {!isOvercharged && !isUnderpriced && (
             <>
-              <span>✅ FAIR MARKET RANGE</span>
+              <span>FAIR MARKET RANGE</span>
               <p>
                 The asking price of <strong>KES {parseFloat(askingPrice).toLocaleString()}</strong> is within the fair market range for <strong>{matchedKey}</strong>.
                 This does not mean the land is legally safe — complete all due diligence steps below.
@@ -400,7 +335,7 @@ function PricingCalculator({ payload, onResultChange }) {
 
       {confidence === 'LOW' && (
         <p className="confidence-warning">
-          ⚠️ Price data for this specific location is limited. The benchmark shown is a regional estimate.
+          Price data for this specific location is limited. The benchmark shown is a regional estimate.
           Verify prices locally before using this as your sole reference.
         </p>
       )}
@@ -619,7 +554,7 @@ function DueDiligenceChecklist() {
       className="checklist-container"
     >
       <div className="checklist-header">
-        <h2>🔎 Your Full Due Diligence Checklist</h2>
+        <h2>Your Full Due Diligence Checklist</h2>
         <p className="checklist-subtitle">
           Complete every step before transferring any money. Kenya loses billions of shillings to land fraud every year.
           This checklist is your protection.
@@ -646,8 +581,8 @@ function DueDiligenceChecklist() {
               <span className="step-number">Step {step.id}</span>
               <h3 className="step-title">{step.title}</h3>
               <div className="step-meta">
-                <span className="step-cost">💰 {step.cost}</span>
-                <span className="step-time">⏱ {step.time}</span>
+                <span className="step-cost">{step.cost}</span>
+                <span className="step-time">{step.time}</span>
               </div>
             </div>
             <span className="step-expand">
@@ -657,7 +592,7 @@ function DueDiligenceChecklist() {
 
           {expandedStep === step.id && (
             <div className="step-body">
-              <div className="step-urgency">⚡ {step.urgency}</div>
+              <div className="step-urgency">{step.urgency}</div>
               <div className="step-why">
                 <strong>Why this matters:</strong>
                 <p>{step.why}</p>
@@ -668,7 +603,7 @@ function DueDiligenceChecklist() {
               </div>
               {step.redFlags && (
                 <div className="step-redflags">
-                  <strong>🚩 Red flags to watch for:</strong>
+                  <strong>Red flags to watch for:</strong>
                   <ul>
                     {step.redFlags.map((flag, i) => <li key={i}>{flag}</li>)}
                   </ul>
@@ -676,7 +611,7 @@ function DueDiligenceChecklist() {
               )}
               {step.link && (
                 <a href={step.link} target="_blank" rel="noopener noreferrer" className="step-link">
-                  🔗 {step.linkText}
+                  {step.linkText}
                 </a>
               )}
             </div>
@@ -693,11 +628,14 @@ function DueDiligenceChecklist() {
 
 // ─── COST BREAKDOWN COMPONENT ─────────────────────────────────
 function CostBreakdown({ costSum }) {
-  const foundation = costSum?.estimated_foundation_premium_kes || 0;
-  const legalRisk  = costSum?.estimated_legal_risk_kes || 0;
+  const foundation  = costSum?.estimated_foundation_premium_kes || 0;
+  const legalRisk   = costSum?.estimated_legal_risk_kes || 0;
   const totalHidden = costSum?.total_hidden_cost_estimate_kes || 0;
+  const gridCost    = costSum?.estimated_grid_connection_kes || 0;
 
-  if (!foundation && !legalRisk && !totalHidden) return null;
+  // Show the section if ANY cost is non-zero
+  const hasAnyCost = foundation || legalRisk || totalHidden || gridCost;
+  if (!hasAnyCost) return null;
 
   return (
     <motion.div
@@ -716,17 +654,25 @@ function CostBreakdown({ costSum }) {
             <span className="text-sm font-bold text-terra-heading">{fmtKes(foundation)}</span>
           </div>
         )}
+        {gridCost > 0 && (
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-sm text-terra-body">KPLC Grid Connection</span>
+            <span className="text-sm font-bold text-terra-heading">{fmtKes(gridCost)}</span>
+          </div>
+        )}
         {legalRisk > 0 && (
           <div className="flex justify-between items-center py-2 border-b border-slate-100">
             <span className="text-sm text-terra-body">Legal / Repossession Risk</span>
             <span className="text-sm font-bold text-red-600">{typeof legalRisk === 'number' ? fmtKes(legalRisk) : legalRisk}</span>
           </div>
         )}
-        {totalHidden > 0 && (
+        {(totalHidden > 0 || (foundation + gridCost + (typeof legalRisk === 'number' ? legalRisk : 0)) > 0) && (
           <div className="flex justify-between items-center pt-3 border-t-2 border-terra-heading">
             <span className="text-sm font-black text-terra-heading">Total Hidden Cost Estimate</span>
             <span className="text-sm font-black text-terra-heading">
-              {typeof totalHidden === 'number' ? fmtKes(totalHidden) : totalHidden}
+              {totalHidden
+                ? (typeof totalHidden === 'number' ? fmtKes(totalHidden) : totalHidden)
+                : fmtKes(foundation + gridCost + (typeof legalRisk === 'number' ? legalRisk : 0))}
             </span>
           </div>
         )}
@@ -735,9 +681,62 @@ function CostBreakdown({ costSum }) {
   );
 }
 
-// ─── RISK FLAGS (from new Gemini schema) ──────────────────────
-function RiskFlagsList({ riskFlags }) {
-  if (!Array.isArray(riskFlags) || riskFlags.length === 0) return null;
+// ─── GEOSPATIAL RISK FLAGS FALLBACK ────────────────────────────
+// When Gemini risk_flags[] is empty (old DB reports or fallback),
+// build synthetic flags directly from hard geospatial booleans.
+function buildFallbackRiskFlags(payload) {
+  const flags = [];
+  if (payload.demolition_risk) {
+    flags.push({
+      flag_name: 'Demolition / Road Reserve Risk',
+      severity: 'FATAL',
+      explanation: 'This plot is within a KeNHA or Kenya Railways buffer zone. Government demolition is possible with zero compensation under the Kenya Roads Act.',
+      estimated_kes_impact: 'Full land value — zero compensation',
+    });
+  }
+  if (payload.riparian_breach) {
+    flags.push({
+      flag_name: 'Riparian Zone Breach',
+      severity: 'FATAL',
+      explanation: `Plot is within the 30m riparian buffer (nearest waterway: ${payload.nearest_waterway_m != null ? payload.nearest_waterway_m + 'm' : 'nearby'}). The Water Act 2016 mandates this land be kept open — any structure can be demolished.`,
+      estimated_kes_impact: 'Full repossession, zero compensation',
+    });
+  }
+  if (payload.aviation_risk) {
+    flags.push({
+      flag_name: 'KCAA Aviation Height Restriction',
+      severity: 'CAUTION',
+      explanation: `This plot is within ${payload.nearest_airport_km != null ? payload.nearest_airport_km + 'km' : 'range'} of a civil aviation zone. KCAA caps building height. High-rise development is not permitted without a clearance certificate.`,
+      estimated_kes_impact: 'Loss of high-rise development potential',
+    });
+  }
+  if (payload.road_reserve_risk) {
+    flags.push({
+      flag_name: 'Road Reserve Encroachment',
+      severity: 'CAUTION',
+      explanation: 'Plot boundary falls within the road reserve. Structures within the reserve can be demolished by KeNHA or county government without compensation.',
+      estimated_kes_impact: 'Partial or full plot unusability',
+    });
+  }
+  if (payload.flood_history) {
+    flags.push({
+      flag_name: 'Flood History Detected',
+      severity: 'CAUTION',
+      explanation: 'JRC satellite data shows historical surface water at this coordinate. Perimeter drainage is mandatory. This significantly raises foundation and drainage costs.',
+      estimated_kes_impact: 'KES 150,000 — 400,000 drainage infrastructure',
+    });
+  }
+  return flags;
+}
+
+// ─── RISK FLAGS (from new Gemini schema or geo fallback) ───────
+function RiskFlagsList({ riskFlags, payload }) {
+  // Use AI flags if available, otherwise fall back to geo-derived flags
+  const effectiveFlags = (Array.isArray(riskFlags) && riskFlags.length > 0)
+    ? riskFlags
+    : buildFallbackRiskFlags(payload ?? {});
+
+  if (effectiveFlags.length === 0) return null;
 
   return (
     <motion.div
@@ -746,9 +745,11 @@ function RiskFlagsList({ riskFlags }) {
       transition={{ delay: 0.15 }}
       className="mb-6"
     >
-      <h2 className="text-base font-black text-terra-heading mb-3">⚠ Risk Flags Identified</h2>
+      <h2 className="text-base font-black text-terra-heading mb-3 flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 text-amber-500" /> Risk Flags Identified
+      </h2>
       <div className="space-y-3">
-        {riskFlags.map((flag, i) => {
+        {effectiveFlags.map((flag, i) => {
           const isFatal   = flag.severity === 'FATAL';
           const isCaution = flag.severity === 'CAUTION';
           return (
@@ -774,7 +775,7 @@ function RiskFlagsList({ riskFlags }) {
                 <p className={clsx('text-xs font-bold mt-1',
                   isFatal ? 'text-red-700' : isCaution ? 'text-amber-700' : 'text-slate-600'
                 )}>
-                  💸 KES Impact: {typeof flag.estimated_kes_impact === 'number'
+                  KES Impact: {typeof flag.estimated_kes_impact === 'number'
                     ? `KES ${flag.estimated_kes_impact.toLocaleString()}`
                     : flag.estimated_kes_impact}
                 </p>
@@ -908,9 +909,6 @@ export default function Report() {
           </Button>
         </div>
 
-        {/* ── AI Engine Status ── */}
-        <AIEngineStatus reportSource={reportSource} modelUsed={modelUsed} />
-
         {/* ── Traffic Light Verdict Banner ── */}
         <div className="mb-6">
           <VerdictBanner payload={mergedPayload} />
@@ -935,8 +933,8 @@ export default function Report() {
           </motion.div>
         )}
 
-        {/* ── Risk Flags from AI ── */}
-        <RiskFlagsList riskFlags={riskFlags} />
+        {/* ── Risk Flags (AI-generated or geo-derived fallback) ── */}
+        <RiskFlagsList riskFlags={riskFlags} payload={payload} />
 
         {/* ── Interactive Pricing Calculator ── */}
         <div className="mb-6">
@@ -945,7 +943,7 @@ export default function Report() {
 
         {/* ── Filtered Geo Stats (buyer-relevant only) ── */}
         <div className="mb-6">
-          <h2 className="text-base font-black text-terra-heading mb-4">📡 Satellite Risk Indicators</h2>
+          <h2 className="text-base font-black text-terra-heading mb-4">Satellite Risk Indicators</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {payload.flood_history != null && (
               <StatBlock icon={Droplets} label="Flood Risk Level" value={floodStr} highlight={payload.flood_history} />
@@ -997,12 +995,12 @@ export default function Report() {
         {/* ── Disclaimer ── */}
         {disclaimer && (
           <p className="text-xs text-terra-muted italic leading-relaxed border-t border-terra-border pt-4 mt-4">
-            ⚠ {disclaimer}
+            {disclaimer}
           </p>
         )}
         {!disclaimer && (
           <p className="text-xs text-terra-muted italic leading-relaxed border-t border-terra-border pt-4 mt-4">
-            ⚠ Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, Google Earth Engine, BGS Africa Groundwater Atlas, and Sentinel-5P Copernicus.
+            Geospatial data derived from ISRIC SoilGrids, HydroSHEDS, Google Earth Engine, BGS Africa Groundwater Atlas, and Sentinel-5P Copernicus.
             This exploratory report does not replace an official Ministry of Lands physical survey or NEMA assessment.
             Always engage a licensed conveyancing lawyer and ISK-registered surveyor before completing any land transaction in Kenya.
           </p>
