@@ -14,6 +14,9 @@ import useTerraStore from '../store/useTerraStore';
 import { getOrderedInstances } from '../utils/analyzeUtils';
 import { supabase } from '../lib/supabaseClient';
 
+import scanPhotoImg from '../assets/analysis_page/scan_photo.jpeg';
+import deepScanImg from '../assets/analysis_page/deep_scan.jpeg';
+
 // ─── Error Toast ──────────────────────────────────────────────
 function ErrorToast({ message, onClose }) {
   return (
@@ -37,6 +40,8 @@ const MODE_CARDS = [
     icon: ScanLine,
     title: 'Scan via Photo',
     subtitle: 'Vision AI Flow',
+    imageSrc: scanPhotoImg,
+    imageAlt: 'Scan via photo preview',
     desc: 'Upload a land photo. Our YOLO model detects vegetation, terrain, water bodies, and structures instantly.',
     gradient: 'from-emerald-500 to-emerald-600',
     lightBg: 'bg-emerald-50',
@@ -49,6 +54,8 @@ const MODE_CARDS = [
     icon: Map,
     title: 'Deep Map Analysis',
     subtitle: 'Spatial Engine Flow',
+    imageSrc: deepScanImg,
+    imageAlt: 'Deep site analysis preview',
     desc: 'Drop a pin on the satellite map. The engine queries live infrastructure, zoning, and terrain data for that exact coordinate.',
     gradient: 'from-indigo-500 to-indigo-600',
     lightBg: 'bg-indigo-50',
@@ -380,7 +387,7 @@ export default function Analyze() {
 
       {/* ── Non-map flows — padded scrollable container ── */}
       {mode !== 'map' && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
           <AnimatePresence mode="wait">
 
             {/* ── Mode Selection ── */}
@@ -390,14 +397,14 @@ export default function Analyze() {
                   <h2 className="text-3xl font-black text-terra-heading mb-3">Choose your analysis method</h2>
                   <p className="text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
-                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, desc, gradient, lightBg, border, textColor, linkColor }) => (
+                <div className="grid sm:grid-cols-2 gap-5 sm:gap-8 max-w-6xl mx-auto">
+                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, imageSrc, imageAlt, desc, gradient, lightBg, border, textColor, linkColor }) => (
                     <motion.button
                       key={id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setMode(id)}
-                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-8 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full`}
+                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-6 sm:p-10 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full flex flex-col min-h-[520px]`}
                     >
                       <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-6`}>
                         <Icon className="w-7 h-7 text-white" />
@@ -405,9 +412,18 @@ export default function Analyze() {
                       <div className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-full ${lightBg} ${textColor} mb-3`}>
                         {subtitle}
                       </div>
+                      <div className="mt-4 mb-5 rounded-3xl overflow-hidden">
+                        <img
+                          src={imageSrc}
+                          alt={imageAlt}
+                          className="w-full h-40 sm:h-48 object-cover"
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      </div>
                       <h3 className="text-xl font-black text-terra-heading mb-3">{title}</h3>
                       <p className="text-sm text-terra-body leading-relaxed mb-6">{desc}</p>
-                      <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: linkColor }}>
+                      <div className="flex items-center gap-2 font-semibold text-sm mt-auto" style={{ color: linkColor }}>
                         Get Started <ChevronRight className="w-4 h-4" />
                       </div>
                     </motion.button>
