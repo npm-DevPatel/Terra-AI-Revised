@@ -67,7 +67,7 @@ export default function Pricing() {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16 font-gabarito">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -868,7 +868,7 @@ export default function Report() {
   if (engineState.status !== 'done' || !engineState.payload) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 font-gabarito">
           <MapPin className="w-16 h-16 text-slate-200" />
           <div className="text-center">
             <h2 className="text-2xl font-black text-terra-heading mb-2">No Analysis Yet</h2>
@@ -944,7 +944,7 @@ export default function Report() {
 
   return (
     <MainLayout>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 font-gabarito">
 
         {/* ── Header ── */}
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6 sm:mb-8">

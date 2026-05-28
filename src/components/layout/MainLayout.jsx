@@ -19,7 +19,7 @@ export default function MainLayout({ children }) {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-terra-bg">
+    <div className="flex h-screen w-screen overflow-hidden bg-terra-bg font-gabarito">
 
       {/* ── Mobile backdrop — shown behind the drawer on small screens ── */}
       <AnimatePresence>

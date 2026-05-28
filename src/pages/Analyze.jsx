@@ -301,7 +301,8 @@ export default function Analyze() {
 
   return (
     <MainLayout>
-      <ProgressiveLoader />
+      <div className="font-gabarito h-full">
+        <ProgressiveLoader />
 
       {/* Auth modal — gated for analyze click */}
       <AuthModal
@@ -477,6 +478,7 @@ export default function Analyze() {
         </div>
       )}
 
+      </div>
     </MainLayout>
   );
 }
