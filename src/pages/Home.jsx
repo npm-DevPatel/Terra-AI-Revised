@@ -69,31 +69,21 @@ export default function Home() {
               variant="ghost"
               size="sm"
               onClick={() => navigate('/pricing')}
-              className="hidden xs:inline-flex rounded-full bg-white text-terra-heading hover:bg-slate-50 border border-terra-border"
+              className="inline-flex rounded-full bg-white text-terra-heading hover:bg-slate-50 border border-terra-border"
             >
               Pricing
             </Button>
 
             {user ? (
               /* ── Logged-in state ── */
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-2 sm:px-3 py-1.5 backdrop-blur-sm">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-[10px] font-bold">
-                    {initials}
-                  </div>
-                  <span className="text-white/90 text-xs font-semibold max-w-[100px] sm:max-w-[140px] truncate hidden sm:block">
-                    {user.email}
-                  </span>
-                </div>
-                <button
-                  id="home-signout-btn"
-                  onClick={handleSignOut}
-                  className="flex items-center gap-1.5 text-xs font-semibold bg-white text-terra-heading hover:bg-slate-50 transition-colors px-3 py-2 rounded-full border border-terra-border"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Sign Out
-                </button>
-              </div>
+              <button
+                id="home-signout-btn"
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 text-xs font-semibold bg-white text-terra-heading hover:bg-slate-50 transition-colors px-3 py-2 rounded-full border border-terra-border"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
             ) : (
               /* ── Logged-out state ── */
               <button

@@ -7,57 +7,88 @@ import Button from '../components/ui/Button';
 
 const PLANS = [
   {
-    id: 'starter',
-    name: 'Starter',
-    price: 'KES 2,500',
-    period: 'per report',
-    desc: 'Perfect for individual buyers making one-time decisions.',
+    id: 'free',
+    name: 'Explore',
+    price: 'KES 0',
+    period: 'month',
+    desc: 'Try Terra AI and get a feel for the vision workflow before you commit.',
+    idealFor: 'Students, curious first-time buyers, and anyone exploring land options.',
     icon: Zap,
     color: 'border-terra-border',
     badge: null,
     features: [
-      'Vision AI scan (1 image)',
-      'Basic risk score',
-      'Elevation & slope data',
-      'Standard PDF report',
-      '3 critical flags max',
+      '3 scans / month',
+      'Basic terrain detection',
+      'Low-resolution overlays',
+      'Basic feasibility score',
+      'Watermarked exports',
+      'No report downloads',
+      'Community support',
+    ],
+  },
+  {
+    id: 'starter',
+    name: 'Can I Build Here?',
+    price: 'KES 2,500',
+    period: 'report',
+    secondaryPrice: 'KES 4,999',
+    secondaryPeriod: 'month',
+    desc: 'For early due diligence when you need a clear go/no-go signal.',
+    idealFor: 'Individual land buyers (including busy parents) and small home builders doing due diligence.',
+    icon: Zap,
+    color: 'border-terra-border',
+    badge: null,
+    features: [
+      '25 scans / month',
+      'Flood + terrain analysis',
+      'AI feasibility reports',
+      'HD overlays',
+      'PDF exports',
+      'Basic build recommendations',
     ],
   },
   {
     id: 'professional',
-    name: 'Professional',
+    name: 'Construction Workflow',
     price: 'KES 7,500',
-    period: 'per report',
-    desc: 'For agents and developers who need the full picture.',
+    period: 'month',
+    desc: 'Built for active projects with repeat scans, collaboration, and outputs.',
+    idealFor: 'Real estate agents, architects, contractors, and small development teams running many sites.',
     icon: Shield,
     color: 'border-emerald-400',
     badge: 'Most Popular',
+    note: 'Extra scans billed separately.',
     features: [
-      'Vision AI scan + annotations',
-      'Full spatial engine analysis',
-      'Riparian buffer calculation',
-      'Zoning cross-reference',
-      'Unlimited critical flags',
-      'Enterprise PDF (3 pages)',
-      'AI Chat assistant',
+      '150 scans / month',
+      'Advanced risk heatmaps',
+      'Team collaboration',
+      'Site history tracking',
+      'Material recommendations',
+      'Proposal generation',
+      'Priority processing',
+      'API access (limited)',
     ],
   },
   {
     id: 'enterprise',
-    name: 'Enterprise',
+    name: 'Construction Intelligence OS',
     price: 'Custom',
-    period: 'monthly subscription',
-    desc: 'For real estate firms needing bulk analysis and white-labelling.',
+    period: 'pricing',
+    desc: 'For teams that need deep integrations, custom models, and scale.',
+    idealFor: 'Real estate companies, large developers, lenders, and GIS-heavy organizations.',
     icon: FileText,
     color: 'border-indigo-400',
     badge: null,
     features: [
-      'Everything in Professional',
-      'Bulk analysis (unlimited plots)',
-      'White-label PDF reports',
-      'API access',
-      'Priority support',
-      'Custom data integrations',
+      'Unlimited scans',
+      'Custom AI models',
+      'GIS + satellite integrations',
+      'City-scale simulation',
+      'Dedicated infrastructure',
+      'Compliance workflows',
+      'White-label platform',
+      'Full API access',
+      'Dedicated support',
     ],
   },
 ];
@@ -86,8 +117,8 @@ export default function Pricing() {
         </motion.div>
 
         {/* Plans */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-          {PLANS.map(({ id, name, price, period, desc, icon: Icon, color, badge, features }, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+          {PLANS.map(({ id, name, price, period, secondaryPrice, secondaryPeriod, desc, idealFor, icon: Icon, color, badge, note, features }, i) => (
             <motion.div
               key={id}
               initial={{ opacity: 0, y: 28 }}
@@ -112,7 +143,21 @@ export default function Pricing() {
                 <span className="text-4xl font-black text-terra-heading">{price}</span>
                 <span className="text-terra-muted text-sm ml-2">/ {period}</span>
               </div>
+
+              {secondaryPrice && secondaryPeriod && (
+                <div className="-mt-1 mb-2">
+                  <span className="text-terra-muted text-sm font-semibold">or </span>
+                  <span className="text-terra-heading text-sm font-bold ml-2">{secondaryPrice}</span>
+                  <span className="text-terra-muted text-sm ml-2">/ {secondaryPeriod}</span>
+                </div>
+              )}
               <p className="text-terra-body text-sm mb-8">{desc}</p>
+
+              {idealFor && (
+                <p className="text-xs text-terra-muted -mt-6 mb-7">
+                  <span className="font-semibold text-terra-heading">Ideal for:</span> {idealFor}
+                </p>
+              )}
 
               <ul className="space-y-3 flex-1 mb-8">
                 {features.map((f) => (
@@ -125,12 +170,16 @@ export default function Pricing() {
 
               <Button
                 fullWidth
-                variant={id === 'professional' ? 'primary' : id === 'enterprise' ? 'indigo' : 'secondary'}
+                variant={id === 'professional' ? 'primary' : id === 'enterprise' ? 'indigo' : id === 'free' ? 'secondary' : 'secondary'}
                 iconRight={ArrowRight}
                 onClick={() => navigate('/analyze')}
               >
                 {id === 'enterprise' ? 'Contact Sales' : 'Get Started'}
               </Button>
+
+              {note && (
+                <p className="text-xs text-terra-muted mt-3 text-center">{note}</p>
+              )}
             </motion.div>
           ))}
         </div>
