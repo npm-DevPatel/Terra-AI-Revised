@@ -335,7 +335,7 @@ export default function Analyze() {
         >
           {/* Full-bleed map / GEE imagery (fills entire right side) */}
           <div className="relative flex-1 min-h-0">
-            <PinDrop />
+            <PinDrop onRunSpatialEngine={handleSpatialAnalyze} />
             {engineDone && <RiskSummaryCard />}
           </div>
         </motion.div>

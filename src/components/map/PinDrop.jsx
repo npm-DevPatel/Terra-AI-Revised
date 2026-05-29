@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import InteractiveMap from './InteractiveMap';
 import LocationSearch from './LocationSearch';
+import PlaceInsightCard from './PlaceInsightCard';
 import useTerraStore from '../../store/useTerraStore';
 
 /**
@@ -12,8 +13,9 @@ import useTerraStore from '../../store/useTerraStore';
  *
  * Updates: mapState.pinnedCoordinates + mapState.approvedLocationData
  */
-export default function PinDrop() {
+export default function PinDrop({ onRunSpatialEngine }) {
   const { mapState } = useTerraStore();
+  const [selectedPlace, setSelectedPlace] = React.useState(null);
 
   const handlePinDropped = async ({ lat, lng }) => {
     // Auto-trigger reverse geocode candidate load when pin drops
@@ -26,16 +28,26 @@ export default function PinDrop() {
     // Pin coordinates set in store automatically by LocationSearch
   };
 
+  const handlePlaceSelected = (place) => {
+    if (place) {
+      setSelectedPlace(place);
+      return;
+    }
+    setSelectedPlace(null);
+  };
+
   const pinSet = !!mapState.pinnedCoordinates.lat;
 
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Top bar: search overlay */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-3 max-w-[calc(100vw-2rem)]">
-        <LocationSearch onLocationConfirmed={handleLocationConfirmed} />
+        <LocationSearch onLocationConfirmed={handlePlaceSelected} />
 
 
       </div>
+
+      <PlaceInsightCard place={selectedPlace} onRunSpatialEngine={onRunSpatialEngine} />
 
       {/* Map fills the remaining space */}
       <div className="flex-1 relative">

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Crosshair, Layers } from 'lucide-react';
 import useTerraStore from '../../store/useTerraStore';
+import locationIconSrc from '../../assets/analysis_page/search/location_icon.png';
 
 const NAIROBI_CENTER = { lat: -1.286389, lng: 36.817223 };
 const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -36,6 +37,13 @@ export default function InteractiveMap({ onPinDropped }) {
     document.head.appendChild(script);
     return () => { delete window.__terraMapCallback; };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const { lat, lng } = mapState.pinnedCoordinates;
+    if (lat == null || lng == null) return;
+    dropPin({ lat, lng }, mapInstanceRef.current);
+  }, [mapReady, mapState.pinnedCoordinates.lat, mapState.pinnedCoordinates.lng]);
 
   function initMap() {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -75,12 +83,16 @@ export default function InteractiveMap({ onPinDropped }) {
       markerRef.current = null;
     }
 
-    // Build a custom styled pin element
-    const pinEl = document.createElement('div');
+    const pinEl = document.createElement('img');
+    pinEl.src = locationIconSrc;
+    pinEl.alt = 'Selected location';
     pinEl.style.cssText = [
-      'width:28px', 'height:28px', 'border-radius:50% 50% 50% 0',
-      'transform:rotate(-45deg)', 'background:#f43f5e',
-      'border:3px solid #fff', 'box-shadow:0 2px 8px rgba(0,0,0,0.45)',
+      'width:58px',
+      'height:58px',
+      'object-fit:contain',
+      'filter:drop-shadow(0 10px 20px rgba(15,23,42,0.35))',
+      'transform:translateY(-8px)',
+      'pointer-events:none',
     ].join(';');
 
     // Use AdvancedMarkerElement (non-deprecated)

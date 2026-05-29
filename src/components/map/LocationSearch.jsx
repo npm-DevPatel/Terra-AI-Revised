@@ -30,6 +30,9 @@ export default function LocationSearch({ onLocationConfirmed }) {
   const geocoderRef = useRef(null);
   const sessionTokenRef = useRef(null);
   const searchDebounceRef = useRef(null);
+  const suppressSearchRef = useRef(false);
+  const searchRequestIdRef = useRef(0);
+  const selectionLockedRef = useRef(false);
 
   const ensureGoogleServices = () => {
     if (!window.google?.maps?.places) return null;
@@ -70,6 +73,16 @@ export default function LocationSearch({ onLocationConfirmed }) {
     );
   };
 
+  const extractPlaceParts = (result) => {
+    const components = result?.address_components || [];
+    const pick = (...types) => components.find((part) => types.every((type) => part.types?.includes(type)))?.long_name || null;
+    return {
+      locality: pick('locality') || pick('administrative_area_level_2') || pick('sublocality', 'sublocality_level_1'),
+      region: pick('administrative_area_level_1') || pick('administrative_area_level_2') || result?.formatted_address || 'Kenya',
+      country: pick('country') || 'Kenya',
+    };
+  };
+
   const mapPredictionToCandidate = (prediction, index) => ({
     id: prediction.place_id || `google-${index}`,
     placeId: prediction.place_id,
@@ -83,6 +96,8 @@ export default function LocationSearch({ onLocationConfirmed }) {
   });
 
   const fetchGooglePredictions = async (searchTerm) => {
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
     const maps = ensureGoogleServices();
     if (!maps) {
       setCandidates(FALLBACK_LOCATION_CANDIDATES);
@@ -99,6 +114,7 @@ export default function LocationSearch({ onLocationConfirmed }) {
     };
 
     autocompleteServiceRef.current.getPlacePredictions(request, (results, status) => {
+      if (requestId !== searchRequestIdRef.current) return;
       if (status === maps.places.PlacesServiceStatus.OK && Array.isArray(results) && results.length > 0) {
         setCandidates(results.map(mapPredictionToCandidate));
       } else {
@@ -110,6 +126,11 @@ export default function LocationSearch({ onLocationConfirmed }) {
   };
 
   useEffect(() => {
+    if (suppressSearchRef.current) {
+      suppressSearchRef.current = false;
+      return;
+    }
+
     const trimmed = query.trim();
 
     if (searchDebounceRef.current) {
@@ -153,12 +174,14 @@ export default function LocationSearch({ onLocationConfirmed }) {
 
       if (bestResult) {
         const location = bestResult.geometry?.location;
+        const parts = extractPlaceParts(bestResult);
         const candidate = {
           id: bestResult.place_id || `pin-${lat}-${lng}`,
           placeId: bestResult.place_id,
           name: extractPlaceName(bestResult),
-          region: bestResult.formatted_address || 'Kenya',
-          country: bestResult.address_components?.find((part) => part.types?.includes('country'))?.long_name || 'Kenya',
+          region: bestResult.formatted_address || parts.region || 'Kenya',
+          locality: parts.locality,
+          country: parts.country,
           latitude: typeof location?.lat === 'function' ? location.lat() : lat,
           longitude: typeof location?.lng === 'function' ? location.lng() : lng,
           overview: bestResult.formatted_address || 'Google reverse geocode result',
@@ -174,6 +197,9 @@ export default function LocationSearch({ onLocationConfirmed }) {
           longitude: candidate.longitude,
         };
         setApprovedLocationData(locationData);
+        searchRequestIdRef.current += 1;
+        suppressSearchRef.current = true;
+        setCandidates([]);
         setQuery(candidate.name);
         setCandidates([candidate]);
         setOpen(false);
@@ -206,11 +232,13 @@ export default function LocationSearch({ onLocationConfirmed }) {
         const { results } = await geocoder.geocode({ placeId: candidate.placeId });
         const place = results?.[0];
         if (place?.geometry?.location) {
+          const parts = extractPlaceParts(place);
           resolved = {
             ...candidate,
             name: extractPlaceName(place),
-            region: place.formatted_address || candidate.region,
-            country: place.address_components?.find((part) => part.types?.includes('country'))?.long_name || candidate.country,
+            region: place.formatted_address || parts.region || candidate.region,
+            locality: parts.locality || candidate.locality || null,
+            country: parts.country || candidate.country,
             latitude: place.geometry.location.lat(),
             longitude: place.geometry.location.lng(),
             overview: place.formatted_address || candidate.overview,
@@ -232,6 +260,10 @@ export default function LocationSearch({ onLocationConfirmed }) {
     setApprovedLocationData(locationData);
     setPinnedCoordinates(resolved.latitude, resolved.longitude);
     writeLocationHistory(resolved);
+    searchRequestIdRef.current += 1;
+    suppressSearchRef.current = true;
+    selectionLockedRef.current = true;
+    setCandidates([]);
     setOpen(false);
     setQuery(resolved.name);
     sessionTokenRef.current = null;
@@ -256,14 +288,17 @@ export default function LocationSearch({ onLocationConfirmed }) {
         <input
           ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            selectionLockedRef.current = false;
+            setQuery(e.target.value);
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Search location in Kenya…"
           className="flex-1 text-sm sm:text-base text-terra-heading placeholder:text-terra-muted bg-transparent focus:outline-none min-w-0"
         />
         {loading && <Loader2 className="w-4 h-4 text-terra-muted animate-spin flex-shrink-0" />}
         {query && !loading && (
-          <button onClick={() => { setQuery(''); setCandidates([]); setOpen(false); }}>
+          <button onClick={() => { selectionLockedRef.current = false; setQuery(''); setCandidates([]); setOpen(false); }}>
             <X className="w-4 h-4 text-terra-muted hover:text-terra-heading" />
           </button>
         )}
@@ -271,7 +306,7 @@ export default function LocationSearch({ onLocationConfirmed }) {
 
       {/* Candidate Dropdown */}
       <AnimatePresence>
-        {open && candidates.length > 0 && (
+        {open && candidates.length > 0 && !selectionLockedRef.current && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
