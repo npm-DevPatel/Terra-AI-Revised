@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock3, MapPinned, ThermometerSun, Route, ArrowRight, Globe2, Loader2 } from 'lucide-react';
+import { Clock3, MapPinned, ThermometerSun, Route, ArrowRight, Globe2 } from 'lucide-react';
 import { fetchWikiSummary } from '../../utils/analyzeUtils';
 
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
@@ -163,7 +163,7 @@ export default function PlaceInsightCard({ place, onRunSpatialEngine }) {
       transition={{ type: 'spring', stiffness: 220, damping: 26 }}
       className="absolute left-1/2 bottom-4 z-30 w-[min(92vw,28rem)] -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0"
     >
-      <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+      <div className="terra-island-edge-glow overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 shadow-[0_30px_80px_rgba(15,23,42,0.28)] backdrop-blur-xl">
         <div className="relative h-52 bg-slate-200">
           <img
             src={photoUrl || DEFAULT_IMAGE}

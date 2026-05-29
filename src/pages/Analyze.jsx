@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanLine, Map, ArrowRight, ChevronRight, AlertCircle } from 'lucide-react';
+import { ScanLine, Map, ArrowRight, ChevronRight, AlertCircle, X, Camera, Sparkles } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import Uploader from '../components/vision/Uploader';
 import CinematicScanner from '../components/vision/CinematicScanner';
@@ -70,13 +69,121 @@ const GATE_MESSAGE =
   'Please sign in or create a free account to run a deep-scan analysis. ' +
   'Your reports are saved and accessible from any device.';
 
+const TERRA_SCAN_WORDS = [
+  'I', 'am', 'Terra', 'AI', 'and', 'I', 'analyze', 'your', 'piece', 'of',
+  'land', 'by', 'scanning', 'for', 'roads,', 'nearby', 'vegetation,', 'terrain',
+  'gradient,', 'water', 'patterns,', 'structures,', 'and', 'the', 'quiet',
+  'spatial', 'signals', 'that', 'shape', 'what', 'can', 'be', 'built', 'there.',
+];
+
+function TypingWordLine({ words = TERRA_SCAN_WORDS }) {
+  return (
+    <p className="min-h-[6.5rem] text-sm sm:text-base leading-7 text-slate-300">
+      {words.map((word, index) => (
+        <span
+          key={`${word}-${index}`}
+          className="terra-typed-word is-glowing mr-1.5"
+          style={{ animationDelay: `${index * 0.14}s` }}
+        >
+          {word}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function PhotoScanGate({ isOpen, onClose, onAnalyze, isRunning, uploadedFileName, scanStatus }) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/72 px-4 py-6 backdrop-blur-xl"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 22, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            className="terra-island-edge-glow relative w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 shadow-[0_30px_100px_rgba(0,0,0,0.54)]"
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 backdrop-blur transition-colors hover:bg-white/15 hover:text-white"
+              aria-label="Close photo scan"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="relative min-h-[22rem] overflow-hidden bg-slate-900">
+                <img
+                  src={scanPhotoImg}
+                  alt="Scan via photo"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  draggable={false}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/58 to-slate-900/20" />
+                <div className="absolute inset-x-6 bottom-6">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-black/35 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-amber-100 backdrop-blur">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                    Photo context required
+                  </div>
+                  <h2 className="max-w-sm text-4xl font-black leading-none text-white sm:text-5xl">
+                    To See What You See
+                  </h2>
+                </div>
+              </div>
+
+              <div className="space-y-6 p-5 sm:p-7">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+                  <TypingWordLine />
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-4">
+                  <Uploader />
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-h-10 text-xs text-slate-400">
+                    {uploadedFileName ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-emerald-100">
+                        <Camera className="h-3.5 w-3.5" />
+                        {uploadedFileName}
+                      </span>
+                    ) : (
+                      'Upload a current land photo before Terra runs the spatial engine.'
+                    )}
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    icon={ScanLine}
+                    onClick={onAnalyze}
+                    disabled={!uploadedFileName || isRunning || scanStatus === 'scanning'}
+                    loading={isRunning || scanStatus === 'scanning'}
+                  >
+                    Scan Photo & Run Engine
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function Analyze() {
-  const navigate = useNavigate();
   const {
     user, session,
     visionState, mapState, engineState,
     setScanStatus, setAnnotations,
-    setEngineStatus, setEngineResult, setEngineError, resetEngineState,
+    setEngineStatus, setEngineResult, setEngineError,
     setReportHistory, setApprovedLocationData,
   } = useTerraStore();
 
@@ -98,6 +205,8 @@ export default function Analyze() {
   const [mode, setMode]         = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [photoGateOpen, setPhotoGateOpen] = useState(false);
+  const [preparingEngine, setPreparingEngine] = useState(false);
 
   // ─── Vision: send FormData to /api/vision/analyze ────────
   // CRITICAL: The engine expects multipart/form-data with `image` field.
@@ -155,7 +264,7 @@ export default function Analyze() {
         // Engine returns instances array — getOrderedInstances sorts by confidence
         const orderedInstances = getOrderedInstances(data);
         setAnnotations(orderedInstances, data);
-        return; // Success! Exit function.
+        return data; // Success! Exit function.
 
       } catch (err) {
         lastError = err;
@@ -169,10 +278,11 @@ export default function Analyze() {
     // If we exhausted retries or hit a non-retryable error
     setScanStatus('idle');
     setErrorMsg(lastError?.message ?? 'Vision analysis failed. The server may still be waking up — please try again.');
+    return null;
   };
 
   // ─── Map: trigger spatial engine (with auth gate) ─────────
-  const handleSpatialAnalyze = async () => {
+  const handleSpatialAnalyze = async ({ visionContextOverride = null } = {}) => {
     // ── AUTH GATE ─────────────────────────────────────────────
     // If the user is not logged in, intercept here.
     // Do NOT hit the backend. Show the AuthModal instead.
@@ -210,7 +320,7 @@ export default function Analyze() {
       lat,
       lng,
       clientContext: mapState.approvedLocationData ?? null,
-      visionContext: visionState.rawVisionPayload ?? null,
+      visionContext: visionContextOverride ?? visionState.rawVisionPayload ?? null,
     });
 
     // Fire an immediate wake-up ping before the main request
@@ -302,7 +412,32 @@ export default function Analyze() {
     setErrorMsg(msg);
   };
 
-  const pinSet    = !!mapState.pinnedCoordinates.lat;
+  const requestSpatialAnalyze = () => {
+    const { lat, lng } = mapState.pinnedCoordinates;
+    if (!lat || !lng) {
+      setErrorMsg('Please drop a pin on the map first.');
+      return;
+    }
+    setPhotoGateOpen(true);
+  };
+
+  const handlePhotoGateAnalyze = async () => {
+    if (!visionState.uploadedFile) {
+      setErrorMsg('Please upload a land photo before running the spatial engine.');
+      return;
+    }
+
+    setPreparingEngine(true);
+    try {
+      const visionPayload = visionState.rawVisionPayload ?? await handleScan();
+      if (!visionPayload) return;
+      setPhotoGateOpen(false);
+      await handleSpatialAnalyze({ visionContextOverride: visionPayload });
+    } finally {
+      setPreparingEngine(false);
+    }
+  };
+
   const scanDone  = visionState.scanStatus === 'complete';
   const engineDone = engineState.status === 'done';
 
@@ -316,6 +451,17 @@ export default function Analyze() {
         isOpen={authOpen}
         onClose={() => setAuthOpen(false)}
         message={GATE_MESSAGE}
+      />
+
+      <PhotoScanGate
+        isOpen={photoGateOpen}
+        onClose={() => {
+          if (!preparingEngine && visionState.scanStatus !== 'scanning') setPhotoGateOpen(false);
+        }}
+        onAnalyze={handlePhotoGateAnalyze}
+        isRunning={preparingEngine}
+        uploadedFileName={visionState.uploadedFileName}
+        scanStatus={visionState.scanStatus}
       />
 
       <AnimatePresence>
@@ -335,7 +481,7 @@ export default function Analyze() {
         >
           {/* Full-bleed map / GEE imagery (fills entire right side) */}
           <div className="relative flex-1 min-h-0">
-            <PinDrop onRunSpatialEngine={handleSpatialAnalyze} />
+            <PinDrop onRunSpatialEngine={requestSpatialAnalyze} />
             {engineDone && <RiskSummaryCard />}
           </div>
         </motion.div>

@@ -68,6 +68,107 @@
   .font-gabarito {
     font-family: Gabarito, Inter, system-ui, sans-serif;
   }
+
+  .terra-island-edge-glow {
+    position: relative;
+    isolation: isolate;
+    filter:
+      drop-shadow(0 0 10px rgba(245, 158, 11, 0.5))
+      drop-shadow(0 0 24px rgba(180, 83, 9, 0.34));
+  }
+
+  .terra-island-edge-glow::before,
+  .terra-island-edge-glow::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .terra-island-edge-glow::before {
+    border: 1px solid rgba(251, 191, 36, 0.72);
+    box-shadow:
+      0 0 0 1px rgba(120, 53, 15, 0.16),
+      0 0 18px rgba(245, 158, 11, 0.54),
+      0 0 34px rgba(180, 83, 9, 0.34);
+    animation: terraIslandEdgePulse 2.4s ease-in-out infinite;
+  }
+
+  .terra-island-edge-glow::after {
+    inset: 3px;
+    border: 1px solid rgba(255, 247, 237, 0.48);
+    opacity: 0.62;
+  }
+
+  .terra-typed-word {
+    display: inline-block;
+    color: rgb(203, 213, 225);
+    opacity: 0;
+    transform: translateY(6px);
+    animation: terraTypeWord 0.36s ease-out forwards;
+  }
+
+  .terra-typed-word.is-glowing {
+    animation-name: terraTypeWordGlow;
+  }
+}
+
+@keyframes terraTypeWord {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes terraTypeWordGlow {
+  0% {
+    opacity: 0;
+    color: #fbbf24;
+    transform: translateY(6px);
+    filter: blur(3px);
+    text-shadow:
+      0 0 12px rgba(251, 191, 36, 0.86),
+      0 0 24px rgba(180, 83, 9, 0.52);
+  }
+  62% {
+    opacity: 1;
+    color: #fbbf24;
+    transform: translateY(0);
+    filter: blur(0);
+    text-shadow:
+      0 0 14px rgba(251, 191, 36, 0.9),
+      0 0 28px rgba(180, 83, 9, 0.58);
+  }
+  100% {
+    opacity: 1;
+    color: rgb(226, 232, 240);
+    transform: translateY(0);
+    filter: blur(0);
+    text-shadow: none;
+  }
+}
+
+@keyframes terraIslandEdgePulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(120, 53, 15, 0.16),
+      0 0 16px rgba(245, 158, 11, 0.42),
+      0 0 30px rgba(180, 83, 9, 0.26);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.26),
+      0 0 24px rgba(245, 158, 11, 0.68),
+      0 0 46px rgba(180, 83, 9, 0.42);
+  }
 }
 
 /* ── Verdict Banner ──────────────────────────────────────────────────────── */
