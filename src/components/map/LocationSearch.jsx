@@ -26,7 +26,6 @@ export default function LocationSearch({ onLocationConfirmed }) {
   const [open, setOpen] = useState(false);
   const { setApprovedLocationData, setPinnedCoordinates } = useTerraStore();
   const inputRef = useRef(null);
-  const autocompleteServiceRef = useRef(null);
   const geocoderRef = useRef(null);
   const sessionTokenRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -34,10 +33,10 @@ export default function LocationSearch({ onLocationConfirmed }) {
   const searchRequestIdRef = useRef(0);
   const selectionLockedRef = useRef(false);
 
-  const ensureGoogleServices = () => {
+  const ensureGoogleServices = async () => {
     if (!window.google?.maps?.places) return null;
-    if (!autocompleteServiceRef.current) {
-      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+    if (window.google.maps.importLibrary) {
+      await window.google.maps.importLibrary('places');
     }
     if (!geocoderRef.current) {
       geocoderRef.current = new window.google.maps.Geocoder();
@@ -49,12 +48,7 @@ export default function LocationSearch({ onLocationConfirmed }) {
   };
 
   const buildGoogleBounds = () => {
-    const maps = window.google?.maps;
-    if (!maps) return null;
-    return new maps.LatLngBounds(
-      new maps.LatLng(KENYA_BOUNDS.south, KENYA_BOUNDS.west),
-      new maps.LatLng(KENYA_BOUNDS.north, KENYA_BOUNDS.east),
-    );
+    return { ...KENYA_BOUNDS };
   };
 
   const extractPlaceName = (result) => {
@@ -83,23 +77,32 @@ export default function LocationSearch({ onLocationConfirmed }) {
     };
   };
 
-  const mapPredictionToCandidate = (prediction, index) => ({
-    id: prediction.place_id || `google-${index}`,
-    placeId: prediction.place_id,
-    name: prediction.structured_formatting?.main_text || prediction.description?.split(',')?.[0] || 'Suggested place',
-    region: prediction.structured_formatting?.secondary_text || 'Kenya',
-    country: 'Kenya',
-    latitude: null,
-    longitude: null,
-    overview: prediction.description || prediction.structured_formatting?.secondary_text || 'Google Maps suggestion',
-    wikiTitle: prediction.structured_formatting?.main_text,
-  });
+  const mapSuggestionToCandidate = (suggestion, index) => {
+    const prediction = suggestion?.placePrediction;
+    const text = prediction?.text?.text || '';
+    const mainText = prediction?.mainText?.text || text.split(',')?.[0] || 'Suggested place';
+    const secondaryText = prediction?.secondaryText?.text || text.split(',').slice(1).join(', ').trim() || 'Kenya';
+
+    return {
+      id: prediction?.placeId || `google-new-${index}`,
+      placeId: prediction?.placeId,
+      placePrediction: prediction,
+      name: mainText,
+      region: secondaryText,
+      country: 'Kenya',
+      latitude: null,
+      longitude: null,
+      overview: text || secondaryText || 'Google Maps suggestion',
+      wikiTitle: mainText,
+    };
+  };
 
   const fetchGooglePredictions = async (searchTerm) => {
     const requestId = searchRequestIdRef.current + 1;
     searchRequestIdRef.current = requestId;
-    const maps = ensureGoogleServices();
-    if (!maps) {
+    const maps = await ensureGoogleServices();
+    const autocompleteSuggestion = maps?.places?.AutocompleteSuggestion;
+    if (!maps || !autocompleteSuggestion) {
       setCandidates(FALLBACK_LOCATION_CANDIDATES);
       setOpen(true);
       setLoading(false);
@@ -113,16 +116,23 @@ export default function LocationSearch({ onLocationConfirmed }) {
       sessionToken: sessionTokenRef.current,
     };
 
-    autocompleteServiceRef.current.getPlacePredictions(request, (results, status) => {
+    try {
+      const { suggestions } = await autocompleteSuggestion.fetchAutocompleteSuggestions(request);
       if (requestId !== searchRequestIdRef.current) return;
-      if (status === maps.places.PlacesServiceStatus.OK && Array.isArray(results) && results.length > 0) {
-        setCandidates(results.map(mapPredictionToCandidate));
+      if (Array.isArray(suggestions) && suggestions.length > 0) {
+        setCandidates(suggestions.map(mapSuggestionToCandidate));
       } else {
         setCandidates(FALLBACK_LOCATION_CANDIDATES);
       }
-      setOpen(true);
-      setLoading(false);
-    });
+    } catch {
+      if (requestId !== searchRequestIdRef.current) return;
+      setCandidates(FALLBACK_LOCATION_CANDIDATES);
+    } finally {
+      if (requestId === searchRequestIdRef.current) {
+        setOpen(true);
+        setLoading(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -166,7 +176,7 @@ export default function LocationSearch({ onLocationConfirmed }) {
   // No dropdown is shown to the user — the pin coordinates are the source of truth.
   const loadCandidatesForPin = async ({ lat, lng }) => {
     try {
-      const maps = ensureGoogleServices();
+      const maps = await ensureGoogleServices();
       if (!maps || !geocoderRef.current) return;
 
       const { results } = await geocoderRef.current.geocode({ location: { lat, lng } });
@@ -226,7 +236,32 @@ export default function LocationSearch({ onLocationConfirmed }) {
   const confirmCandidate = async (candidate) => {
     let resolved = candidate;
 
-    if (candidate?.placeId && window.google?.maps?.Geocoder) {
+    if (candidate?.placePrediction?.toPlace) {
+      try {
+        const place = candidate.placePrediction.toPlace();
+        await place.fetchFields({
+          fields: ['displayName', 'formattedAddress', 'location'],
+        });
+        const location = place.location;
+        if (location) {
+          resolved = {
+            ...candidate,
+            name: place.displayName || candidate.name,
+            region: place.formattedAddress || candidate.region,
+            locality: candidate.locality || null,
+            country: candidate.country || 'Kenya',
+            latitude: typeof location.lat === 'function' ? location.lat() : location.lat,
+            longitude: typeof location.lng === 'function' ? location.lng() : location.lng,
+            overview: place.formattedAddress || candidate.overview,
+            wikiTitle: place.displayName || candidate.wikiTitle || candidate.name,
+          };
+        }
+      } catch {
+        // Fall back to geocoding by placeId below.
+      }
+    }
+
+    if (!resolved.latitude && candidate?.placeId && window.google?.maps?.Geocoder) {
       try {
         const geocoder = geocoderRef.current || new window.google.maps.Geocoder();
         const { results } = await geocoder.geocode({ placeId: candidate.placeId });
@@ -259,7 +294,11 @@ export default function LocationSearch({ onLocationConfirmed }) {
     };
     setApprovedLocationData(locationData);
     setPinnedCoordinates(resolved.latitude, resolved.longitude);
-    writeLocationHistory(resolved);
+    const historyEntry = {
+      ...resolved,
+      placePrediction: undefined,
+    };
+    writeLocationHistory(historyEntry);
     searchRequestIdRef.current += 1;
     suppressSearchRef.current = true;
     selectionLockedRef.current = true;

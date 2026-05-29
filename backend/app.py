@@ -29,9 +29,9 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # Allow requests from the Vercel frontend (set FRONTEND_URL in Render env vars).
 # Falls back to localhost for local development.
-_frontend_url = os.getenv("FRONTEND_URL", "")
+_frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 if _frontend_url:
-    CORS(app, origins=[_frontend_url, "http://localhost:5173"])
+    CORS(app, origins=[_frontend_url, "http://localhost:5173", "http://localhost:5174"])
 else:
     CORS(app)
 
