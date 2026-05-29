@@ -113,6 +113,13 @@
   .terra-typed-word.is-glowing {
     animation-name: terraTypeWordGlow;
   }
+
+  .terra-chat-typed-word {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(4px);
+    animation: terraChatWordIn 0.24s ease-out forwards;
+  }
 }
 
 @keyframes terraTypeWord {
@@ -168,6 +175,19 @@
       0 0 0 1px rgba(251, 191, 36, 0.26),
       0 0 24px rgba(245, 158, 11, 0.68),
       0 0 46px rgba(180, 83, 9, 0.42);
+  }
+}
+
+@keyframes terraChatWordIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
   }
 }
 
