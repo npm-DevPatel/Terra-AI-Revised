@@ -14,8 +14,13 @@ import useTerraStore from '../../store/useTerraStore';
  * Updates: mapState.pinnedCoordinates + mapState.approvedLocationData
  */
 export default function PinDrop({ onRunSpatialEngine }) {
-  const { mapState } = useTerraStore();
+  const { mapState, clearMapState } = useTerraStore();
   const [selectedPlace, setSelectedPlace] = React.useState(null);
+
+  React.useEffect(() => {
+    clearMapState();
+    setSelectedPlace(null);
+  }, [clearMapState]);
 
   const handlePinDropped = async ({ lat, lng }) => {
     // Auto-trigger reverse geocode candidate load when pin drops
