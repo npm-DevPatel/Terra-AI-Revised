@@ -393,36 +393,36 @@ export default function Analyze() {
             {/* ── Mode Selection ── */}
             {!mode && (
               <motion.div key="mode-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-10 text-center">
-                  <h2 className="text-3xl font-black text-terra-heading mb-3">Choose your analysis method</h2>
-                  <p className="text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
+                <div className="mb-8 sm:mb-10 text-center">
+                  <h2 className="text-2xl sm:text-3xl font-black text-terra-heading mb-2 leading-tight">Choose your analysis method</h2>
+                  <p className="text-sm sm:text-base text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-5 sm:gap-8 max-w-6xl mx-auto">
+                <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 max-w-5xl mx-auto">
                   {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, imageSrc, imageAlt, desc, gradient, lightBg, border, textColor, linkColor }) => (
                     <motion.button
                       key={id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setMode(id)}
-                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-6 sm:p-10 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full flex flex-col min-h-[520px]`}
+                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-7 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full flex flex-col`}
                     >
-                      <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-6`}>
+                      <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-4`}>
                         <Icon className="w-7 h-7 text-white" />
                       </div>
                       <div className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-full ${lightBg} ${textColor} mb-3`}>
                         {subtitle}
                       </div>
-                      <div className="mt-4 mb-5 rounded-3xl overflow-hidden">
+                      <div className="mt-3 mb-4 rounded-3xl overflow-hidden">
                         <img
                           src={imageSrc}
                           alt={imageAlt}
-                          className="w-full h-40 sm:h-48 object-cover"
+                          className="w-full h-24 sm:h-28 object-cover"
                           loading="lazy"
                           draggable={false}
                         />
                       </div>
                       <h3 className="text-xl font-black text-terra-heading mb-3">{title}</h3>
-                      <p className="text-sm text-terra-body leading-relaxed mb-6">{desc}</p>
+                      <p className="text-sm text-terra-body leading-relaxed mb-4">{desc}</p>
                       <div className="flex items-center gap-2 font-semibold text-sm mt-auto" style={{ color: linkColor }}>
                         Get Started <ChevronRight className="w-4 h-4" />
                       </div>
