@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import InteractiveMap from './InteractiveMap';
@@ -14,7 +14,6 @@ import useTerraStore from '../../store/useTerraStore';
  */
 export default function PinDrop() {
   const { mapState } = useTerraStore();
-  const searchRef = useRef(null);
 
   const handlePinDropped = async ({ lat, lng }) => {
     // Auto-trigger reverse geocode candidate load when pin drops
@@ -32,7 +31,7 @@ export default function PinDrop() {
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Top bar: search overlay */}
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-3">
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-3 max-w-[calc(100vw-2rem)]">
         <LocationSearch onLocationConfirmed={handleLocationConfirmed} />
 
 

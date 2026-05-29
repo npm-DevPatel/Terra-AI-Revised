@@ -5,6 +5,7 @@ import { LogIn, LogOut, Menu } from 'lucide-react';
 import useTerraStore from '../../store/useTerraStore';
 import AuthModal from '../auth/AuthModal';
 import { supabase } from '../../lib/supabaseClient';
+import terraLogo from '../../assets/front_page/terra_logo.png';
 
 const ROUTE_LABELS = {
   '/':        { label: 'Home',         sub: 'Terra AI Land Intelligence' },
@@ -34,14 +35,25 @@ export default function TopBar({ onMenuToggle }) {
 
       <header className="flex items-center justify-between px-3 sm:px-6 h-16 bg-white border-b border-terra-border flex-shrink-0 gap-2">
         {/* ── Hamburger (mobile only) ── */}
-        <button
-          id="topbar-menu-btn"
-          onClick={onMenuToggle}
-          className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-terra-muted hover:text-terra-heading hover:bg-slate-50 transition-colors flex-shrink-0"
-          aria-label="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+        <div className="md:hidden flex items-center gap-2 flex-shrink-0">
+          <button
+            id="topbar-menu-btn"
+            onClick={onMenuToggle}
+            className="flex items-center justify-center w-9 h-9 rounded-xl text-terra-muted hover:text-terra-heading hover:bg-slate-50 transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-terra-border overflow-hidden">
+            <img
+              src={terraLogo}
+              alt="Terra"
+              className="w-7 h-7 object-contain"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+        </div>
 
         {/* ── Breadcrumb ── */}
         <div className="flex-1 min-w-0">

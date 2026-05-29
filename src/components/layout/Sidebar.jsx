@@ -14,12 +14,13 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ScanLine, Map, FileText, CreditCard,
-  ChevronLeft, ChevronRight, Leaf, Plus, History,
+  ChevronLeft, ChevronRight, Plus, History,
   LogIn, Loader2, AlertCircle, MapPin, Pencil, Trash2, Check, X, Menu,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
+import terraLogo from '../../assets/front_page/terra_logo.png';
 
 // ─── Schema Migration ─────────────────────────────────────────────────
 /**
@@ -301,8 +302,14 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex-shrink-0">
-            <Leaf className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-terra-border overflow-hidden flex-shrink-0">
+            <img
+              src={terraLogo}
+              alt="Terra"
+              className="w-7 h-7 object-contain"
+              loading="eager"
+              decoding="async"
+            />
           </div>
           <AnimatePresence initial={false}>
             {!collapsed && (

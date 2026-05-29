@@ -7,10 +7,9 @@ const NAIROBI_CENTER = { lat: -1.286389, lng: 36.817223 };
 const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const MAP_TYPES = [
-  { id: 'hybrid',    label: 'Hybrid',    },  // satellite + labels (DEFAULT)
-  { id: 'roadmap',   label: 'Map',       },  // standard road map
-  { id: 'satellite', label: 'Satellite', },  // pure satellite no labels
-  { id: 'terrain',   label: 'Terrain',   },  // topographic
+  { id: 'hybrid',  label: 'GEE',     },  // satellite + labels (default visual)
+  { id: 'roadmap', label: 'Map',     },  // standard road map
+  { id: 'terrain', label: 'Terrain', },  // topographic
 ];
 
 export default function InteractiveMap({ onPinDropped }) {
@@ -135,9 +134,9 @@ export default function InteractiveMap({ onPinDropped }) {
         )}
       </AnimatePresence>
 
-      {/* ── Map Type Toggle (custom, top-right) ── */}
+      {/* ── Map Type Toggle (custom, top-left) ── */}
       {mapReady && (
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl shadow-lg p-1">
+        <div className="absolute top-16 left-4 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl shadow-lg p-1">
           <Layers className="w-3.5 h-3.5 text-terra-muted ml-1.5 flex-shrink-0" />
           {MAP_TYPES.map(({ id, label }) => (
             <button

@@ -12,7 +12,7 @@ import TopBar from './TopBar';
  *
  * mobileOpen state lives here so TopBar and Sidebar stay in sync.
  */
-export default function MainLayout({ children }) {
+export default function MainLayout({ children, hideTopBar = false }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const openMobile  = useCallback(() => setMobileOpen(true),  []);
@@ -41,10 +41,10 @@ export default function MainLayout({ children }) {
 
       {/* ── Right Column ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopBar onMenuToggle={openMobile} />
+        {!hideTopBar && <TopBar onMenuToggle={openMobile} />}
 
         {/* ── Main Stage ── */}
-        <main className="flex-1 overflow-y-auto h-full">
+        <main className={`flex-1 h-full ${hideTopBar ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {children}
         </main>
       </div>

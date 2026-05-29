@@ -307,7 +307,7 @@ export default function Analyze() {
   const engineDone = engineState.status === 'done';
 
   return (
-    <MainLayout>
+    <MainLayout hideTopBar={mode === 'map'}>
       <div className="font-gabarito h-full">
         <ProgressiveLoader />
 
@@ -331,56 +331,12 @@ export default function Analyze() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="flex flex-col h-full max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 gap-3 sm:gap-4"
+          className="flex flex-col h-full w-full"
         >
-          {/* Compact header bar */}
-          <div className="flex items-center gap-3 px-4 sm:px-6 py-3 flex-shrink-0 bg-white rounded-xl shadow-sm border border-terra-border">
-            <button
-              onClick={() => { setMode(null); resetEngineState(); }}
-              className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors flex-shrink-0"
-            >
-              ← Back
-            </button>
-            <h2 className="text-lg sm:text-xl font-black text-terra-heading truncate">Spatial Risk Engine</h2>
-          </div>
-
-          {/* Map — grows to fill all available space */}
-          <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden shadow-sm border border-terra-border bg-slate-50">
+          {/* Full-bleed map / GEE imagery (fills entire right side) */}
+          <div className="relative flex-1 min-h-0">
             <PinDrop />
             {engineDone && <RiskSummaryCard />}
-          </div>
-
-          {/* Button strip — always anchored at the bottom, never requires scrolling */}
-          <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-white rounded-xl shadow-sm border border-terra-border flex flex-col items-center gap-1.5">
-            {!engineDone && (
-              <>
-                <Button
-                  id="analyze-run-btn"
-                  variant="primary"
-                  size="lg"
-                  icon={Map}
-                  loading={engineState.status === 'loading'}
-                  disabled={!pinSet || engineState.status === 'loading'}
-                  onClick={handleSpatialAnalyze}
-                >
-                  {pinSet ? 'Run Spatial Analysis' : 'Drop a Pin First'}
-                </Button>
-                {!user && pinSet && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-xs text-terra-muted"
-                  >
-                    You'll be asked to sign in before the analysis runs.
-                  </motion.p>
-                )}
-              </>
-            )}
-            {engineDone && (
-              <Button variant="secondary" size="md" onClick={() => navigate('/report')}>
-                View Full Report →
-              </Button>
-            )}
           </div>
         </motion.div>
       )}
