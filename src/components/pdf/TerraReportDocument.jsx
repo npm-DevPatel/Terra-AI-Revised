@@ -44,13 +44,48 @@ const styles = StyleSheet.create({
     padding: 34,
     fontSize: 9,
   },
+  topBand: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 14,
+    backgroundColor: "#047857",
+  },
+  topBandSoft: {
+    position: "absolute",
+    top: 14,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: WHITE_PANEL_3,
+  },
   watermark: {
     position: "absolute",
-    width: 300,
-    height: 300,
-    opacity: 0.03,
-    left: 148,
-    top: 250,
+    width: 320,
+    height: 320,
+    opacity: 0.025,
+    left: 132,
+    top: 230,
+  },
+  watermarkSoft: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#ecfdf5",
+    opacity: 0.8,
+    right: -50,
+    top: 76,
+  },
+  watermarkSoft2: {
+    position: "absolute",
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: "#f8fafc",
+    left: -28,
+    bottom: 88,
   },
   pageChrome: {
     position: "absolute",
@@ -67,6 +102,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 22,
+    paddingTop: 4,
   },
   brand: {
     flexDirection: "row",
@@ -96,21 +132,43 @@ const styles = StyleSheet.create({
     color: SLATE_3,
     marginTop: 2,
   },
+  headerStack: {
+    marginLeft: 2,
+  },
+  headerKicker: {
+    fontSize: 7,
+    color: "#047857",
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  headerNote: {
+    fontSize: 6.5,
+    color: SLATE_3,
+    marginTop: 2,
+    textAlign: "right",
+    lineHeight: 1.2,
+  },
   chip: {
     borderWidth: 1,
     borderColor: WHITE_PANEL_3,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     color: SLATE_2,
     fontSize: 7,
-    fontWeight: 700,
+    fontWeight: 800,
     textTransform: "uppercase",
     letterSpacing: 1.2,
+  },
+  chipBlock: {
+    alignItems: "flex-end",
   },
   hero: {
     flex: 1,
     justifyContent: "center",
+    paddingTop: 8,
   },
   eyebrow: {
     fontSize: 8,
@@ -132,6 +190,62 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
     color: SLATE_2,
     width: "82%",
+  },
+  heroGrid: {
+    flexDirection: "row",
+    marginTop: 26,
+  },
+  heroLeft: {
+    flex: 1.25,
+    marginRight: 12,
+  },
+  heroRight: {
+    flex: 0.85,
+  },
+  heroCard: {
+    backgroundColor: WHITE,
+    borderWidth: 1,
+    borderColor: WHITE_PANEL_3,
+    borderRadius: 18,
+    padding: 16,
+  },
+  heroScoreLabel: {
+    fontSize: 7,
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    color: SLATE_3,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 8,
+  },
+  heroScoreValue: {
+    fontSize: 42,
+    fontFamily: "Helvetica-Bold",
+    color: "#047857",
+    lineHeight: 1,
+  },
+  heroScoreSub: {
+    fontSize: 8,
+    color: SLATE_2,
+    lineHeight: 1.45,
+    marginTop: 8,
+  },
+  coverPillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 10,
+  },
+  coverPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#ecfdf5",
+    color: "#047857",
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginRight: 6,
+    marginBottom: 6,
   },
   metaGrid: {
     flexDirection: "row",
@@ -168,6 +282,24 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 7,
   },
+  sectionFrame: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  sectionFrameLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  sectionRail: {
+    width: 5,
+    height: 34,
+    borderRadius: 4,
+    backgroundColor: "#047857",
+    marginRight: 10,
+  },
   sectionTitle: {
     color: SLATE,
     fontSize: 27,
@@ -181,6 +313,18 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
     marginBottom: 16,
   },
+  sectionBadge: {
+    borderWidth: 1,
+    borderColor: WHITE_PANEL_3,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 6.5,
+    fontFamily: "Helvetica-Bold",
+    color: SLATE_3,
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
+  },
   row: {
     flexDirection: "row",
   },
@@ -193,6 +337,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,
+    marginBottom: 10,
+  },
+  cardAccent: {
+    height: 4,
+    backgroundColor: "#047857",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    marginTop: -12,
+    marginHorizontal: -12,
     marginBottom: 10,
   },
   darkCard: {
@@ -239,7 +392,7 @@ const styles = StyleSheet.create({
     right: 34,
     borderTopWidth: 1,
     borderTopColor: WHITE_PANEL_3,
-    paddingTop: 9,
+    paddingTop: 10,
     flexDirection: "row",
     justifyContent: "space-between",
   },
@@ -247,6 +400,14 @@ const styles = StyleSheet.create({
     color: SLATE_3,
     fontSize: 6.5,
     width: "82%",
+  },
+  footerTag: {
+    fontSize: 6.5,
+    color: "#047857",
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: 2,
   },
   pageNum: {
     color: SLATE_2,
@@ -392,6 +553,10 @@ function sectionById(payload, ids) {
 function Watermark() {
   return (
     <>
+      <View style={styles.topBand} fixed />
+      <View style={styles.topBandSoft} fixed />
+      <View style={styles.watermarkSoft} fixed />
+      <View style={styles.watermarkSoft2} fixed />
       <View style={styles.pageChrome} fixed />
       <Image src={terraLogo} style={styles.watermark} fixed />
     </>
@@ -405,12 +570,16 @@ function Header({ tag = "Land Intelligence Dossier" }) {
         <View style={styles.logoWrap}>
           <Image src={terraLogo} style={styles.logo} />
         </View>
-        <View>
+        <View style={styles.headerStack}>
+          <Text style={styles.headerKicker}>Terra AI Dossier</Text>
           <Text style={styles.brandName}>TERRA AI</Text>
           <Text style={styles.brandSub}>Where Building Begins...</Text>
         </View>
       </View>
-      <Text style={styles.chip}>{tag}</Text>
+      <View style={styles.chipBlock}>
+        <Text style={styles.chip}>{tag}</Text>
+        <Text style={styles.headerNote}>Premium client export</Text>
+      </View>
     </View>
   );
 }
@@ -418,7 +587,10 @@ function Header({ tag = "Land Intelligence Dossier" }) {
 function Footer({ page }) {
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>{DISCLAIMER}</Text>
+      <View>
+        <Text style={styles.footerTag}>Confidential dossier</Text>
+        <Text style={styles.footerText}>{DISCLAIMER}</Text>
+      </View>
       <Text style={styles.pageNum}>{page}</Text>
     </View>
   );
@@ -427,6 +599,7 @@ function Footer({ page }) {
 function MetricCard({ label, value, sub, style }) {
   return (
     <View style={[styles.card, style]}>
+      <View style={styles.cardAccent} />
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.bigMetric}>{value}</Text>
       {sub ? <Text style={styles.metricSub}>{sub}</Text> : null}
@@ -515,6 +688,7 @@ function InvestmentDiagram({ score }) {
 
 function IntroPage({ payload }) {
   const coords = payload.coordinates || {};
+  const score = riskScore(payload);
   const generated = new Date().toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
   return (
     <Page size="A4" style={styles.page}>
@@ -526,26 +700,45 @@ function IntroPage({ payload }) {
         <Text style={styles.subtitle}>
           A Terra AI dossier for understanding the site, simulating build readiness, and framing the investment future before money changes hands.
         </Text>
-        <View style={styles.metaGrid}>
-          <View style={styles.metaBox}>
-            <Text style={styles.label}>Project Name</Text>
-            <Text style={styles.value}>{payload.project_name || payload.place_name || payload.ward || "Terra Site Review"}</Text>
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.label}>Project Location</Text>
-            <Text style={styles.value}>{placeName(payload)}</Text>
-          </View>
+        <View style={styles.coverPillRow}>
+          <Text style={styles.coverPill}>{payload.county || 'Kenya'}</Text>
+          <Text style={styles.coverPill}>{payload.land_use || 'Land intelligence'}</Text>
+          <Text style={styles.coverPill}>{coords.lat ? 'Pinned scan' : 'Manual review'}</Text>
+          <Text style={styles.coverPill}>{generated}</Text>
         </View>
-        <View style={styles.metaGrid}>
-          <View style={styles.metaBox}>
-            <Text style={styles.label}>Coordinates</Text>
-            <Text style={styles.value}>
-              {coords.lat ? `${coords.lat.toFixed(5)}, ${coords.lng?.toFixed(5)}` : "Not supplied"}
-            </Text>
+        <View style={styles.heroGrid}>
+          <View style={styles.heroLeft}>
+            <View style={styles.metaGrid}>
+              <View style={styles.metaBox}>
+                <Text style={styles.label}>Project Name</Text>
+                <Text style={styles.value}>{payload.project_name || payload.place_name || payload.ward || "Terra Site Review"}</Text>
+              </View>
+              <View style={styles.metaBox}>
+                <Text style={styles.label}>Project Location</Text>
+                <Text style={styles.value}>{placeName(payload)}</Text>
+              </View>
+            </View>
+            <View style={styles.metaGrid}>
+              <View style={styles.metaBox}>
+                <Text style={styles.label}>Coordinates</Text>
+                <Text style={styles.value}>
+                  {coords.lat ? `${coords.lat.toFixed(5)}, ${coords.lng?.toFixed(5)}` : "Not supplied"}
+                </Text>
+              </View>
+              <View style={styles.metaBox}>
+                <Text style={styles.label}>Generated</Text>
+                <Text style={styles.value}>{generated}</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.label}>Generated</Text>
-            <Text style={styles.value}>{generated}</Text>
+          <View style={styles.heroRight}>
+            <View style={styles.heroCard}>
+              <Text style={styles.heroScoreLabel}>Feasibility Score</Text>
+              <Text style={styles.heroScoreValue}>{Math.round(score)}</Text>
+              <Text style={styles.heroScoreSub}>
+                {verdictLabel(payload)}. Use this dossier as the premium client-ready first pass before surveys, legal review, and negotiation.
+              </Text>
+            </View>
           </View>
         </View>
       </View>
@@ -562,8 +755,16 @@ function SiteIntelligencePage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section A" />
-      <Text style={styles.sectionKicker}>A. Site Intelligence</Text>
-      <Text style={styles.sectionTitle}>What the land is telling us now</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>A. Site Intelligence</Text>
+            <Text style={styles.sectionTitle}>What the land is telling us now</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Live scan summary</Text>
+      </View>
       <Text style={styles.sectionLead}>{summary.slice(0, 520)}</Text>
 
       <View style={styles.row}>
@@ -604,8 +805,16 @@ function BuildSimulationPage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section B" />
-      <Text style={styles.sectionKicker}>B. Build Simulation</Text>
-      <Text style={styles.sectionTitle}>How construction might behave here</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>B. Build Simulation</Text>
+            <Text style={styles.sectionTitle}>How construction might behave here</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Construction lens</Text>
+      </View>
       <Text style={styles.sectionLead}>
         This section translates the scan into practical building implications: likely foundation complexity, utility friction, access considerations, and the construction risks that can change the real budget.
       </Text>
@@ -654,8 +863,16 @@ function FutureVisionPage({ payload, askingPriceResult }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section C" />
-      <Text style={styles.sectionKicker}>C. Future Vision & Investment</Text>
-      <Text style={styles.sectionTitle}>What this parcel could become</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>C. Future Vision & Investment</Text>
+            <Text style={styles.sectionTitle}>What this parcel could become</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Investor view</Text>
+      </View>
       <Text style={styles.sectionLead}>
         Terra AI frames the parcel as an investment decision: what to protect against, what can increase value, and what must be verified before the land becomes a home, rental asset, subdivision, or long-hold position.
       </Text>
@@ -704,8 +921,16 @@ function SiteOverviewPage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section D" />
-      <Text style={styles.sectionKicker}>D. Site Overview</Text>
-      <Text style={styles.sectionTitle}>Parcel snapshot and core metadata</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>D. Site Overview</Text>
+            <Text style={styles.sectionTitle}>Parcel snapshot and core metadata</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Briefing page</Text>
+      </View>
       <Text style={styles.sectionLead}>
         This page consolidates the parcel identity, the geospatial anchor, and the first-pass engine conclusion so the dossier reads like a formal project brief.
       </Text>
@@ -745,8 +970,16 @@ function TopographyPage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section E" />
-      <Text style={styles.sectionKicker}>E. Topography</Text>
-      <Text style={styles.sectionTitle}>Terrain, slope, and build difficulty</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>E. Topography</Text>
+            <Text style={styles.sectionTitle}>Terrain, slope, and build difficulty</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Ground truth lens</Text>
+      </View>
       <Text style={styles.sectionLead}>
         The topography section explains whether the land behaves like a gentle building platform or a site that will need significant grading, drainage, and foundation work.
       </Text>
@@ -778,8 +1011,16 @@ function AccessAndInfrastructurePage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section F" />
-      <Text style={styles.sectionKicker}>F. Access & Infrastructure</Text>
-      <Text style={styles.sectionTitle}>Roads, services, and reachability</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>F. Access & Infrastructure</Text>
+            <Text style={styles.sectionTitle}>Roads, services, and reachability</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Connectivity</Text>
+      </View>
       <Text style={styles.sectionLead}>
         This page focuses on how easily a buyer, builder, and service provider can reach the parcel and connect it to the essentials needed for development.
       </Text>
@@ -810,8 +1051,16 @@ function WaterAndDrainagePage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section G" />
-      <Text style={styles.sectionKicker}>G. Water & Drainage</Text>
-      <Text style={styles.sectionTitle}>Water proximity and drainage exposure</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>G. Water & Drainage</Text>
+            <Text style={styles.sectionTitle}>Water proximity and drainage exposure</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Hydrology</Text>
+      </View>
       <Text style={styles.sectionLead}>
         Flooding, riparian sensitivity, drainage paths, and surface water behavior are the difference between a buildable plot and a parcel that needs expensive mitigation.
       </Text>
@@ -847,8 +1096,16 @@ function LegalAndPlanningPage({ payload }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section H" />
-      <Text style={styles.sectionKicker}>H. Legal & Planning</Text>
-      <Text style={styles.sectionTitle}>Title, zoning, and statutory caution</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>H. Legal & Planning</Text>
+            <Text style={styles.sectionTitle}>Title, zoning, and statutory caution</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Compliance</Text>
+      </View>
       <Text style={styles.sectionLead}>
         This section pulls together the legal and planning exposure that should be checked before any commitment is made.
       </Text>
@@ -887,8 +1144,16 @@ function CostsAndNextStepsPage({ payload, askingPriceResult }) {
     <Page size="A4" style={styles.page}>
       <Watermark />
       <Header tag="Section I" />
-      <Text style={styles.sectionKicker}>I. Cost Model & Next Steps</Text>
-      <Text style={styles.sectionTitle}>What it may cost and what to do next</Text>
+      <View style={styles.sectionFrame}>
+        <View style={styles.sectionFrameLeft}>
+          <View style={styles.sectionRail} />
+          <View>
+            <Text style={styles.sectionKicker}>I. Cost Model & Next Steps</Text>
+            <Text style={styles.sectionTitle}>What it may cost and what to do next</Text>
+          </View>
+        </View>
+        <Text style={styles.sectionBadge}>Closing page</Text>
+      </View>
       <Text style={styles.sectionLead}>
         The final section turns the scan into a practical decision view: likely cost pressure, price context, and the immediate next steps after receiving the dossier.
       </Text>
@@ -914,49 +1179,15 @@ function CostsAndNextStepsPage({ payload, askingPriceResult }) {
               Terra AI is a triage tool. Use this dossier to decide whether the parcel deserves due diligence, negotiation, or a hard stop.
             </Text>
           </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Appendix Snapshot</Text>
+            <Text style={styles.bodyText}>Assumptions: public data may contain gaps, delays, or positional error.</Text>
+            <Text style={styles.bodyText}>Checklist: title search, beacon check, zoning confirmation, service pricing, and licensed professional review.</Text>
+          </View>
         </View>
       </View>
 
       <Footer page="09" />
-    </Page>
-  );
-}
-
-function AppendixPage({ payload }) {
-  return (
-    <Page size="A4" style={styles.page}>
-      <Watermark />
-      <Header tag="Section J" />
-      <Text style={styles.sectionKicker}>J. Appendix</Text>
-      <Text style={styles.sectionTitle}>Assumptions, limitations, and checklist</Text>
-      <Text style={styles.sectionLead}>
-        This appendix closes the dossier with practical reminders so the report can be shared with buyers, lawyers, surveyors, and lenders without losing the caveats.
-      </Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Assumptions</Text>
-        <Text style={styles.bodyText}>• Public data sources may contain gaps, delays, or positional error.</Text>
-        <Text style={styles.bodyText}>• Spatial heuristics support due diligence, not final legal or engineering sign-off.</Text>
-        <Text style={styles.bodyText}>• Missing values should be treated as items for on-site confirmation.</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Immediate Buyer Checklist</Text>
-        <Text style={styles.checklistText}>• Verify title and seller identity.</Text>
-        <Text style={styles.checklistText}>• Ask for beacons and survey maps.</Text>
-        <Text style={styles.checklistText}>• Confirm county zoning and use class.</Text>
-        <Text style={styles.checklistText}>• Price access, drainage, and foundation costs separately.</Text>
-        <Text style={styles.checklistText}>• Keep a lawyer and licensed surveyor in the loop.</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Engine Note</Text>
-        <Text style={styles.bodyText}>
-          Selected parcel: {placeName(payload)}. Use the dossier as the first-pass filter, then confirm the site on the ground.
-        </Text>
-      </View>
-
-      <Footer page="10" />
     </Page>
   );
 }
@@ -980,7 +1211,6 @@ export function TerraReportDocument({ payload = {}, askingPriceResult = null }) 
       <WaterAndDrainagePage payload={payload} />
       <LegalAndPlanningPage payload={payload} />
       <CostsAndNextStepsPage payload={payload} askingPriceResult={askingPriceResult} />
-      <AppendixPage payload={payload} />
     </Document>
   );
 }
