@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Document,
   Font,
@@ -25,12 +24,14 @@ Font.register({
   ],
 });
 
-const GREEN = "#063f2c";
-const GREEN_2 = "#07553a";
-const GREEN_3 = "#0b6b49";
+const WHITE_BG = "#ffffff";
+const WHITE_PANEL = "#f8fafc";
+const WHITE_PANEL_3 = "#e2e8f0";
 const MINT = "#9ff5c8";
-const CREAM = "#f5efe3";
 const WHITE = "#ffffff";
+const SLATE = "#0f172a";
+const SLATE_2 = "#334155";
+const SLATE_3 = "#64748b";
 
 const DISCLAIMER =
   "Terra AI is a preliminary land intelligence document. It does not replace a licensed survey, title search, geotechnical investigation, NEMA assessment, county planning confirmation, or legal advice.";
@@ -38,8 +39,8 @@ const DISCLAIMER =
 const styles = StyleSheet.create({
   page: {
     fontFamily: "Gabarito",
-    backgroundColor: GREEN,
-    color: WHITE,
+    backgroundColor: WHITE_BG,
+    color: SLATE,
     padding: 34,
     fontSize: 9,
   },
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 300,
     height: 300,
-    opacity: 0.045,
+    opacity: 0.03,
     left: 148,
     top: 250,
   },
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
     top: 22,
     bottom: 22,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: WHITE_PANEL_3,
     borderRadius: 18,
   },
   header: {
@@ -88,20 +89,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 900,
     letterSpacing: 1.8,
-    color: WHITE,
+    color: SLATE,
   },
   brandSub: {
     fontSize: 7,
-    color: "rgba(255,255,255,0.62)",
+    color: SLATE_3,
     marginTop: 2,
   },
   chip: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
+    borderColor: WHITE_PANEL_3,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    color: CREAM,
+    color: SLATE_2,
     fontSize: 7,
     fontWeight: 700,
     textTransform: "uppercase",
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 2.4,
     textTransform: "uppercase",
-    color: MINT,
+    color: "#047857",
     fontWeight: 800,
     marginBottom: 12,
   },
@@ -123,13 +124,13 @@ const styles = StyleSheet.create({
     fontSize: 44,
     lineHeight: 0.95,
     fontWeight: 900,
-    color: WHITE,
+    color: SLATE,
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 13,
     lineHeight: 1.45,
-    color: "rgba(255,255,255,0.78)",
+    color: SLATE_2,
     width: "82%",
   },
   metaGrid: {
@@ -139,8 +140,8 @@ const styles = StyleSheet.create({
   metaBox: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: WHITE_PANEL_3,
+    backgroundColor: WHITE,
     borderRadius: 14,
     padding: 13,
     marginRight: 10,
@@ -148,19 +149,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 7,
     letterSpacing: 1.5,
-    color: "rgba(255,255,255,0.55)",
+    color: SLATE_3,
     textTransform: "uppercase",
     fontWeight: 800,
     marginBottom: 5,
   },
   value: {
     fontSize: 13,
-    color: WHITE,
+    color: SLATE,
     fontWeight: 800,
     lineHeight: 1.25,
   },
   sectionKicker: {
-    color: MINT,
+    color: "#047857",
     fontSize: 8,
     fontWeight: 900,
     letterSpacing: 2,
@@ -168,14 +169,14 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
   sectionTitle: {
-    color: WHITE,
+    color: SLATE,
     fontSize: 27,
     lineHeight: 1,
     fontWeight: 900,
     marginBottom: 9,
   },
   sectionLead: {
-    color: "rgba(255,255,255,0.76)",
+    color: SLATE_2,
     fontSize: 10,
     lineHeight: 1.45,
     marginBottom: 16,
@@ -187,45 +188,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.13)",
+    backgroundColor: WHITE,
+    borderColor: WHITE_PANEL_3,
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
   },
   darkCard: {
-    backgroundColor: GREEN_2,
-    borderColor: "rgba(159,245,200,0.22)",
+    backgroundColor: WHITE_PANEL,
+    borderColor: WHITE_PANEL_3,
   },
   cardTitle: {
     fontSize: 11,
-    color: WHITE,
+    color: SLATE,
     fontWeight: 900,
     marginBottom: 5,
   },
   bodyText: {
-    color: "rgba(255,255,255,0.76)",
+    color: SLATE_2,
     fontSize: 8.5,
     lineHeight: 1.55,
   },
   bigMetric: {
     fontSize: 22,
     fontWeight: 900,
-    color: WHITE,
+    color: SLATE,
     marginBottom: 2,
   },
   metricSub: {
     fontSize: 7.5,
-    color: "rgba(255,255,255,0.62)",
+    color: SLATE_3,
     lineHeight: 1.35,
   },
   pill: {
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: "rgba(159,245,200,0.16)",
-    color: MINT,
+    backgroundColor: "#ecfdf5",
+    color: "#047857",
     fontSize: 7,
     fontWeight: 800,
     marginRight: 6,
@@ -237,20 +238,93 @@ const styles = StyleSheet.create({
     left: 34,
     right: 34,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.12)",
+    borderTopColor: WHITE_PANEL_3,
     paddingTop: 9,
     flexDirection: "row",
     justifyContent: "space-between",
   },
   footerText: {
-    color: "rgba(255,255,255,0.44)",
+    color: SLATE_3,
     fontSize: 6.5,
     width: "82%",
   },
   pageNum: {
-    color: "rgba(255,255,255,0.62)",
+    color: SLATE_2,
     fontSize: 7,
     fontWeight: 800,
+  },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -5,
+  },
+  statChip: {
+    width: "48%",
+    backgroundColor: WHITE_PANEL,
+    borderWidth: 1,
+    borderColor: WHITE_PANEL_3,
+    borderRadius: 12,
+    padding: 10,
+    marginHorizontal: 5,
+    marginBottom: 10,
+  },
+  statLabel: {
+    fontSize: 7,
+    color: SLATE_3,
+    textTransform: "uppercase",
+    letterSpacing: 1.3,
+    marginBottom: 4,
+    fontFamily: "Helvetica-Bold",
+  },
+  statValue: {
+    fontSize: 14,
+    color: SLATE,
+    fontFamily: "Helvetica-Bold",
+  },
+  statSub: {
+    fontSize: 7.5,
+    color: SLATE_2,
+    marginTop: 3,
+    lineHeight: 1.35,
+  },
+  timelineItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#047857",
+    marginTop: 4,
+    marginRight: 8,
+  },
+  timelineText: {
+    flex: 1,
+    fontSize: 8.5,
+    color: SLATE_2,
+    lineHeight: 1.5,
+  },
+  checklistItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 7,
+  },
+  checklistBox: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: WHITE_PANEL_3,
+    marginTop: 3,
+    marginRight: 8,
+  },
+  checklistText: {
+    flex: 1,
+    fontSize: 8.5,
+    color: SLATE_2,
+    lineHeight: 1.5,
   },
 });
 
@@ -623,6 +697,270 @@ function FutureVisionPage({ payload, askingPriceResult }) {
   );
 }
 
+function SiteOverviewPage({ payload }) {
+  const coords = payload.coordinates || {};
+  const score = riskScore(payload);
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section D" />
+      <Text style={styles.sectionKicker}>D. Site Overview</Text>
+      <Text style={styles.sectionTitle}>Parcel snapshot and core metadata</Text>
+      <Text style={styles.sectionLead}>
+        This page consolidates the parcel identity, the geospatial anchor, and the first-pass engine conclusion so the dossier reads like a formal project brief.
+      </Text>
+
+      <View style={styles.statGrid}>
+        <View style={styles.statChip}><Text style={styles.statLabel}>Place</Text><Text style={styles.statValue}>{placeName(payload)}</Text><Text style={styles.statSub}>Primary location reference used by the engine.</Text></View>
+        <View style={styles.statChip}><Text style={styles.statLabel}>Feasibility Score</Text><Text style={styles.statValue}>{Math.round(score)}/100</Text><Text style={styles.statSub}>{verdictLabel(payload)}</Text></View>
+        <View style={styles.statChip}><Text style={styles.statLabel}>Coordinates</Text><Text style={styles.statValue}>{coords.lat ? `${coords.lat.toFixed(5)}, ${coords.lng?.toFixed(5)}` : 'Not supplied'}</Text><Text style={styles.statSub}>Pinned point used for the spatial scan.</Text></View>
+        <View style={styles.statChip}><Text style={styles.statLabel}>Report Date</Text><Text style={styles.statValue}>{new Date().toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' })}</Text><Text style={styles.statSub}>Generated by Terra AI.</Text></View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.card, { flex: 1, marginRight: 10 }]}>
+          <Text style={styles.cardTitle}>Executive Summary</Text>
+          <Text style={styles.bodyText}>{cleanText(payload.executive_summary, 'No executive summary returned by the engine.').slice(0, 750)}</Text>
+        </View>
+        <View style={[styles.card, { flex: 1 }]}>
+          <Text style={styles.cardTitle}>Quick Flags</Text>
+          <Text style={styles.bodyText}>Road reserve risk: {boolText(payload.road_reserve_risk)}</Text>
+          <Text style={styles.bodyText}>Riparian breach: {boolText(payload.riparian_breach)}</Text>
+          <Text style={styles.bodyText}>Flood history: {boolText(payload.flood_history)}</Text>
+          <Text style={styles.bodyText}>Aviation risk: {boolText(payload.aviation_risk)}</Text>
+          <Text style={styles.bodyText}>Protected land overlap: {boolText(payload.protected_land_risk)}</Text>
+        </View>
+      </View>
+
+      <Footer page="04" />
+    </Page>
+  );
+}
+
+function TopographyPage({ payload }) {
+  const slope = asNumber(payload.slope_percent ?? payload.slope);
+  const elevation = asNumber(payload.elevation_m ?? payload.elevation);
+  const soil = sectionById(payload, ['soil', 'soil_geotech', 'foundation_costs']);
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section E" />
+      <Text style={styles.sectionKicker}>E. Topography</Text>
+      <Text style={styles.sectionTitle}>Terrain, slope, and build difficulty</Text>
+      <Text style={styles.sectionLead}>
+        The topography section explains whether the land behaves like a gentle building platform or a site that will need significant grading, drainage, and foundation work.
+      </Text>
+
+      <View style={styles.row}>
+        <View style={[styles.col, { marginRight: 10 }]}>
+          <MetricCard label="Slope" value={slope == null ? 'Not mapped' : `${Math.round(slope)}%`} sub="Derived from the terrain scan" />
+          <MetricCard label="Elevation" value={elevation == null ? 'Not mapped' : `${Math.round(elevation)} m`} sub="Estimated altitude at the pinned point" />
+          <MetricCard label="Soil / Foundation Read" value={soil ? 'Mapped' : 'Not mapped'} sub={soil ? cleanText(soil.body, 'Foundation context available.').slice(0, 140) : 'The engine did not return a dedicated soil narrative.'} />
+        </View>
+        <View style={[styles.col, { marginLeft: 10 }]}> 
+          <BuildDiagram payload={payload} />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Interpretation</Text>
+            <Text style={styles.bodyText}>
+              A flatter site generally reduces cut-and-fill work, while a steeper site increases retaining, drainage, and foundation complexity.
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Footer page="05" />
+    </Page>
+  );
+}
+
+function AccessAndInfrastructurePage({ payload }) {
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section F" />
+      <Text style={styles.sectionKicker}>F. Access & Infrastructure</Text>
+      <Text style={styles.sectionTitle}>Roads, services, and reachability</Text>
+      <Text style={styles.sectionLead}>
+        This page focuses on how easily a buyer, builder, and service provider can reach the parcel and connect it to the essentials needed for development.
+      </Text>
+
+      <View style={styles.row}>
+        <View style={[styles.col, { marginRight: 10 }]}>
+          <SiteDiagram payload={payload} />
+          <MetricCard label="Nearest Road" value={fmtNumber(payload.nearest_road_m, 'm')} sub="Approximate road proximity from the geospatial engine" />
+        </View>
+        <View style={styles.col}>
+          <MetricCard label="Grid Connection" value={fmtNumber(payload.distance_to_grid_m, 'm')} sub="Distance to the nearest mapped electrical grid" />
+          <MetricCard label="Water Connection" value={payload.water_connection_nearby ? 'Nearby' : 'Not confirmed'} sub="Service availability signal from the scan" />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Access Notes</Text>
+            <Text style={styles.bodyText}>{cleanText(sectionById(payload, ['infrastructure'])?.body, 'Road access, utilities, and service access should be verified on site.').slice(0, 560)}</Text>
+          </View>
+        </View>
+      </View>
+
+      <Footer page="06" />
+    </Page>
+  );
+}
+
+function WaterAndDrainagePage({ payload }) {
+  const waterway = asNumber(payload.nearest_waterway_m);
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section G" />
+      <Text style={styles.sectionKicker}>G. Water & Drainage</Text>
+      <Text style={styles.sectionTitle}>Water proximity and drainage exposure</Text>
+      <Text style={styles.sectionLead}>
+        Flooding, riparian sensitivity, drainage paths, and surface water behavior are the difference between a buildable plot and a parcel that needs expensive mitigation.
+      </Text>
+
+      <View style={styles.row}>
+        <View style={[styles.col, { marginRight: 10 }]}>
+          <MetricCard label="Nearest Waterway" value={waterway == null ? 'Not mapped' : `${Math.round(waterway)} m`} sub={boolText(payload.riparian_breach)} />
+          <MetricCard label="Flood History" value={boolText(payload.flood_history)} sub="Historical flood exposure from the engine" />
+          <MetricCard label="Drainage Signal" value={payload.flood_history || payload.riparian_breach ? 'Review required' : 'Lower concern'} sub="Use this with the ground survey before purchase" />
+        </View>
+        <View style={styles.col}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Water Interpretation</Text>
+            <Text style={styles.bodyText}>
+              If the site sits close to waterways or low-lying drainage lines, the buyer should budget for runoff control, raising floor slabs, and possible buffer compliance checks.
+            </Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Engine Narrative</Text>
+            <Text style={styles.bodyText}>{cleanText(sectionById(payload, ['hydrology', 'environment', 'infrastructure'])?.body, 'The engine did not return a dedicated drainage narrative.').slice(0, 560)}</Text>
+          </View>
+        </View>
+      </View>
+
+      <Footer page="07" />
+    </Page>
+  );
+}
+
+function LegalAndPlanningPage({ payload }) {
+  const legal = sectionById(payload, ['legal_risks', 'legal']);
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section H" />
+      <Text style={styles.sectionKicker}>H. Legal & Planning</Text>
+      <Text style={styles.sectionTitle}>Title, zoning, and statutory caution</Text>
+      <Text style={styles.sectionLead}>
+        This section pulls together the legal and planning exposure that should be checked before any commitment is made.
+      </Text>
+
+      <View style={styles.row}>
+        <View style={[styles.card, { flex: 1, marginRight: 10 }]}>
+          <Text style={styles.cardTitle}>Legal Narrative</Text>
+          <Text style={styles.bodyText}>{cleanText(legal?.body, 'No dedicated legal narrative returned by the engine.').slice(0, 750)}</Text>
+        </View>
+        <View style={[styles.card, { flex: 1 }]}>
+          <Text style={styles.cardTitle}>Planning Checks</Text>
+          <Text style={styles.checklistText}>• Verify title ownership and encumbrances.</Text>
+          <Text style={styles.checklistText}>• Confirm zoning and permitted use.</Text>
+          <Text style={styles.checklistText}>• Check road reserve and boundary setbacks.</Text>
+          <Text style={styles.checklistText}>• Confirm riparian and environmental buffers.</Text>
+          <Text style={styles.checklistText}>• Validate county approvals before development.</Text>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Risk Summary</Text>
+        <Text style={styles.bodyText}>
+          Road reserve risk: {boolText(payload.road_reserve_risk)} · Demolition risk: {boolText(payload.demolition_risk)} · Protected land overlap: {boolText(payload.protected_land_risk)}
+        </Text>
+      </View>
+
+      <Footer page="08" />
+    </Page>
+  );
+}
+
+function CostsAndNextStepsPage({ payload, askingPriceResult }) {
+  const cs = payload.cost_summary || {};
+  const priceResult = askingPriceResult || null;
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section I" />
+      <Text style={styles.sectionKicker}>I. Cost Model & Next Steps</Text>
+      <Text style={styles.sectionTitle}>What it may cost and what to do next</Text>
+      <Text style={styles.sectionLead}>
+        The final section turns the scan into a practical decision view: likely cost pressure, price context, and the immediate next steps after receiving the dossier.
+      </Text>
+
+      <View style={styles.row}>
+        <View style={[styles.col, { marginRight: 10 }]}>
+          <MetricCard label="Foundation Premium" value={fmtKes(cs.estimated_foundation_premium_kes)} sub="Potential build uplift from terrain and soil conditions" />
+          <MetricCard label="Hidden Cost Estimate" value={fmtKes(cs.total_hidden_cost_estimate_kes)} sub="Access, legal, and build exposure combined" />
+          <MetricCard label="Broker Price Signal" value={priceResult ? (priceResult.isOvercharged ? `${priceResult.overchargePercent}% above benchmark` : 'Within review range') : 'Not run'} sub={priceResult ? `${fmtKes(priceResult.askingPrice)} asking price` : 'Use the on-page calculator for a broker check'} />
+        </View>
+        <View style={styles.col}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Next Steps</Text>
+            <Text style={styles.timelineText}>1. Do a title search and identity verification.</Text>
+            <Text style={styles.timelineText}>2. Confirm beacon boundaries with a licensed surveyor.</Text>
+            <Text style={styles.timelineText}>3. Review county planning, access, and utility constraints.</Text>
+            <Text style={styles.timelineText}>4. Price the hidden costs before making an offer.</Text>
+            <Text style={styles.timelineText}>5. Commission specialist surveys before completion.</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Decision Note</Text>
+            <Text style={styles.bodyText}>
+              Terra AI is a triage tool. Use this dossier to decide whether the parcel deserves due diligence, negotiation, or a hard stop.
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Footer page="09" />
+    </Page>
+  );
+}
+
+function AppendixPage({ payload }) {
+  return (
+    <Page size="A4" style={styles.page}>
+      <Watermark />
+      <Header tag="Section J" />
+      <Text style={styles.sectionKicker}>J. Appendix</Text>
+      <Text style={styles.sectionTitle}>Assumptions, limitations, and checklist</Text>
+      <Text style={styles.sectionLead}>
+        This appendix closes the dossier with practical reminders so the report can be shared with buyers, lawyers, surveyors, and lenders without losing the caveats.
+      </Text>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Assumptions</Text>
+        <Text style={styles.bodyText}>• Public data sources may contain gaps, delays, or positional error.</Text>
+        <Text style={styles.bodyText}>• Spatial heuristics support due diligence, not final legal or engineering sign-off.</Text>
+        <Text style={styles.bodyText}>• Missing values should be treated as items for on-site confirmation.</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Immediate Buyer Checklist</Text>
+        <Text style={styles.checklistText}>• Verify title and seller identity.</Text>
+        <Text style={styles.checklistText}>• Ask for beacons and survey maps.</Text>
+        <Text style={styles.checklistText}>• Confirm county zoning and use class.</Text>
+        <Text style={styles.checklistText}>• Price access, drainage, and foundation costs separately.</Text>
+        <Text style={styles.checklistText}>• Keep a lawyer and licensed surveyor in the loop.</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Engine Note</Text>
+        <Text style={styles.bodyText}>
+          Selected parcel: {placeName(payload)}. Use the dossier as the first-pass filter, then confirm the site on the ground.
+        </Text>
+      </View>
+
+      <Footer page="10" />
+    </Page>
+  );
+}
+
 export function TerraReportDocument({ payload = {}, askingPriceResult = null }) {
   const titlePlace = payload.place_name || payload.ward || "Land Parcel";
   return (
@@ -636,6 +974,13 @@ export function TerraReportDocument({ payload = {}, askingPriceResult = null }) 
       <SiteIntelligencePage payload={payload} />
       <BuildSimulationPage payload={payload} />
       <FutureVisionPage payload={payload} askingPriceResult={askingPriceResult} />
+      <SiteOverviewPage payload={payload} />
+      <TopographyPage payload={payload} />
+      <AccessAndInfrastructurePage payload={payload} />
+      <WaterAndDrainagePage payload={payload} />
+      <LegalAndPlanningPage payload={payload} />
+      <CostsAndNextStepsPage payload={payload} askingPriceResult={askingPriceResult} />
+      <AppendixPage payload={payload} />
     </Document>
   );
 }

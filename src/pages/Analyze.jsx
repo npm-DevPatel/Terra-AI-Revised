@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScanLine, Map, ArrowRight, ChevronRight, AlertCircle, X, Camera, Sparkles } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
@@ -297,18 +297,18 @@ export default function Analyze() {
       return;
     }
 
-    setEngineStatus('loading', 'Connecting to analysis engine…');
+    setEngineStatus('loading', 'I am now connecting to the analysis engine...');
     setErrorMsg(null);
 
     const MAX_RETRIES = 6;
     const RETRY_DELAYS = [8000, 12000, 15000, 15000, 20000, 20000];
     const RETRY_MESSAGES = [
-      'Server waking up from sleep — this takes 20-45s on first load…',
-      'Still warming up — hang tight…',
-      'Initializing AI models — almost there…',
-      'Loading geospatial engine…',
-      'Final boot sequence — nearly ready…',
-      'Last attempt — running your analysis now…',
+      'I am waking up the server from sleep...',
+      'I am still warming up the engine...',
+      'I am initializing the AI models now...',
+      'I am loading the geospatial engine...',
+      'I am finishing the boot sequence...',
+      'I am running your analysis now...',
     ];
 
     const headers = { 'Content-Type': 'application/json' };
