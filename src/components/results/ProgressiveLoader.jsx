@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
 import loadingGif from '../../assets/loading_state/loading.gif';
-import loadingImage1 from '../../assets/loading_state/loading_1.jpeg';
-import loadingImage2 from '../../assets/loading_state/loading_2.jpeg';
-import loadingImage3 from '../../assets/loading_state/loading_3.jpeg';
-import loadingImage4 from '../../assets/loading_state/loading_4.jpeg';
+import loadingImage1 from '../../assets/loading_state/loading_1.png';
+import loadingImage2 from '../../assets/loading_state/loading_2.png';
+import loadingImage3 from '../../assets/loading_state/loading_3.png';
+import loadingImage4 from '../../assets/loading_state/loading_4.png';
 import terraLogo from '../../assets/front_page/terra_logo.png';
 
 const LOADING_SEQUENCE = [
@@ -21,13 +21,6 @@ const LOADING_SEQUENCE = [
   {
     image: loadingImage4,
   },
-];
-
-const FALLBACK_MESSAGES = [
-  'I am now looking at the terrain...',
-  'I am checking the roads around your land...',
-  'I am tracing water and drainage paths...',
-  'I am calculating the risk layers right now...',
 ];
 
 function LoadingOverlay() {
@@ -95,7 +88,7 @@ function LoadingOverlay() {
                 transition={{ duration: 0.35 }}
                 className="animate-pulse text-lg font-semibold tracking-wide text-slate-700 sm:text-2xl"
               >
-                {engineState.progressMessage || FALLBACK_MESSAGES[stepIndex]}
+                {engineState.progressMessage || 'I am preparing the analysis...'}
               </motion.p>
             </AnimatePresence>
           </div>
