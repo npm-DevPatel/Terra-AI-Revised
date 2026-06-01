@@ -1,9 +1,6 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ArrowRight, Zap, Shield, FileText } from 'lucide-react';
+import { Check, Zap, Shield, FileText } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
-import Button from '../components/ui/Button';
 
 const PLANS = [
   {
@@ -94,28 +91,9 @@ const PLANS = [
 ];
 
 export default function Pricing() {
-  const navigate = useNavigate();
-
   return (
-    <MainLayout>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16 font-gabarito">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-            Simple, transparent pricing
-          </div>
-          <h1 className="text-4xl md:text-5xl font-black text-terra-heading mb-4">
-            Invest in certainty
-          </h1>
-          <p className="text-terra-body max-w-xl mx-auto text-lg">
-            One Terra AI report costs less than a single hour of a traditional surveyor's time — and delivers more data.
-          </p>
-        </motion.div>
-
+    <MainLayout hideTopBarOnDesktop hideTopBarAccountControls>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 font-gabarito">
         {/* Plans */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {PLANS.map(({ id, name, price, period, secondaryPrice, secondaryPeriod, desc, idealFor, icon: Icon, color, badge, note, features }, i) => (
@@ -168,29 +146,12 @@ export default function Pricing() {
                 ))}
               </ul>
 
-              <Button
-                fullWidth
-                variant={id === 'professional' ? 'primary' : id === 'enterprise' ? 'indigo' : id === 'free' ? 'secondary' : 'secondary'}
-                iconRight={ArrowRight}
-                onClick={() => navigate('/analyze')}
-              >
-                {id === 'enterprise' ? 'Contact Sales' : 'Get Started'}
-              </Button>
-
               {note && (
                 <p className="text-xs text-terra-muted mt-3 text-center">{note}</p>
               )}
             </motion.div>
           ))}
         </div>
-
-        {/* Footer note */}
-        <motion.p
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="text-center text-terra-muted text-sm mt-12"
-        >
-          All reports include the legal disclaimer required for exploratory due diligence. Payments simulated — no real charges.
-        </motion.p>
       </div>
     </MainLayout>
   );
