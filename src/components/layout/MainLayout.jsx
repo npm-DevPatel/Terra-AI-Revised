@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -17,6 +17,7 @@ export default function MainLayout({
   hideTopBar = false,
   hideTopBarOnDesktop = false,
   hideTopBarAccountControls = false,
+  disableMainScroll = false,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -55,7 +56,11 @@ export default function MainLayout({
         )}
 
         {/* ── Main Stage ── */}
-        <main className={`flex-1 h-full ${hideTopBar ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <main
+          className={
+            `flex-1 h-full ${(hideTopBar || disableMainScroll) ? 'overflow-hidden' : 'overflow-y-auto'}`
+          }
+        >
           {children}
         </main>
       </div>

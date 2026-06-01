@@ -85,7 +85,15 @@ function TypingWordLine({ words = TERRA_SCAN_WORDS }) {
   );
 }
 
-function PhotoScanGate({ isOpen, onClose, onAnalyze, isRunning, uploadedFileName, scanStatus }) {
+function PhotoScanGate({
+  isOpen,
+  onClose,
+  onAnalyze,
+  onAnalyzeWithoutPhoto,
+  isRunning,
+  uploadedFileName,
+  scanStatus,
+}) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -151,16 +159,27 @@ function PhotoScanGate({ isOpen, onClose, onAnalyze, isRunning, uploadedFileName
                       'Upload a current land photo before Terra runs the spatial engine.'
                     )}
                   </div>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    icon={ScanLine}
-                    onClick={onAnalyze}
-                    disabled={!uploadedFileName || isRunning || scanStatus === 'scanning'}
-                    loading={isRunning || scanStatus === 'scanning'}
-                  >
-                    Scan Photo & Run Engine
-                  </Button>
+                  <div className="flex flex-col gap-2 sm:items-end">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      icon={ScanLine}
+                      onClick={onAnalyze}
+                      disabled={!uploadedFileName || isRunning || scanStatus === 'scanning'}
+                      loading={isRunning || scanStatus === 'scanning'}
+                    >
+                      Scan Photo & Run Engine
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={onAnalyzeWithoutPhoto}
+                      disabled={isRunning || scanStatus === 'scanning'}
+                    >
+                      Run Engine Without Photo
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -278,7 +297,7 @@ export default function Analyze() {
   };
 
   // ─── Map: trigger spatial engine (with auth gate) ─────────
-  const handleSpatialAnalyze = async ({ visionContextOverride = null } = {}) => {
+  const handleSpatialAnalyze = async ({ visionContextOverride } = {}) => {
     // ── AUTH GATE ─────────────────────────────────────────────
     // If the user is not logged in, intercept here.
     // Do NOT hit the backend. Show the AuthModal instead.
@@ -312,11 +331,16 @@ export default function Analyze() {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
 
+    const hasVisionOverride = Object.prototype.hasOwnProperty.call(
+      arguments.length > 0 && arguments[0] ? arguments[0] : {},
+      'visionContextOverride'
+    );
+
     const body = JSON.stringify({
       lat,
       lng,
       clientContext: mapState.approvedLocationData ?? null,
-      visionContext: visionContextOverride ?? visionState.rawVisionPayload ?? null,
+      visionContext: hasVisionOverride ? (visionContextOverride ?? null) : (visionState.rawVisionPayload ?? null),
     });
 
     // Fire an immediate wake-up ping before the main request
@@ -436,11 +460,22 @@ export default function Analyze() {
     }
   };
 
+  const handlePhotoGateAnalyzeNoPhoto = async () => {
+    setPreparingEngine(true);
+    try {
+      setPhotoGateOpen(false);
+      await handleSpatialAnalyze({ visionContextOverride: null });
+    } finally {
+      setPreparingEngine(false);
+    }
+  };
+
   const scanDone  = visionState.scanStatus === 'complete';
   const engineDone = engineState.status === 'done';
+  const isModeSelect = mode === null;
 
   return (
-    <MainLayout hideTopBar={mode === 'map'}>
+    <MainLayout hideTopBar={mode === 'map'} disableMainScroll={isModeSelect}>
       <div className="font-gabarito h-full">
         <ProgressiveLoader />
 
@@ -457,6 +492,7 @@ export default function Analyze() {
           if (!preparingEngine && visionState.scanStatus !== 'scanning') setPhotoGateOpen(false);
         }}
         onAnalyze={handlePhotoGateAnalyze}
+        onAnalyzeWithoutPhoto={handlePhotoGateAnalyzeNoPhoto}
         isRunning={preparingEngine}
         uploadedFileName={visionState.uploadedFileName}
         scanStatus={visionState.scanStatus}
@@ -487,13 +523,17 @@ export default function Analyze() {
 
       {/* ── Non-map flows — padded scrollable container ── */}
       {mode !== 'map' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div
+          className={
+            `max-w-7xl mx-auto px-4 sm:px-6 ${isModeSelect ? 'h-full flex items-center' : 'py-6 sm:py-10'}`
+          }
+        >
           <AnimatePresence mode="wait">
 
             {/* ── Mode Selection ── */}
             {!mode && (
               <motion.div key="mode-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-8 sm:mb-10 text-center">
+                <div className="mb-6 sm:mb-8 text-center">
                   <h2 className="text-2xl sm:text-3xl font-black text-terra-heading mb-2 leading-tight">Start your land analysis</h2>
                   <p className="text-sm sm:text-base text-terra-body">Deep map + photo context combine into one risk report.</p>
                 </div>
