@@ -33,34 +33,27 @@ function ErrorToast({ message, onClose }) {
 }
 
 // ─── Mode cards ───────────────────────────────────────────────
+// Single combined entry to avoid stretching the preview imagery.
 const MODE_CARDS = [
-  {
-    id: 'vision',
-    icon: ScanLine,
-    title: 'Scan via Photo',
-    subtitle: 'Vision AI Flow',
-    imageSrc: scanPhotoImg,
-    imageAlt: 'Scan via photo preview',
-    desc: 'Upload a land photo. Our YOLO model detects vegetation, terrain, water bodies, and structures instantly.',
-    gradient: 'from-emerald-500 to-emerald-600',
-    lightBg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-    textColor: 'text-emerald-700',
-    linkColor: '#10b981',
-  },
   {
     id: 'map',
     icon: Map,
-    title: 'Deep Map Analysis',
-    subtitle: 'Spatial Engine Flow',
+    title: 'Deep Map and Photo Analysis',
+    subtitle: 'Vision + Spatial Engine',
     imageSrc: deepScanImg,
-    imageAlt: 'Deep site analysis preview',
-    desc: 'Drop a pin on the satellite map. The engine queries live infrastructure, zoning, and terrain data for that exact coordinate.',
+    imageAlt: 'Deep map and photo analysis preview',
+    desc: 'Drop a pin, upload a current land photo, and get one unified risk report.',
+    features: [
+      'YOLO photo scan: vegetation, terrain, water bodies, structures',
+      'Deep map scan: zoning, nearby infrastructure, terrain context',
+      'One combined feasibility + risk summary report',
+    ],
     gradient: 'from-indigo-500 to-indigo-600',
     lightBg: 'bg-indigo-50',
     border: 'border-indigo-200',
     textColor: 'text-indigo-700',
     linkColor: '#4f46e5',
+    cardClassName: 'max-w-xl',
   },
 ];
 
@@ -197,8 +190,9 @@ export default function Analyze() {
         .order('created_at', { ascending: false })
         .limit(50);
       if (!error && data) setReportHistory(data);
-    } catch (_) {
+    } catch {
       // non-fatal — sidebar will just not update until next login
+      void 0;
     }
   };
 
@@ -227,7 +221,9 @@ export default function Analyze() {
     // Fire an immediate wake-up ping
     try {
       fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
-    } catch (_) {}
+    } catch {
+      void 0;
+    }
 
     let lastError = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -326,7 +322,9 @@ export default function Analyze() {
     // Fire an immediate wake-up ping before the main request
     try {
       fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
-    } catch (_) {}
+    } catch {
+      void 0;
+    }
 
     let lastError = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -496,17 +494,17 @@ export default function Analyze() {
             {!mode && (
               <motion.div key="mode-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="mb-8 sm:mb-10 text-center">
-                  <h2 className="text-2xl sm:text-3xl font-black text-terra-heading mb-2 leading-tight">Choose your analysis method</h2>
-                  <p className="text-sm sm:text-base text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
+                  <h2 className="text-2xl sm:text-3xl font-black text-terra-heading mb-2 leading-tight">Start your land analysis</h2>
+                  <p className="text-sm sm:text-base text-terra-body">Deep map + photo context combine into one risk report.</p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 max-w-5xl mx-auto">
-                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, imageSrc, imageAlt, desc, gradient, lightBg, border, textColor, linkColor }) => (
+                <div className="flex justify-center">
+                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, imageSrc, imageAlt, desc, features, gradient, lightBg, border, textColor, linkColor, cardClassName }) => (
                     <motion.button
                       key={id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setMode(id)}
-                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-7 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full flex flex-col`}
+                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-7 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full flex flex-col ${cardClassName ?? ''}`}
                     >
                       <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-4`}>
                         <Icon className="w-7 h-7 text-white" />
@@ -518,13 +516,23 @@ export default function Analyze() {
                         <img
                           src={imageSrc}
                           alt={imageAlt}
-                          className="w-full h-24 sm:h-28 object-cover"
+                          className="w-full h-28 sm:h-32 object-cover"
                           loading="lazy"
                           draggable={false}
                         />
                       </div>
                       <h3 className="text-xl font-black text-terra-heading mb-3">{title}</h3>
                       <p className="text-sm text-terra-body leading-relaxed mb-4">{desc}</p>
+                      {Array.isArray(features) && features.length > 0 && (
+                        <ul className="mb-4 space-y-1 text-sm text-terra-body">
+                          {features.map((feature) => (
+                            <li key={feature} className="flex gap-2">
+                              <span className="mt-[0.45rem] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
+                              <span className="leading-relaxed">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       <div className="flex items-center gap-2 font-semibold text-sm mt-auto" style={{ color: linkColor }}>
                         Get Started <ChevronRight className="w-4 h-4" />
                       </div>
