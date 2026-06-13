@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, AlertCircle, CheckCircle2, Loader2, Leaf, Eye, EyeOff } from 'lucide-react';
+import { Lock, AlertCircle, CheckCircle2, Loader2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import terraLogo from '../assets/front_page/terra_logo.png';
 
 export default function UpdatePassword() {
   const navigate = useNavigate();
@@ -102,8 +103,14 @@ export default function UpdatePassword() {
             
             {/* Logo */}
             <div className="flex items-center gap-2.5 relative z-10 mb-5">
-              <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
-                <Leaf className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 rounded-xl bg-white border border-white/20 flex items-center justify-center shadow-lg overflow-hidden">
+                <img
+                  src={terraLogo}
+                  alt="Terra"
+                  className="w-7 h-7 object-contain"
+                  loading="eager"
+                  decoding="async"
+                />
               </div>
               <span className="text-white font-bold text-base tracking-tight">
                 Terra <span className="text-emerald-300">AI</span>

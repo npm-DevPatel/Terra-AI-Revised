@@ -12,9 +12,10 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, Leaf, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Send, KeyRound } from 'lucide-react';
+import { X, Mail, Lock, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Send, KeyRound } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import useTerraStore from '../../store/useTerraStore';
+import terraLogo from '../../assets/front_page/terra_logo.png';
 
 // ── Tiny input field wrapper ──────────────────────────────────
 function AuthField({ id, label, type, value, onChange, icon: Icon, autoComplete }) {
@@ -98,23 +99,31 @@ export default function AuthModal({ isOpen: propIsOpen, onClose: propOnClose, me
         const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
         if (signInErr) throw signInErr;
         onClose();
-      } else if (tab === 'forgot') {
+        return;
+      }
+
+      if (tab === 'forgot') {
         const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: window.location.origin + '/reset-password',
         });
         if (resetErr) throw resetErr;
         setSuccess('Password reset link sent! Please check your email.');
-        setTab('signin');
+        return;
+      }
+
+      // signup
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (signUpErr) throw signUpErr;
+
+      // If email confirmation is disabled, user is signed in immediately
+      if (signUpData?.session) {
+        onClose();
       } else {
-        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
-        if (signUpErr) throw signUpErr;
-        // If email confirmation is disabled, user is signed in immediately
-        if (signUpData?.session) {
-          onClose();
-        } else {
-          // Show the dedicated "check your email" screen
-          setCheckEmailSent(true);
-        }
+        // Show the dedicated "check your email" screen
+        setCheckEmailSent(true);
       }
     } catch (err) {
       // Map raw Supabase errors to friendly messages
@@ -221,8 +230,14 @@ export default function AuthModal({ isOpen: propIsOpen, onClose: propOnClose, me
 
                   {/* Logo */}
                   <div className="flex items-center gap-2.5 relative z-10">
-                    <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
-                      <Leaf className="w-5 h-5 text-white" />
+                    <div className="w-9 h-9 rounded-xl bg-white border border-white/20 flex items-center justify-center shadow-lg overflow-hidden">
+                      <img
+                        src={terraLogo}
+                        alt="Terra"
+                        className="w-7 h-7 object-contain"
+                        loading="eager"
+                        decoding="async"
+                      />
                     </div>
                     <span className="text-white font-bold text-base tracking-tight">
                       Terra <span className="text-emerald-300">AI</span>

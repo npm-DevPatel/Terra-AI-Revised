@@ -14,6 +14,7 @@ import ChatAssistant from '../components/results/ChatAssistant';
 import useTerraStore from '../store/useTerraStore';
 import { TerraReportDocument } from '../components/pdf/TerraReportDocument';
 import { getPriceEstimate, PLOT_SIZE_TO_ACRES, OVERCHARGE_THRESHOLD_PERCENT } from '../utils/pricingMatrix';
+import aiIcon from '../assets/ai_chat/ai_icon.png';
 
 /**
  * Report.jsx — Terra AI Pre-Purchase Land Screener
@@ -863,12 +864,13 @@ export default function Report() {
   // State for the lifted PricingCalculator result (passed into PDF)
   const [askingPriceResult, setAskingPriceResult] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [terraChatOpen, setTerraChatOpen] = useState(false);
 
   // No data yet guard
   if (engineState.status !== 'done' || !engineState.payload) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 font-gabarito">
           <MapPin className="w-16 h-16 text-slate-200" />
           <div className="text-center">
             <h2 className="text-2xl font-black text-terra-heading mb-2">No Analysis Yet</h2>
@@ -944,7 +946,7 @@ export default function Report() {
 
   return (
     <MainLayout>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 font-gabarito">
 
         {/* ── Header ── */}
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6 sm:mb-8">
@@ -963,17 +965,33 @@ export default function Report() {
               )}
             </div>
           </div>
-          {/* Programmatic PDF download — no PDFDownloadLink wrapper */}
-          <Button
-            id="download-pdf-btn"
-            variant="primary"
-            size="md"
-            icon={Download}
-            loading={isDownloading}
-            onClick={handleDownloadPDF}
-          >
-            {isDownloading ? 'Generating PDF…' : 'Download Full PDF'}
-          </Button>
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            <button
+              type="button"
+              onClick={() => setTerraChatOpen(true)}
+              className="group flex items-center gap-3 rounded-2xl bg-[#c8a8ff] px-4 py-3 text-left shadow-lg shadow-purple-200/70 transition-transform active:scale-[0.98] hover:-translate-y-0.5 hover:bg-[#bd94ff]"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/75">
+                <img src={aiIcon} alt="" className="h-7 w-7 object-contain" />
+              </span>
+              <span>
+                <span className="block text-sm font-black text-purple-950">Talk to Terra AI</span>
+                <span className="block text-xs font-semibold text-purple-800/80">speak to the AI about your land</span>
+              </span>
+            </button>
+
+            {/* Programmatic PDF download — no PDFDownloadLink wrapper */}
+            <Button
+              id="download-pdf-btn"
+              variant="primary"
+              size="md"
+              icon={Download}
+              loading={isDownloading}
+              onClick={handleDownloadPDF}
+            >
+              {isDownloading ? 'Generating PDF…' : 'Download Full PDF'}
+            </Button>
+          </div>
         </div>
 
         {/* ── Traffic Light Verdict Banner ── */}
@@ -1074,7 +1092,11 @@ export default function Report() {
         )}
       </div>
 
-      <ChatAssistant />
+      <ChatAssistant
+        open={terraChatOpen}
+        onOpenChange={setTerraChatOpen}
+        hideFloatingTrigger
+      />
     </MainLayout>
   );
 }

@@ -10,16 +10,18 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ScanLine, Map, FileText, CreditCard,
-  ChevronLeft, ChevronRight, Leaf, Plus, History,
+  ChevronLeft, ChevronRight, Plus, History,
   LogIn, Loader2, AlertCircle, MapPin, Pencil, Trash2, Check, X, Menu,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
+import AuthModal from '../auth/AuthModal';
+import terraLogo from '../../assets/front_page/terra_logo.png';
 
 // ─── Schema Migration ─────────────────────────────────────────────────
 /**
@@ -160,9 +162,11 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
   const [collapsed, setCollapsed] = useState(false);
   const [loadingId, setLoadingId] = useState(null); // UUID being loaded
   const [loadError, setLoadError] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
+  const location = useLocation();
   const navigate = useNavigate();
-  const { user, reportHistory, setActiveReport, setReportHistory, resetAll } = useTerraStore();
+  const { user, reportHistory, setActiveReport, setReportHistory, resetAll, logout } = useTerraStore();
 
   // ─── Rename state ──────────────────────────────────────────
   const [renamingId, setRenamingId]         = useState(null);
@@ -174,6 +178,13 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
   const handleNewAnalysis = () => {
     resetAll();
     navigate('/analyze');
+  };
+
+  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : '';
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    logout();
   };
 
   // ─── Load a historical report ──────────────────────────────
@@ -288,6 +299,8 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
       ].join(' ')}
       style={{ width: collapsed ? 72 : 268 }}
     >
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
+
       {/* ── Brand ── */}
       <div className="flex items-center gap-3 px-3 sm:px-4 h-16 border-b border-terra-border flex-shrink-0">
         
@@ -301,8 +314,14 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md flex-shrink-0">
-            <Leaf className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-terra-border overflow-hidden flex-shrink-0">
+            <img
+              src={terraLogo}
+              alt="Terra"
+              className="w-7 h-7 object-contain"
+              loading="eager"
+              decoding="async"
+            />
           </div>
           <AnimatePresence initial={false}>
             {!collapsed && (
@@ -354,6 +373,46 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
           </AnimatePresence>
         </button>
       </div>
+
+      {/* ── Account Controls (Pricing only) ── */}
+      {location.pathname === '/pricing' && !collapsed && (
+        <div className="px-3 pb-4 border-b border-terra-border">
+          <div className="rounded-2xl bg-white border border-terra-border px-3 py-3">
+            {user ? (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-terra-muted">Account</p>
+                    <p className="text-xs font-semibold text-terra-heading truncate" title={user.email}>{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="text-xs font-semibold text-terra-muted hover:text-red-500 hover:bg-red-50 transition-colors px-2 py-1.5 rounded-lg flex-shrink-0"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-terra-muted">Account</p>
+                  <p className="text-xs font-semibold text-terra-heading">Not signed in</p>
+                </div>
+                <button
+                  onClick={() => setAuthOpen(true)}
+                  className="text-xs font-semibold text-terra-body hover:text-terra-heading hover:bg-slate-50 border border-terra-border rounded-lg px-2.5 py-1.5 transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Navigation ── */}
       <nav className="px-3 pt-4 pb-2 space-y-1 border-b border-terra-border">

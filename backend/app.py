@@ -2,6 +2,7 @@ import os
 import torch
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from typing import Any, Callable, cast
 
 # Constrain PyTorch thread spawning overhead
 torch.set_num_threads(1)
@@ -29,9 +30,9 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # Allow requests from the Vercel frontend (set FRONTEND_URL in Render env vars).
 # Falls back to localhost for local development.
-_frontend_url = os.getenv("FRONTEND_URL", "")
+_frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 if _frontend_url:
-    CORS(app, origins=[_frontend_url, "http://localhost:5173"])
+    CORS(app, origins=[_frontend_url, "http://localhost:5173", "http://localhost:5174"])
 else:
     CORS(app)
 
@@ -40,8 +41,11 @@ else:
 # Uses in-memory storage (resets on restart — sufficient for Render free tier).
 # Gracefully disabled if flask-limiter is not installed.
 if _HAS_LIMITER:
-    limiter = Limiter(
-        key_func=get_remote_address,
+    assert get_remote_address is not None
+    key_func = cast(Callable[[], str], get_remote_address)
+    LimiterClass = cast(Any, Limiter)
+    limiter = LimiterClass(
+        key_func=key_func,
         app=app,
         # Global fallback: 300 requests per hour per IP across all endpoints
         default_limits=["300 per hour", "60 per minute"],

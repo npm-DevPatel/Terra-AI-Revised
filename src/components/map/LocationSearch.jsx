@@ -1,119 +1,343 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, MapPin, Loader2, X, Clock, ChevronRight } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Search, MapPin, Loader2, X, ChevronRight } from 'lucide-react';
 import {
-  reverseGeocodePosition,
-  buildCandidatesFromGeocode,
-  enrichLocationCandidates,
-  readLocationHistory,
   writeLocationHistory,
   FALLBACK_LOCATION_CANDIDATES,
 } from '../../utils/analyzeUtils';
 import useTerraStore from '../../store/useTerraStore';
 
+const KENYA_BOUNDS = {
+  north: 5.6,
+  south: -4.8,
+  west: 33.6,
+  east: 42.6,
+};
+
 /**
  * LocationSearch — search bar + candidate list for confirming a map location.
- * Calls /api/location/reverse (via reverseGeocodePosition) then enriches
- * candidates with Wikipedia summaries. Updates mapState.approvedLocationData.
+ * Uses Google Places autocomplete and Google reverse geocoding only.
+ * Updates mapState.approvedLocationData.
  */
 export default function LocationSearch({ onLocationConfirmed }) {
   const [query, setQuery] = useState('');
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const { mapState, setApprovedLocationData, setPinnedCoordinates } = useTerraStore();
+  const { setApprovedLocationData, setPinnedCoordinates } = useTerraStore();
   const inputRef = useRef(null);
+  const geocoderRef = useRef(null);
+  const sessionTokenRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+  const suppressSearchRef = useRef(false);
+  const searchRequestIdRef = useRef(0);
+  const selectionLockedRef = useRef(false);
+
+  const ensureGoogleServices = async () => {
+    if (!window.google?.maps?.places) return null;
+    if (window.google.maps.importLibrary) {
+      await window.google.maps.importLibrary('places');
+    }
+    if (!geocoderRef.current) {
+      geocoderRef.current = new window.google.maps.Geocoder();
+    }
+    if (!sessionTokenRef.current) {
+      sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+    }
+    return window.google.maps;
+  };
+
+  const buildGoogleBounds = () => {
+    return { ...KENYA_BOUNDS };
+  };
+
+  const extractPlaceName = (result) => {
+    const components = result?.address_components || [];
+    const pick = (...types) => components.find((part) => types.every((type) => part.types?.includes(type)))?.long_name;
+    return (
+      result?.name ||
+      pick('premise') ||
+      pick('subpremise') ||
+      [pick('street_number'), pick('route')].filter(Boolean).join(' ') ||
+      pick('neighborhood') ||
+      pick('sublocality', 'sublocality_level_1') ||
+      pick('locality') ||
+      result?.formatted_address?.split(',')?.[0] ||
+      'Selected location'
+    );
+  };
+
+  const extractPlaceParts = (result) => {
+    const components = result?.address_components || [];
+    const pick = (...types) => components.find((part) => types.every((type) => part.types?.includes(type)))?.long_name || null;
+    return {
+      locality: pick('locality') || pick('administrative_area_level_2') || pick('sublocality', 'sublocality_level_1'),
+      region: pick('administrative_area_level_1') || pick('administrative_area_level_2') || result?.formatted_address || 'Kenya',
+      country: pick('country') || 'Kenya',
+    };
+  };
+
+  const mapSuggestionToCandidate = (suggestion, index) => {
+    const prediction = suggestion?.placePrediction;
+    const text = prediction?.text?.text || '';
+    const mainText = prediction?.mainText?.text || text.split(',')?.[0] || 'Suggested place';
+    const secondaryText = prediction?.secondaryText?.text || text.split(',').slice(1).join(', ').trim() || 'Kenya';
+
+    return {
+      id: prediction?.placeId || `google-new-${index}`,
+      placeId: prediction?.placeId,
+      placePrediction: prediction,
+      name: mainText,
+      region: secondaryText,
+      country: 'Kenya',
+      latitude: null,
+      longitude: null,
+      overview: text || secondaryText || 'Google Maps suggestion',
+      wikiTitle: mainText,
+    };
+  };
+
+  const fetchGooglePredictions = async (searchTerm) => {
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
+    const maps = await ensureGoogleServices();
+    const autocompleteSuggestion = maps?.places?.AutocompleteSuggestion;
+    if (!maps || !autocompleteSuggestion) {
+      setCandidates(FALLBACK_LOCATION_CANDIDATES);
+      setOpen(true);
+      setLoading(false);
+      return;
+    }
+
+    const request = {
+      input: searchTerm,
+      componentRestrictions: { country: 'ke' },
+      locationBias: buildGoogleBounds(),
+      sessionToken: sessionTokenRef.current,
+    };
+
+    try {
+      const { suggestions } = await autocompleteSuggestion.fetchAutocompleteSuggestions(request);
+      if (requestId !== searchRequestIdRef.current) return;
+      if (Array.isArray(suggestions) && suggestions.length > 0) {
+        setCandidates(suggestions.map(mapSuggestionToCandidate));
+      } else {
+        setCandidates(FALLBACK_LOCATION_CANDIDATES);
+      }
+    } catch {
+      if (requestId !== searchRequestIdRef.current) return;
+      setCandidates(FALLBACK_LOCATION_CANDIDATES);
+    } finally {
+      if (requestId === searchRequestIdRef.current) {
+        setOpen(true);
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (suppressSearchRef.current) {
+      suppressSearchRef.current = false;
+      return;
+    }
+
+    const trimmed = query.trim();
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (!trimmed) {
+      setCandidates([]);
+      setOpen(false);
+      setLoading(false);
+      return;
+    }
+
+    if (trimmed.length < 2) {
+      setCandidates([]);
+      setOpen(false);
+      return;
+    }
+
+    setLoading(true);
+    searchDebounceRef.current = setTimeout(() => {
+      fetchGooglePredictions(trimmed);
+    }, 220);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [query]);
 
   // When a pin is dropped: silently reverse-geocode and auto-confirm the top result.
   // No dropdown is shown to the user — the pin coordinates are the source of truth.
   const loadCandidatesForPin = async ({ lat, lng }) => {
     try {
-      const history = readLocationHistory();
-      const geocode = await reverseGeocodePosition({ latitude: lat, longitude: lng });
-      const raw = buildCandidatesFromGeocode({ ...geocode, history });
-      if (raw.length > 0) {
-        // Auto-confirm the first (most precise) result silently
-        const best = raw[0];
+      const maps = await ensureGoogleServices();
+      if (!maps || !geocoderRef.current) return;
+
+      const { results } = await geocoderRef.current.geocode({ location: { lat, lng } });
+      const bestResult = results?.[0];
+
+      if (bestResult) {
+        const location = bestResult.geometry?.location;
+        const parts = extractPlaceParts(bestResult);
+        const candidate = {
+          id: bestResult.place_id || `pin-${lat}-${lng}`,
+          placeId: bestResult.place_id,
+          name: extractPlaceName(bestResult),
+          region: bestResult.formatted_address || parts.region || 'Kenya',
+          locality: parts.locality,
+          country: parts.country,
+          latitude: typeof location?.lat === 'function' ? location.lat() : lat,
+          longitude: typeof location?.lng === 'function' ? location.lng() : lng,
+          overview: bestResult.formatted_address || 'Google reverse geocode result',
+          wikiTitle: extractPlaceName(bestResult),
+        };
+
+        // Auto-confirm the most precise Google result silently.
         const locationData = {
-          address: best.region,
-          placeName: best.name,
-          country: best.country ?? 'Kenya',
-          latitude: lat,   // use the EXACT pin coordinates, not snapped geocode
-          longitude: lng,
+          address: candidate.region,
+          placeName: candidate.name,
+          country: candidate.country ?? 'Kenya',
+          latitude: candidate.latitude,
+          longitude: candidate.longitude,
         };
         setApprovedLocationData(locationData);
-        setQuery(best.name);
-        onLocationConfirmed?.(best);
+        searchRequestIdRef.current += 1;
+        suppressSearchRef.current = true;
+        setCandidates([]);
+        setQuery(candidate.name);
+        setCandidates([candidate]);
+        setOpen(false);
+        onLocationConfirmed?.(candidate);
       }
     } catch {
       // Silent failure — user can still use the search box manually
     }
   };
 
-  // Text-based search against fallback candidates + Nominatim
+  // Text-based search uses Google Places autocomplete only.
   const handleSearch = async () => {
     if (!query.trim()) return;
+    if (candidates.length > 0 && open) {
+      await confirmCandidate(candidates[0]);
+      return;
+    }
+
     setLoading(true);
     setOpen(true);
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query + ', Kenya')}&limit=5&addressdetails=1`
-      );
-      const results = await res.json();
-      const mapped = results.map((r, i) => ({
-        id: `nominatim-${i}`,
-        name: r.display_name?.split(',')[0] ?? r.name,
-        region: r.address?.state ?? r.address?.county ?? 'Kenya',
-        country: r.address?.country ?? 'Kenya',
-        latitude: parseFloat(r.lat),
-        longitude: parseFloat(r.lon),
-        overview: r.display_name,
-        wikiTitle: r.display_name?.split(',')[0],
-      }));
-      setCandidates(mapped.length > 0 ? mapped : FALLBACK_LOCATION_CANDIDATES);
-    } catch {
-      setCandidates(FALLBACK_LOCATION_CANDIDATES);
-    } finally {
-      setLoading(false);
-    }
+    await fetchGooglePredictions(query.trim());
   };
 
-  const confirmCandidate = (candidate) => {
+  const confirmCandidate = async (candidate) => {
+    let resolved = candidate;
+
+    if (candidate?.placePrediction?.toPlace) {
+      try {
+        const place = candidate.placePrediction.toPlace();
+        await place.fetchFields({
+          fields: ['displayName', 'formattedAddress', 'location'],
+        });
+        const location = place.location;
+        if (location) {
+          resolved = {
+            ...candidate,
+            name: place.displayName || candidate.name,
+            region: place.formattedAddress || candidate.region,
+            locality: candidate.locality || null,
+            country: candidate.country || 'Kenya',
+            latitude: typeof location.lat === 'function' ? location.lat() : location.lat,
+            longitude: typeof location.lng === 'function' ? location.lng() : location.lng,
+            overview: place.formattedAddress || candidate.overview,
+            wikiTitle: place.displayName || candidate.wikiTitle || candidate.name,
+          };
+        }
+      } catch {
+        // Fall back to geocoding by placeId below.
+      }
+    }
+
+    if (!resolved.latitude && candidate?.placeId && window.google?.maps?.Geocoder) {
+      try {
+        const geocoder = geocoderRef.current || new window.google.maps.Geocoder();
+        const { results } = await geocoder.geocode({ placeId: candidate.placeId });
+        const place = results?.[0];
+        if (place?.geometry?.location) {
+          const parts = extractPlaceParts(place);
+          resolved = {
+            ...candidate,
+            name: extractPlaceName(place),
+            region: place.formatted_address || parts.region || candidate.region,
+            locality: parts.locality || candidate.locality || null,
+            country: parts.country || candidate.country,
+            latitude: place.geometry.location.lat(),
+            longitude: place.geometry.location.lng(),
+            overview: place.formatted_address || candidate.overview,
+            wikiTitle: extractPlaceName(place),
+          };
+        }
+      } catch {
+        // Keep the prediction result if the details lookup fails.
+      }
+    }
+
     const locationData = {
-      address: candidate.region,
-      placeName: candidate.name,
-      country: candidate.country,
-      latitude: candidate.latitude,
-      longitude: candidate.longitude,
+      address: resolved.region,
+      placeName: resolved.name,
+      country: resolved.country,
+      latitude: resolved.latitude,
+      longitude: resolved.longitude,
     };
     setApprovedLocationData(locationData);
-    setPinnedCoordinates(candidate.latitude, candidate.longitude);
-    writeLocationHistory(candidate);
+    setPinnedCoordinates(resolved.latitude, resolved.longitude);
+    const historyEntry = {
+      ...resolved,
+      placePrediction: undefined,
+    };
+    writeLocationHistory(historyEntry);
+    searchRequestIdRef.current += 1;
+    suppressSearchRef.current = true;
+    selectionLockedRef.current = true;
+    setCandidates([]);
     setOpen(false);
-    setQuery(candidate.name);
-    onLocationConfirmed?.(candidate);
+    setQuery(resolved.name);
+    sessionTokenRef.current = null;
+    onLocationConfirmed?.(resolved);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch();
+    }
   };
 
   // Expose loadCandidatesForPin to parent via ref-like prop pattern
   LocationSearch.loadForPin = loadCandidatesForPin;
 
   return (
-    <div className="relative w-full max-w-sm">
+    <div className="relative w-[min(92vw,42rem)] max-w-none">
       {/* Search Input */}
-      <div className="flex items-center gap-2 bg-white border border-terra-border rounded-xl shadow-lg px-3 py-2.5">
+      <div className="flex items-center gap-3 bg-white border border-terra-border rounded-full shadow-xl px-4 py-3.5">
         <Search className="w-4 h-4 text-terra-muted flex-shrink-0" />
         <input
           ref={inputRef}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          onChange={(e) => {
+            selectionLockedRef.current = false;
+            setQuery(e.target.value);
+          }}
+          onKeyDown={handleKeyDown}
           placeholder="Search location in Kenya…"
-          className="flex-1 text-sm text-terra-heading placeholder:text-terra-muted bg-transparent focus:outline-none"
+          className="flex-1 text-sm sm:text-base text-terra-heading placeholder:text-terra-muted bg-transparent focus:outline-none min-w-0"
         />
         {loading && <Loader2 className="w-4 h-4 text-terra-muted animate-spin flex-shrink-0" />}
         {query && !loading && (
-          <button onClick={() => { setQuery(''); setCandidates([]); setOpen(false); }}>
+          <button onClick={() => { selectionLockedRef.current = false; setQuery(''); setCandidates([]); setOpen(false); }}>
             <X className="w-4 h-4 text-terra-muted hover:text-terra-heading" />
           </button>
         )}
@@ -121,16 +345,16 @@ export default function LocationSearch({ onLocationConfirmed }) {
 
       {/* Candidate Dropdown */}
       <AnimatePresence>
-        {open && candidates.length > 0 && (
+        {open && candidates.length > 0 && !selectionLockedRef.current && (
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
-            className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-2xl border border-terra-border shadow-2xl overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-3xl border border-terra-border shadow-2xl overflow-hidden"
           >
             <div className="px-3 py-2 border-b border-terra-border">
               <p className="text-xs text-terra-muted font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                <Search className="w-3 h-3" /> Search Results
+                <Search className="w-3 h-3" /> Google Maps Suggestions
               </p>
             </div>
             <div className="max-h-72 overflow-y-auto divide-y divide-slate-50">

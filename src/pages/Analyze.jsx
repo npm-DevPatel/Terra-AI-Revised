@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanLine, Map, ArrowRight, ChevronRight, AlertCircle } from 'lucide-react';
+import { ScanLine, Map, ArrowRight, ChevronRight, AlertCircle, X, Camera, Sparkles } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import Uploader from '../components/vision/Uploader';
 import CinematicScanner from '../components/vision/CinematicScanner';
@@ -12,6 +11,9 @@ import Button from '../components/ui/Button';
 import useTerraStore from '../store/useTerraStore';
 import { getOrderedInstances } from '../utils/analyzeUtils';
 import { supabase } from '../lib/supabaseClient';
+
+import scanPhotoImg from '../assets/analysis_page/scan_photo.jpeg';
+import deepScanImg from '../assets/analysis_page/deep_scan.jpeg';
 
 // ─── Error Toast ──────────────────────────────────────────────
 function ErrorToast({ message, onClose }) {
@@ -30,30 +32,27 @@ function ErrorToast({ message, onClose }) {
 }
 
 // ─── Mode cards ───────────────────────────────────────────────
+// Single combined entry to avoid stretching the preview imagery.
 const MODE_CARDS = [
-  {
-    id: 'vision',
-    icon: ScanLine,
-    title: 'Scan via Photo',
-    subtitle: 'Vision AI Flow',
-    desc: 'Upload a land photo. Our YOLO model detects vegetation, terrain, water bodies, and structures instantly.',
-    gradient: 'from-emerald-500 to-emerald-600',
-    lightBg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-    textColor: 'text-emerald-700',
-    linkColor: '#10b981',
-  },
   {
     id: 'map',
     icon: Map,
-    title: 'Deep Map Analysis',
-    subtitle: 'Spatial Engine Flow',
-    desc: 'Drop a pin on the satellite map. The engine queries live infrastructure, zoning, and terrain data for that exact coordinate.',
+    title: 'Deep Map and Photo Analysis',
+    subtitle: 'Vision + Spatial Engine',
+    imageSrc: deepScanImg,
+    imageAlt: 'Deep map and photo analysis preview',
+    desc: 'Drop a pin, upload a current land photo, and get one unified risk report.',
+    features: [
+      'YOLO photo scan: vegetation, terrain, water bodies, structures',
+      'Deep map scan: zoning, nearby infrastructure, terrain context',
+      'One combined feasibility + risk summary report',
+    ],
     gradient: 'from-indigo-500 to-indigo-600',
     lightBg: 'bg-indigo-50',
     border: 'border-indigo-200',
     textColor: 'text-indigo-700',
     linkColor: '#4f46e5',
+    cardClassName: 'max-w-xl',
   },
 ];
 
@@ -62,13 +61,140 @@ const GATE_MESSAGE =
   'Please sign in or create a free account to run a deep-scan analysis. ' +
   'Your reports are saved and accessible from any device.';
 
+const TERRA_SCAN_WORDS = [
+  'I', 'am', 'Terra', 'AI', 'and', 'I', 'analyze', 'your', 'piece', 'of',
+  'land', 'by', 'scanning', 'for', 'roads,', 'nearby', 'vegetation,', 'terrain',
+  'gradient,', 'water', 'patterns,', 'structures,', 'and', 'the', 'quiet',
+  'spatial', 'signals', 'that', 'shape', 'what', 'can', 'be', 'built', 'there.',
+];
+
+function TypingWordLine({ words = TERRA_SCAN_WORDS }) {
+  return (
+    <p className="min-h-[6.5rem] text-sm sm:text-base leading-7 text-slate-300">
+      {words.map((word, index) => (
+        <span
+          key={`${word}-${index}`}
+          className="terra-typed-word is-glowing mr-1.5"
+          style={{ animationDelay: `${index * 0.14}s` }}
+        >
+          {word}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function PhotoScanGate({
+  isOpen,
+  onClose,
+  onAnalyze,
+  onAnalyzeWithoutPhoto,
+  isRunning,
+  uploadedFileName,
+  scanStatus,
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/72 px-4 py-6 backdrop-blur-xl"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 22, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            className="terra-island-edge-glow relative w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 shadow-[0_30px_100px_rgba(0,0,0,0.54)]"
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 backdrop-blur transition-colors hover:bg-white/15 hover:text-white"
+              aria-label="Close photo scan"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="relative min-h-[22rem] overflow-hidden bg-slate-900">
+                <img
+                  src={scanPhotoImg}
+                  alt="Scan via photo"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  draggable={false}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/58 to-slate-900/20" />
+                <div className="absolute inset-x-6 bottom-6">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-black/35 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-amber-100 backdrop-blur">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                    Photo context required
+                  </div>
+                  <h2 className="max-w-sm text-4xl font-black leading-none text-white sm:text-5xl">
+                    To See What You See
+                  </h2>
+                </div>
+              </div>
+
+              <div className="space-y-6 p-5 sm:p-7">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+                  <TypingWordLine />
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-4">
+                  <Uploader />
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-h-10 text-xs text-slate-400">
+                    {uploadedFileName ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-emerald-100">
+                        <Camera className="h-3.5 w-3.5" />
+                        {uploadedFileName}
+                      </span>
+                    ) : (
+                      'Upload a current land photo before Terra runs the spatial engine.'
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 sm:items-end">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      icon={ScanLine}
+                      onClick={onAnalyze}
+                      disabled={!uploadedFileName || isRunning || scanStatus === 'scanning'}
+                      loading={isRunning || scanStatus === 'scanning'}
+                    >
+                      Scan Photo & Run Engine
+                    </Button>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={onAnalyzeWithoutPhoto}
+                      disabled={isRunning || scanStatus === 'scanning'}
+                    >
+                      Run Engine Without Photo
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function Analyze() {
-  const navigate = useNavigate();
   const {
     user, session,
     visionState, mapState, engineState,
     setScanStatus, setAnnotations,
-    setEngineStatus, setEngineResult, setEngineError, resetEngineState,
+    setEngineStatus, setEngineResult, setEngineError,
     setReportHistory, setApprovedLocationData,
     openAuthModal,
   } = useTerraStore();
@@ -83,13 +209,16 @@ export default function Analyze() {
         .order('created_at', { ascending: false })
         .limit(50);
       if (!error && data) setReportHistory(data);
-    } catch (_) {
+    } catch {
       // non-fatal — sidebar will just not update until next login
+      void 0;
     }
   };
 
   const [mode, setMode]         = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [photoGateOpen, setPhotoGateOpen] = useState(false);
+  const [preparingEngine, setPreparingEngine] = useState(false);
 
   // ─── Vision: send FormData to /api/vision/analyze ────────
   // CRITICAL: The engine expects multipart/form-data with `image` field.
@@ -110,7 +239,9 @@ export default function Analyze() {
     // Fire an immediate wake-up ping
     try {
       fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
-    } catch (_) {}
+    } catch {
+      void 0;
+    }
 
     let lastError = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -147,7 +278,7 @@ export default function Analyze() {
         // Engine returns instances array — getOrderedInstances sorts by confidence
         const orderedInstances = getOrderedInstances(data);
         setAnnotations(orderedInstances, data);
-        return; // Success! Exit function.
+        return data; // Success! Exit function.
 
       } catch (err) {
         lastError = err;
@@ -161,10 +292,11 @@ export default function Analyze() {
     // If we exhausted retries or hit a non-retryable error
     setScanStatus('idle');
     setErrorMsg(lastError?.message ?? 'Vision analysis failed. The server may still be waking up — please try again.');
+    return null;
   };
 
   // ─── Map: trigger spatial engine (with auth gate) ─────────
-  const handleSpatialAnalyze = async () => {
+  const handleSpatialAnalyze = async ({ visionContextOverride } = {}) => {
     // ── AUTH GATE ─────────────────────────────────────────────
     // If the user is not logged in, intercept here.
     // Do NOT hit the backend. Show the AuthModal instead.
@@ -179,18 +311,18 @@ export default function Analyze() {
       return;
     }
 
-    setEngineStatus('loading', 'Connecting to analysis engine…');
+    setEngineStatus('loading', 'I am now connecting to the analysis engine...');
     setErrorMsg(null);
 
     const MAX_RETRIES = 6;
     const RETRY_DELAYS = [8000, 12000, 15000, 15000, 20000, 20000];
     const RETRY_MESSAGES = [
-      'Server waking up from sleep — this takes 20-45s on first load…',
-      'Still warming up — hang tight…',
-      'Initializing AI models — almost there…',
-      'Loading geospatial engine…',
-      'Final boot sequence — nearly ready…',
-      'Last attempt — running your analysis now…',
+      'I am waking up the server from sleep...',
+      'I am still warming up the engine...',
+      'I am initializing the AI models now...',
+      'I am loading the geospatial engine...',
+      'I am finishing the boot sequence...',
+      'I am running your analysis now...',
     ];
 
     const headers = { 'Content-Type': 'application/json' };
@@ -198,17 +330,24 @@ export default function Analyze() {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
 
+    const hasVisionOverride = Object.prototype.hasOwnProperty.call(
+      arguments.length > 0 && arguments[0] ? arguments[0] : {},
+      'visionContextOverride'
+    );
+
     const body = JSON.stringify({
       lat,
       lng,
       clientContext: mapState.approvedLocationData ?? null,
-      visionContext: visionState.rawVisionPayload ?? null,
+      visionContext: hasVisionOverride ? (visionContextOverride ?? null) : (visionState.rawVisionPayload ?? null),
     });
 
     // Fire an immediate wake-up ping before the main request
     try {
       fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
-    } catch (_) {}
+    } catch {
+      void 0;
+    }
 
     let lastError = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -295,14 +434,62 @@ export default function Analyze() {
     setErrorMsg(msg);
   };
 
-  const pinSet    = !!mapState.pinnedCoordinates.lat;
+  const requestSpatialAnalyze = () => {
+    const { lat, lng } = mapState.pinnedCoordinates;
+    if (!lat || !lng) {
+      setErrorMsg('Please drop a pin on the map first.');
+      return;
+    }
+    setPhotoGateOpen(true);
+  };
+
+  const handlePhotoGateAnalyze = async () => {
+    if (!visionState.uploadedFile) {
+      setErrorMsg('Please upload a land photo before running the spatial engine.');
+      return;
+    }
+
+    setPreparingEngine(true);
+    try {
+      const visionPayload = visionState.rawVisionPayload ?? await handleScan();
+      if (!visionPayload) return;
+      setPhotoGateOpen(false);
+      await handleSpatialAnalyze({ visionContextOverride: visionPayload });
+    } finally {
+      setPreparingEngine(false);
+    }
+  };
+
+  const handlePhotoGateAnalyzeNoPhoto = async () => {
+    setPreparingEngine(true);
+    try {
+      setPhotoGateOpen(false);
+      await handleSpatialAnalyze({ visionContextOverride: null });
+    } finally {
+      setPreparingEngine(false);
+    }
+  };
+
   const scanDone  = visionState.scanStatus === 'complete';
   const engineDone = engineState.status === 'done';
+  const isModeSelect = mode === null;
 
   return (
-    <MainLayout>
-      <ProgressiveLoader />
+    <MainLayout hideTopBar={mode === 'map'} disableMainScroll={isModeSelect}>
+      <div className="font-gabarito h-full">
+        <ProgressiveLoader />
 
+      <PhotoScanGate
+        isOpen={photoGateOpen}
+        onClose={() => {
+          if (!preparingEngine && visionState.scanStatus !== 'scanning') setPhotoGateOpen(false);
+        }}
+        onAnalyze={handlePhotoGateAnalyze}
+        onAnalyzeWithoutPhoto={handlePhotoGateAnalyzeNoPhoto}
+        isRunning={preparingEngine}
+        uploadedFileName={visionState.uploadedFileName}
+        scanStatus={visionState.scanStatus}
+      />
       <AnimatePresence>
         {errorMsg && (
           <ErrorToast message={errorMsg} onClose={() => setErrorMsg(null)} />
@@ -316,90 +503,69 @@ export default function Analyze() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="flex flex-col h-full max-w-7xl mx-auto w-full px-4 sm:px-6 py-4 gap-3 sm:gap-4"
+          className="flex flex-col h-full w-full"
         >
-          {/* Compact header bar */}
-          <div className="flex items-center gap-3 px-4 sm:px-6 py-3 flex-shrink-0 bg-white rounded-xl shadow-sm border border-terra-border">
-            <button
-              onClick={() => { setMode(null); resetEngineState(); }}
-              className="text-terra-muted hover:text-terra-heading text-sm font-medium transition-colors flex-shrink-0"
-            >
-              ← Back
-            </button>
-            <h2 className="text-lg sm:text-xl font-black text-terra-heading truncate">Spatial Risk Engine</h2>
-          </div>
-
-          {/* Map — grows to fill all available space */}
-          <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden shadow-sm border border-terra-border bg-slate-50">
-            <PinDrop />
+          {/* Full-bleed map / GEE imagery (fills entire right side) */}
+          <div className="relative flex-1 min-h-0">
+            <PinDrop onRunSpatialEngine={requestSpatialAnalyze} />
             {engineDone && <RiskSummaryCard />}
-          </div>
-
-          {/* Button strip — always anchored at the bottom, never requires scrolling */}
-          <div className="flex-shrink-0 px-4 sm:px-6 py-4 bg-white rounded-xl shadow-sm border border-terra-border flex flex-col items-center gap-1.5">
-            {!engineDone && (
-              <>
-                <Button
-                  id="analyze-run-btn"
-                  variant="primary"
-                  size="lg"
-                  icon={Map}
-                  loading={engineState.status === 'loading'}
-                  disabled={!pinSet || engineState.status === 'loading'}
-                  onClick={handleSpatialAnalyze}
-                >
-                  {pinSet ? 'Run Spatial Analysis' : 'Drop a Pin First'}
-                </Button>
-                {!user && pinSet && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-xs text-terra-muted"
-                  >
-                    You'll be asked to sign in before the analysis runs.
-                  </motion.p>
-                )}
-              </>
-            )}
-            {engineDone && (
-              <Button variant="secondary" size="md" onClick={() => navigate('/report')}>
-                View Full Report →
-              </Button>
-            )}
           </div>
         </motion.div>
       )}
 
       {/* ── Non-map flows — padded scrollable container ── */}
       {mode !== 'map' && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div
+          className={
+            `max-w-7xl mx-auto px-4 sm:px-6 ${isModeSelect ? 'h-full flex items-center' : 'py-6 sm:py-10'}`
+          }
+        >
           <AnimatePresence mode="wait">
 
             {/* ── Mode Selection ── */}
             {!mode && (
               <motion.div key="mode-select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-10 text-center">
-                  <h2 className="text-3xl font-black text-terra-heading mb-3">Choose your analysis method</h2>
-                  <p className="text-terra-body">Both pathways converge to the same risk report — pick what you have.</p>
+                <div className="mb-6 sm:mb-8 text-center">
+                  <h2 className="text-2xl sm:text-3xl font-black text-terra-heading mb-2 leading-tight">Start your land analysis</h2>
+                  <p className="text-sm sm:text-base text-terra-body">Deep map + photo context combine into one risk report.</p>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
-                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, desc, gradient, lightBg, border, textColor, linkColor }) => (
+                <div className="flex justify-center">
+                  {MODE_CARDS.map(({ id, icon: Icon, title, subtitle, imageSrc, imageAlt, desc, features, gradient, lightBg, border, textColor, linkColor, cardClassName }) => (
                     <motion.button
                       key={id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setMode(id)}
-                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-8 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full`}
+                      className={`text-left bg-white/70 backdrop-blur-md border ${border} rounded-3xl p-5 sm:p-7 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer w-full flex flex-col ${cardClassName ?? ''}`}
                     >
-                      <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-6`}>
+                      <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg mb-4`}>
                         <Icon className="w-7 h-7 text-white" />
                       </div>
                       <div className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-full ${lightBg} ${textColor} mb-3`}>
                         {subtitle}
                       </div>
+                      <div className="mt-3 mb-4 rounded-3xl overflow-hidden">
+                        <img
+                          src={imageSrc}
+                          alt={imageAlt}
+                          className="w-full h-28 sm:h-32 object-cover"
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      </div>
                       <h3 className="text-xl font-black text-terra-heading mb-3">{title}</h3>
-                      <p className="text-sm text-terra-body leading-relaxed mb-6">{desc}</p>
-                      <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: linkColor }}>
+                      <p className="text-sm text-terra-body leading-relaxed mb-4">{desc}</p>
+                      {Array.isArray(features) && features.length > 0 && (
+                        <ul className="mb-4 space-y-1 text-sm text-terra-body">
+                          {features.map((feature) => (
+                            <li key={feature} className="flex gap-2">
+                              <span className="mt-[0.45rem] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-400" />
+                              <span className="leading-relaxed">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex items-center gap-2 font-semibold text-sm mt-auto" style={{ color: linkColor }}>
                         Get Started <ChevronRight className="w-4 h-4" />
                       </div>
                     </motion.button>
@@ -470,6 +636,7 @@ export default function Analyze() {
         </div>
       )}
 
+      </div>
     </MainLayout>
   );
 }

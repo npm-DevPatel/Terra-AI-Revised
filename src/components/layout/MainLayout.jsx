@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -12,14 +12,20 @@ import TopBar from './TopBar';
  *
  * mobileOpen state lives here so TopBar and Sidebar stay in sync.
  */
-export default function MainLayout({ children }) {
+export default function MainLayout({
+  children,
+  hideTopBar = false,
+  hideTopBarOnDesktop = false,
+  hideTopBarAccountControls = false,
+  disableMainScroll = false,
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const openMobile  = useCallback(() => setMobileOpen(true),  []);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-terra-bg">
+    <div className="flex h-screen w-screen overflow-hidden bg-terra-bg font-gabarito">
 
       {/* ── Mobile backdrop — shown behind the drawer on small screens ── */}
       <AnimatePresence>
@@ -41,10 +47,20 @@ export default function MainLayout({ children }) {
 
       {/* ── Right Column ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopBar onMenuToggle={openMobile} />
+        {!hideTopBar && (
+          <TopBar
+            onMenuToggle={openMobile}
+            hideAccountControls={hideTopBarAccountControls}
+            className={hideTopBarOnDesktop ? 'md:hidden' : ''}
+          />
+        )}
 
         {/* ── Main Stage ── */}
-        <main className="flex-1 overflow-y-auto h-full">
+        <main
+          className={
+            `flex-1 h-full ${(hideTopBar || disableMainScroll) ? 'overflow-hidden' : 'overflow-y-auto'}`
+          }
+        >
           {children}
         </main>
       </div>

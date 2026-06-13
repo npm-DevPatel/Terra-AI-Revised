@@ -1,26 +1,25 @@
-import React from 'react';
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer';
-import { S, COLORS, fmt } from '../pdfStyles';
+import { COLORS } from '../pdfStyles';
 
 const styles = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', backgroundColor: COLORS.slate900, padding: 0 },
-  bgStripe: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 220, backgroundColor: '#0a1628' },
-  emeraldAccent: { position: 'absolute', top: 0, right: 0, width: 160, height: 160, backgroundColor: COLORS.emerald500, opacity: 0.08, borderBottomLeftRadius: 160 },
+  page: { fontFamily: 'Helvetica', backgroundColor: COLORS.white, padding: 0 },
+  bgStripe: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 220, backgroundColor: COLORS.slate50 },
+  emeraldAccent: { position: 'absolute', top: 0, right: 0, width: 160, height: 160, backgroundColor: COLORS.slate200, opacity: 0.55, borderBottomLeftRadius: 160 },
   body: { flex: 1, padding: 52, justifyContent: 'space-between' },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
   logoDot: { width: 18, height: 18, backgroundColor: COLORS.emerald500, borderRadius: 5 },
-  logoText: { color: COLORS.white, fontSize: 16, fontFamily: 'Helvetica-Bold' },
-  tagline: { color: COLORS.slate400, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase' },
+  logoText: { color: COLORS.slate900, fontSize: 16, fontFamily: 'Helvetica-Bold' },
+  tagline: { color: COLORS.slate600, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase' },
   titleBlock: { marginTop: 80 },
   reportType: { color: COLORS.emerald500, fontSize: 8, fontFamily: 'Helvetica-Bold', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 12 },
-  mainTitle: { color: COLORS.white, fontSize: 34, fontFamily: 'Helvetica-Bold', lineHeight: 1.15, marginBottom: 6 },
-  subTitle: { color: COLORS.slate400, fontSize: 12, marginBottom: 32 },
-  scoreBadge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 16, alignSelf: 'flex-start' },
+  mainTitle: { color: COLORS.slate900, fontSize: 34, fontFamily: 'Helvetica-Bold', lineHeight: 1.15, marginBottom: 6 },
+  subTitle: { color: COLORS.slate600, fontSize: 12, marginBottom: 32 },
+  scoreBadge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.slate200, borderRadius: 12, padding: 16, alignSelf: 'flex-start' },
   metaRow: { flexDirection: 'row', gap: 24, marginTop: 28 },
   metaLabel: { color: COLORS.slate400, fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 },
-  metaValue: { color: COLORS.white, fontSize: 10 },
-  metaValueMono: { color: COLORS.emerald500, fontSize: 9 },
-  bottomStrip: { borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  metaValue: { color: COLORS.slate900, fontSize: 10 },
+  metaValueMono: { color: COLORS.emerald600, fontSize: 9 },
+  bottomStrip: { borderTopWidth: 1, borderTopColor: COLORS.slate200, paddingTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   confidential: { color: COLORS.slate400, fontSize: 7, letterSpacing: 2, textTransform: 'uppercase' },
 });
 
