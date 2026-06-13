@@ -9,7 +9,6 @@ import PinDrop from '../components/map/PinDrop';
 import ProgressiveLoader from '../components/results/ProgressiveLoader';
 import RiskSummaryCard from '../components/results/RiskSummaryCard';
 import Button from '../components/ui/Button';
-import AuthModal from '../components/auth/AuthModal';
 import useTerraStore from '../store/useTerraStore';
 import { getOrderedInstances } from '../utils/analyzeUtils';
 import { supabase } from '../lib/supabaseClient';
@@ -71,6 +70,7 @@ export default function Analyze() {
     setScanStatus, setAnnotations,
     setEngineStatus, setEngineResult, setEngineError, resetEngineState,
     setReportHistory, setApprovedLocationData,
+    openAuthModal,
   } = useTerraStore();
 
   // ─── Refresh history sidebar after a successful analysis ──
@@ -90,7 +90,6 @@ export default function Analyze() {
 
   const [mode, setMode]         = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [authOpen, setAuthOpen] = useState(false);
 
   // ─── Vision: send FormData to /api/vision/analyze ────────
   // CRITICAL: The engine expects multipart/form-data with `image` field.
@@ -170,7 +169,7 @@ export default function Analyze() {
     // If the user is not logged in, intercept here.
     // Do NOT hit the backend. Show the AuthModal instead.
     if (!user) {
-      setAuthOpen(true);
+      openAuthModal({ message: GATE_MESSAGE });
       return;
     }
 
@@ -233,9 +232,10 @@ export default function Analyze() {
         }
 
         if (res.status === 401) {
-          setEngineError('Session expired. Please sign in again.');
-          setErrorMsg('Session expired. Please sign in again.');
-          setAuthOpen(true);
+          const msg = 'Session expired. Please sign in again.';
+          setEngineError(msg);
+          setErrorMsg(msg);
+          openAuthModal({ error: msg });
           return;
         }
 
@@ -302,13 +302,6 @@ export default function Analyze() {
   return (
     <MainLayout>
       <ProgressiveLoader />
-
-      {/* Auth modal — gated for analyze click */}
-      <AuthModal
-        isOpen={authOpen}
-        onClose={() => setAuthOpen(false)}
-        message={GATE_MESSAGE}
-      />
 
       <AnimatePresence>
         {errorMsg && (

@@ -64,6 +64,31 @@ const useTerraStore = create(
           activeReportId: null,
         }),
 
+      authModal: {
+        isOpen: false,
+        tab: 'signin',
+        error: null,
+        message: null,
+      },
+
+      openAuthModal: (params = {}) =>
+        set((state) => ({
+          authModal: {
+            isOpen: true,
+            tab: params.tab ?? 'signin',
+            error: params.error ?? null,
+            message: params.message ?? null,
+          },
+        })),
+
+      closeAuthModal: () =>
+        set((state) => ({
+          authModal: {
+            ...state.authModal,
+            isOpen: false,
+          },
+        })),
+
       // ─────────────────────────────────────────────────────────
       // § 1. USER SESSION
       //   Tracks the active project and history of recent analyses.

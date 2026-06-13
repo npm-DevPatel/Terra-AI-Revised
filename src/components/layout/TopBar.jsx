@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogIn, LogOut, Menu } from 'lucide-react';
 import useTerraStore from '../../store/useTerraStore';
-import AuthModal from '../auth/AuthModal';
 import { supabase } from '../../lib/supabaseClient';
 
 const ROUTE_LABELS = {
@@ -15,8 +14,7 @@ const ROUTE_LABELS = {
 
 export default function TopBar({ onMenuToggle }) {
   const location = useLocation();
-  const { user, logout } = useTerraStore();
-  const [authOpen, setAuthOpen] = useState(false);
+  const { user, logout, openAuthModal } = useTerraStore();
 
   const route = ROUTE_LABELS[location.pathname] ?? { label: 'Terra AI', sub: '' };
 
@@ -30,7 +28,6 @@ export default function TopBar({ onMenuToggle }) {
 
   return (
     <>
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       <header className="flex items-center justify-between px-3 sm:px-6 h-16 bg-white border-b border-terra-border flex-shrink-0 gap-2">
         {/* ── Hamburger (mobile only) ── */}
@@ -91,7 +88,7 @@ export default function TopBar({ onMenuToggle }) {
             /* ── Logged-out: sign-in button ── */
             <button
               id="topbar-signin-btn"
-              onClick={() => setAuthOpen(true)}
+              onClick={() => openAuthModal()}
               className="flex items-center gap-1.5 text-xs font-semibold text-terra-body hover:text-terra-heading hover:bg-slate-50 border border-terra-border rounded-xl px-3 py-1.5 transition-all"
             >
               <LogIn className="w-3.5 h-3.5" />

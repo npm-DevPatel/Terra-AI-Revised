@@ -10,10 +10,11 @@
  * ──────────────────────────────────────────────────────────────
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, Leaf, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Send, KeyRound } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import useTerraStore from '../../store/useTerraStore';
 
 // ── Tiny input field wrapper ──────────────────────────────────
 function AuthField({ id, label, type, value, onChange, icon: Icon, autoComplete }) {
@@ -64,24 +65,27 @@ function AuthField({ id, label, type, value, onChange, icon: Icon, autoComplete 
 }
 
 // ── Main Modal ────────────────────────────────────────────────
-export default function AuthModal({ isOpen, onClose, message = null }) {
-  const [tab, setTab]               = useState('signin'); // 'signin' | 'signup'
+export default function AuthModal({ isOpen: propIsOpen, onClose: propOnClose, message: propMessage = null }) {
+  const { authModal, closeAuthModal } = useTerraStore();
+
+  const isOpen = propIsOpen ?? authModal.isOpen;
+  const onClose = propOnClose ?? closeAuthModal;
+  const message = propMessage ?? authModal.message;
+
+  const [tab, setTab]               = useState(authModal.tab ?? 'signin'); // 'signin' | 'signup' | 'forgot'
   const [email, setEmail]           = useState('');
   const [password, setPass]         = useState('');
   const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState(null);
+  const [error, setError]           = useState(authModal.error ?? null);
   const [success, setSuccess]       = useState(null);
   const [checkEmailSent, setCheckEmailSent] = useState(false); // dedicated confirm screen
 
-  // Reset form whenever modal opens/tabs switch
-  useEffect(() => {
-    setEmail('');
-    setPass('');
+  // Helper to switch tabs and clear feedback states
+  const switchTab = (nextTab) => {
+    setTab(nextTab);
     setError(null);
     setSuccess(null);
-    setLoading(false);
-    setCheckEmailSent(false);
-  }, [isOpen, tab]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -195,7 +199,7 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                       </p>
 
                       <button
-                        onClick={() => { setCheckEmailSent(false); setTab('signin'); }}
+                        onClick={() => { setCheckEmailSent(false); switchTab('signin'); }}
                         className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/12 border border-white/10 text-white text-sm font-semibold rounded-xl px-5 py-3 transition-all"
                       >
                         ← Back to Sign In
@@ -267,7 +271,7 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                       {['signin', 'signup'].map((t) => (
                         <button
                           key={t}
-                          onClick={() => setTab(t)}
+                          onClick={() => switchTab(t)}
                           className={`
                             relative px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200
                             ${tab === t
@@ -341,7 +345,7 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                       <div className="flex justify-end mt-1">
                         <button
                           type="button"
-                          onClick={() => setTab('forgot')}
+                          onClick={() => switchTab('forgot')}
                           className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
                         >
                           Forgot your password?
@@ -379,7 +383,7 @@ export default function AuthModal({ isOpen, onClose, message = null }) {
                     {tab === 'signin' ? "Don't have an account? " : tab === 'forgot' ? "Remember your password? " : 'Already have an account? '}
                     <button
                       type="button"
-                      onClick={() => setTab(tab === 'signin' ? 'signup' : 'signin')}
+                      onClick={() => switchTab(tab === 'signin' ? 'signup' : 'signin')}
                       className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
                     >
                       {tab === 'signin' ? 'Sign up free' : 'Sign in'}

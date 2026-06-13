@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Shield, Zap, FileText, Star, LogIn, LogOut, User } from 'lucide-react';
 import Button from '../components/ui/Button';
-import AuthModal from '../components/auth/AuthModal';
 import useTerraStore from '../store/useTerraStore';
 import { supabase } from '../lib/supabaseClient';
 
@@ -22,8 +21,7 @@ const STATS = [
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, logout } = useTerraStore();
-  const [authOpen, setAuthOpen] = useState(false);
+  const { user, logout, openAuthModal } = useTerraStore();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -71,8 +69,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-terra-bg">
-      {/* ── AuthModal ── */}
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       {/* ── Navbar ── */}
       <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-terra-border bg-white/80 backdrop-blur-sm sticky top-0 z-30">
@@ -135,7 +131,7 @@ export default function Home() {
             <>
               <button
                 id="home-signin-btn"
-                onClick={() => setAuthOpen(true)}
+                onClick={() => openAuthModal()}
                 className="flex items-center gap-1.5 text-sm font-semibold text-terra-body hover:text-terra-heading transition-colors px-3 py-2 rounded-xl hover:bg-slate-50"
               >
                 <LogIn className="w-4 h-4" />
@@ -176,7 +172,7 @@ export default function Home() {
               </Button>
               {!user && (
                 <button
-                  onClick={() => setAuthOpen(true)}
+                  onClick={() => openAuthModal({ tab: 'signup' })}
                   className="flex items-center gap-2 text-sm font-semibold text-terra-body hover:text-terra-heading border border-terra-border hover:border-slate-300 px-5 py-3 rounded-xl transition-all hover:shadow-sm"
                 >
                   <User className="w-4 h-4" />
@@ -249,7 +245,7 @@ export default function Home() {
               {/* Auth badge — shown to logged-out users */}
               {!user && (
                 <motion.button
-                  onClick={() => setAuthOpen(true)}
+                  onClick={() => openAuthModal({ tab: 'signup' })}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 1 }}
@@ -338,7 +334,7 @@ export default function Home() {
             </Button>
             {!user && (
               <button
-                onClick={() => setAuthOpen(true)}
+                onClick={() => openAuthModal({ tab: 'signup' })}
                 className="flex items-center gap-2 text-sm font-semibold text-emerald-100 hover:text-white border border-emerald-400/40 hover:border-emerald-300/60 px-5 py-3 rounded-xl transition-all"
               >
                 <LogIn className="w-4 h-4" />
