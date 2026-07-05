@@ -2,7 +2,6 @@ import threading
 import time
 
 from spatial.groundwater import groundwater_status, warm_groundwater_data
-from vision.vision_model import vision_model_status, warm_model
 
 _STATE_LOCK = threading.Lock()
 _STATE = {
@@ -24,7 +23,6 @@ def warmup_status() -> dict:
         snapshot = dict(_STATE)
 
     components = {
-        "vision_model": vision_model_status(),
         "groundwater": groundwater_status(),
     }
     ready = all(component.get("ready", False) for component in components.values())
@@ -35,7 +33,6 @@ def warmup_status() -> dict:
 
 def _run_warmup() -> None:
     try:
-        warm_model()
         warm_groundwater_data()
     except Exception as exc:
         _set_state(last_error=str(exc))

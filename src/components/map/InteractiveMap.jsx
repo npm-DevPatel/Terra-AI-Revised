@@ -32,7 +32,7 @@ export default function InteractiveMap({ onPinDropped }) {
     window.__terraMapCallback = initMap;
     const script = document.createElement('script');
     script.id = scriptId;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=__terraMapCallback&libraries=places,marker&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&v=weekly&callback=__terraMapCallback&libraries=places,marker&loading=async`;
     script.async = true;
     script.defer = true;
     script.onerror = () => setApiError(true);

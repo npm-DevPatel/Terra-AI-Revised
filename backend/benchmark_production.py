@@ -5,7 +5,6 @@
 This script targets the production backend over HTTP and can benchmark:
   - /health
   - /ready
-  - /api/vision/analyze
   - /api/spatial/scan
 
 It requests opt-in backend diagnostics so the response includes phase timings.
@@ -13,13 +12,11 @@ That lets you distinguish:
   - client-observed latency
   - total server time
   - internal spatial task timings (Overpass, GEE, soil, Gemini, etc.)
-  - vision decode vs analysis time
 
 Examples:
   python benchmark_production.py --base-url https://your-render-service.onrender.com --mode health
-  python benchmark_production.py --base-url https://your-render-service.onrender.com --mode vision --vision-image ../src/assets/front_page/hero_section.png
   python benchmark_production.py --base-url https://your-render-service.onrender.com --mode spatial --lat -1.2864 --lng 36.8172 --spatial-token "$TERRA_BENCH_BEARER_TOKEN"
-  python benchmark_production.py --base-url https://your-render-service.onrender.com --mode all --vision-image ../src/assets/front_page/hero_section.png --lat -1.2864 --lng 36.8172 --json-out benchmark_results.json
+    python benchmark_production.py --base-url https://your-render-service.onrender.com --mode all --lat -1.2864 --lng 36.8172 --json-out benchmark_results.json
 """
 
 from __future__ import annotations
@@ -208,36 +205,6 @@ def _request_spatial(
     }
 
 
-def _request_vision(
-    session: requests.Session,
-    base_url: str,
-    timeout: float,
-    image_path: Path,
-) -> dict[str, Any]:
-    started = time.perf_counter()
-    with image_path.open("rb") as handle:
-        response = session.post(
-            f"{base_url}/api/vision/analyze",
-            headers={"X-Terra-Diagnostics": "1"},
-            files={"image": (image_path.name, handle)},
-            timeout=timeout,
-        )
-    payload = _json_or_none(response)
-    timing = payload.get("timing") if isinstance(payload, dict) and isinstance(payload.get("timing"), dict) else {}
-    flattened: dict[str, float] = {}
-    if timing:
-        _flatten_timing("", timing, flattened)
-    return {
-        "path": "/api/vision/analyze",
-        "ok": response.ok,
-        "status_code": response.status_code,
-        "client_ms": _ms(started),
-        "payload": payload,
-        "server_total_ms": timing.get("total_request_ms") or timing.get("total_ms") or timing.get("inference_ms"),
-        "flattened_timing": flattened,
-    }
-
-
 def _run_many(name: str, warmups: int, runs: int, fn: Any) -> dict[str, Any]:
     for index in range(warmups):
         result = fn()
@@ -254,13 +221,12 @@ def _run_many(name: str, warmups: int, runs: int, fn: Any) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Benchmark the deployed Terra AI backend")
     parser.add_argument("--base-url", default=os.getenv("TERRA_BENCH_BASE_URL", ""), help="Production backend base URL")
-    parser.add_argument("--mode", choices=["all", "health", "vision", "spatial"], default="all")
+    parser.add_argument("--mode", choices=["all", "health", "spatial"], default="all")
     parser.add_argument("--runs", type=int, default=3, help="Measured runs per endpoint")
     parser.add_argument("--warmup-runs", type=int, default=1, help="Warmup runs per endpoint")
     parser.add_argument("--timeout", type=float, default=120.0, help="Per-request timeout in seconds")
     parser.add_argument("--lat", type=float, default=-1.286389, help="Latitude for spatial benchmark")
     parser.add_argument("--lng", type=float, default=36.817223, help="Longitude for spatial benchmark")
-    parser.add_argument("--vision-image", default="", help="Path to an image file for vision benchmarking")
     parser.add_argument("--spatial-token", default=os.getenv("TERRA_BENCH_BEARER_TOKEN", ""), help="Supabase Bearer token for spatial endpoint")
     parser.add_argument("--json-out", default="", help="Optional path to write full benchmark JSON")
     return parser.parse_args()
@@ -300,21 +266,6 @@ def main() -> int:
         fn=lambda: _request_health(session, base_url, "/ready", args.timeout),
     )
     benchmark["results"]["ready"] = ready_result
-
-    if args.mode in {"all", "vision"}:
-        if not args.vision_image:
-            print("warning: skipping vision benchmark because --vision-image was not provided", file=sys.stderr)
-        else:
-            image_path = Path(args.vision_image).expanduser().resolve()
-            if not image_path.exists():
-                print(f"error: vision image not found: {image_path}", file=sys.stderr)
-                return 2
-            benchmark["results"]["vision"] = _run_many(
-                "vision",
-                warmups=args.warmup_runs,
-                runs=args.runs,
-                fn=lambda: _request_vision(session, base_url, args.timeout, image_path),
-            )
 
     if args.mode in {"all", "spatial"}:
         if not args.spatial_token:

@@ -178,6 +178,16 @@
   }
 }
 
+/* ── Hide Google Maps "For development purposes only" billing overlay ── */
+/* This banner appears when Maps API billing is not yet fully active.    */
+/* It is NOT attribution text and does not violate Maps ToS to hide.     */
+.gm-style-pbc {
+  display: none !important;
+}
+.gm-style-pbc + div {
+  display: none !important;
+}
+
 @keyframes terraChatWordIn {
   from {
     opacity: 0;

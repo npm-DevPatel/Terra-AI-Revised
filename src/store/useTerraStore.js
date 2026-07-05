@@ -13,9 +13,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// ─── Scan Status Type ────────────────────────────────────────
-// 'idle' | 'scanning' | 'complete'
-//
 // ─── Engine Status Type ──────────────────────────────────────
 // 'idle' | 'loading' | 'done' | 'error'
 // ─────────────────────────────────────────────────────────────
@@ -117,61 +114,7 @@ const useTerraStore = create(
         })),
 
       // ─────────────────────────────────────────────────────────
-      // § 2. VISION STATE
-      //   Manages image upload, scanner animation, and YOLO results.
-      // ─────────────────────────────────────────────────────────
-      visionState: {
-        uploadedImageBlob: null,   // base64 dataURL string (for preview)
-        uploadedFile: null,        // raw File object (for FormData upload)
-        uploadedFileName: null,    // original file name for display
-        scanStatus: 'idle',        // 'idle' | 'scanning' | 'complete'
-        annotations: [],           // ordered array from engine
-        rawVisionPayload: null,    // the full JSON response from /api/vision/analyze
-      },
-
-      setUploadedImage: (imageBlob, fileName, file) =>
-        set((state) => ({
-          visionState: {
-            ...state.visionState,
-            uploadedImageBlob: imageBlob,
-            uploadedFile: file ?? null,
-            uploadedFileName: fileName,
-            scanStatus: 'idle',
-            annotations: [],
-            rawVisionPayload: null,
-          },
-        })),
-
-      setScanStatus: (status) =>
-        set((state) => ({
-          visionState: { ...state.visionState, scanStatus: status },
-        })),
-
-      setAnnotations: (annotations, rawPayload) =>
-        set((state) => ({
-          visionState: {
-            ...state.visionState,
-            annotations,
-            rawVisionPayload: rawPayload,
-            scanStatus: 'complete',
-          },
-        })),
-
-      clearVisionState: () =>
-        set((state) => ({
-          visionState: {
-            ...state.visionState,
-            uploadedImageBlob: null,
-            uploadedFile: null,
-            uploadedFileName: null,
-            scanStatus: 'idle',
-            annotations: [],
-            rawVisionPayload: null,
-          },
-        })),
-
-      // ─────────────────────────────────────────────────────────
-      // § 3. MAP STATE
+      // § 2. MAP STATE
       //   Stores the geo-coordinates the user pins on the map
       //   and any pre-validated location metadata.
       // ─────────────────────────────────────────────────────────
@@ -202,13 +145,12 @@ const useTerraStore = create(
         })),
 
       // ─────────────────────────────────────────────────────────
-      // § 4. ENGINE STATE
+      // § 3. ENGINE STATE
       //   Tracks the full lifecycle of a spatial analysis job.
       //   This is the most critical slice — the PDF depends on it.
       //
       //   API contract:
-      //     POST /api/spatial/analyze → { payload, report }
-      //     POST /api/vision/analyze  → { annotations, payload }
+      //     POST /api/spatial/scan → { payload, report }
       // ─────────────────────────────────────────────────────────
       engineState: {
         status: 'idle',           // 'idle' | 'loading' | 'done' | 'error'
@@ -263,7 +205,7 @@ const useTerraStore = create(
         })),
 
       // ─────────────────────────────────────────────────────────
-      // § 5. PDF STATE
+      // § 4. PDF STATE
       //   Prevents duplicate generation and provides UI feedback.
       // ─────────────────────────────────────────────────────────
       pdfState: {
@@ -279,14 +221,6 @@ const useTerraStore = create(
       // ─────────────────────────────────────────────────────────
       resetAll: () =>
         set((state) => ({
-          visionState: {
-            uploadedImageBlob: null,
-            uploadedFile: null,
-            uploadedFileName: null,
-            scanStatus: 'idle',
-            annotations: [],
-            rawVisionPayload: null,
-          },
           mapState: {
             pinnedCoordinates: { lat: null, lng: null },
             approvedLocationData: null,
@@ -330,12 +264,6 @@ const useTerraStore = create(
           progressMessage: '',
         },
         pdfState: state.pdfState,
-        // uploadedImageBlob and uploadedFile excluded from persistence (binary/not serializable)
-        visionState: {
-          ...state.visionState,
-          uploadedImageBlob: null,
-          uploadedFile: null,
-        },
         // Auth is NOT persisted — rehydrated via supabase.auth.onAuthStateChange on mount
       }),
     }

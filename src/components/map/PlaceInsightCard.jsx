@@ -233,7 +233,7 @@ export default function PlaceInsightCard({ place, onRunSpatialEngine }) {
             className="w-full rounded-full bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.98] hover:bg-slate-800"
           >
             <span className="inline-flex items-center justify-center gap-2">
-              Run Spatial Engine
+              Run Engine
               <ArrowRight className="h-4 w-4" />
             </span>
           </button>

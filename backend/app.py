@@ -1,13 +1,8 @@
 import os
-import torch
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from typing import Any, Callable, cast
 
-# Constrain PyTorch thread spawning overhead
-torch.set_num_threads(1)
-
-from vision.routes import bp as vision_bp
 from spatial.routes import bp as spatial_bp
 from bootstrap import start_background_warmup, warmup_status
 
@@ -25,8 +20,6 @@ app = Flask(__name__)
 start_background_warmup(wait=os.getenv("TERRA_WARMUP_SYNC", "1") == "1")
 
 # ── Request size cap ──────────────────────────────────────────────────────────
-# Prevents huge payloads from exhausting memory.
-# Vision images are typically < 5 MB; 10 MB gives headroom.
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -80,13 +73,11 @@ def add_security_headers(response):
 
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
-app.register_blueprint(vision_bp)
 app.register_blueprint(spatial_bp)
 
 # ── Per-endpoint rate limits (applied via decorator in route files) ───────────
 # These are exposed so routes.py can import and use them.
 # spatial/scan: 10/hour — Gemini is expensive; abuse = direct quota cost
-# vision/analyze: 20/hour — YOLO model is CPU-heavy
 if _LIMITER_ENABLED:
     app.config["LIMITER"] = limiter
 
@@ -130,7 +121,6 @@ def index():
         "endpoints": {
             "health":        "/health",
             "spatial_scan":  "/api/spatial/scan",
-            "vision_analyze": "/api/vision/analyze",
         },
     })
 
