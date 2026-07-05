@@ -46,6 +46,49 @@ By fusing computer vision (**YOLOv8 Image Segmentation**) with advanced geospati
 
 ---
 
+## 🚀 Production Benchmarking
+
+Use `backend/benchmark_production.py` to benchmark the deployed Render backend instead of the local Flask server.
+
+What it does:
+- Calls `/health` and `/ready` first so you can confirm the deployed service is warm.
+- Calls `/api/vision/analyze` with a real image upload and reports client latency plus backend timing breakdowns.
+- Calls `/api/spatial/scan` with a real Bearer token and reports client latency plus backend timing breakdowns for internal phases like `parallel_tasks.overpass`, `parallel_tasks.gee_landcover`, `synthesis_ms`, and `db_write_ms`.
+- Prints a ranked list of the slowest internal phases so you can see whether the delay is vision, the spatial harvester, or Gemini synthesis.
+
+Example commands:
+
+```bash
+cd backend
+./land/bin/python benchmark_production.py \
+  --base-url https://YOUR-RENDER-SERVICE.onrender.com \
+  --mode vision \
+  --vision-image ../src/assets/front_page/hero_section.png
+
+./land/bin/python benchmark_production.py \
+  --base-url https://YOUR-RENDER-SERVICE.onrender.com \
+  --mode spatial \
+  --lat -1.286389 \
+  --lng 36.817223 \
+  --spatial-token "$TERRA_BENCH_BEARER_TOKEN"
+
+./land/bin/python benchmark_production.py \
+  --base-url https://YOUR-RENDER-SERVICE.onrender.com \
+  --mode all \
+  --vision-image ../src/assets/front_page/hero_section.png \
+  --lat -1.286389 \
+  --lng 36.817223 \
+  --spatial-token "$TERRA_BENCH_BEARER_TOKEN" \
+  --json-out ./benchmark_results.json
+```
+
+Required inputs:
+- `--base-url`: the Render backend URL.
+- `--vision-image`: any representative site photo or drone image for the vision engine.
+- `--spatial-token`: a valid Supabase Bearer token from a logged-in user session, required because `/api/spatial/scan` is auth-protected.
+
+---
+
 ## 🌟 Core Features & User Flow
 
 ### 1. The Landing Experience (`/`)

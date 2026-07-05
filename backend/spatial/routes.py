@@ -97,6 +97,31 @@ _SOLAR_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
 def _coord_cache_key(lat: float, lng: float) -> str:
     return f"{round(lat, 4):.4f}:{round(lng, 4):.4f}"
 
+
+def _elapsed_ms(started: float) -> float:
+    return round((time.perf_counter() - started) * 1000, 2)
+
+
+def _diagnostics_enabled(body: dict[str, Any] | None = None) -> bool:
+    if isinstance(body, dict) and body.get("includeTimings") is True:
+        return True
+    raw = str(request.headers.get("X-Terra-Diagnostics", "")).strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _with_timing(response_body: dict[str, Any], timing: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(response_body)
+    enriched["timing"] = timing
+    return enriched
+
+
+def _run_timed_task(task_name: str, fn: Any) -> tuple[str, Any, float, Exception | None]:
+    started = time.perf_counter()
+    try:
+        return task_name, fn(), _elapsed_ms(started), None
+    except Exception as exc:
+        return task_name, None, _elapsed_ms(started), exc
+
 # ── JWT Auth enforcement ──────────────────────────────────────────────────────
 # Supabase JWT secret — used to verify tokens without calling Supabase API.
 # Set SUPABASE_JWT_SECRET in Render env vars (found in Supabase project settings).
@@ -752,6 +777,11 @@ def analyze():
       L2: Supabase DB (persistent, ~11m precision, keyed on lat_rounded/lng_rounded)
     If L2 hits, we still populate L1 for faster subsequent calls.
     """
+    request_started = time.perf_counter()
+    body = request.get_json(silent=True) or {}
+    diagnostics = _diagnostics_enabled(body)
+    timing: dict[str, Any] = {}
+
     # ── Rate limiting (applied via flask-limiter if available) ────────────────
     try:
         limiter = current_app.config.get("LIMITER")
@@ -761,11 +791,13 @@ def analyze():
         pass  # Non-fatal if limiter unavailable
 
     # ── Auth gate — require valid JWT ─────────────────────────────────────────
+    auth_started = time.perf_counter()
     user_id, raw_jwt, auth_error = _require_auth()
+    if diagnostics:
+        timing["auth_ms"] = _elapsed_ms(auth_started)
     if auth_error:
         return auth_error
 
-    body = request.get_json(silent=True) or {}
     lat_raw = body.get("lat")
     lng_raw = body.get("lng")
     client_context = body.get("clientContext")
@@ -787,6 +819,9 @@ def analyze():
     if not (KENYA_LAT_MIN <= lat <= KENYA_LAT_MAX and KENYA_LNG_MIN <= lng <= KENYA_LNG_MAX):
         return jsonify({"error": "Coordinates are outside Kenya"}), 400
 
+    if diagnostics:
+        timing["validation_ms"] = _elapsed_ms(request_started) - timing.get("auth_ms", 0.0)
+
     print(f"[Terra AI] Analysing: {lat:.5f}, {lng:.5f} | user_id: {user_id}")
 
     # ── Rounded coordinates for cache keying (~11m precision) ─────────────────
@@ -799,6 +834,13 @@ def analyze():
         cached = _ANALYSIS_CACHE[cache_key]
         if time.time() - cached["timestamp"] < _CACHE_TTL_SECONDS:
             print(f"[Terra AI] L1 cache hit for {cache_key}")
+            if diagnostics:
+                timing.update({
+                    "cache": "l1",
+                    "cache_hit": True,
+                    "total_ms": _elapsed_ms(request_started),
+                })
+                return jsonify(_with_timing(cached["response"], timing))
             return jsonify(cached["response"])
 
     # ── L2: Supabase DB cache check ────────────────────────────────────────────
@@ -835,9 +877,20 @@ def analyze():
                     "timestamp": time.time(),
                     "response": response_body,
                 }
+                if diagnostics:
+                    timing.update({
+                        "cache": "l2",
+                        "cache_hit": True,
+                        "total_ms": _elapsed_ms(request_started),
+                    })
+                    return jsonify(_with_timing(response_body, timing))
                 return jsonify(response_body)
         except Exception as db_err:
             print(f"[Terra AI] L2 DB cache check failed (non-fatal, continuing): {db_err}")
+
+    if diagnostics:
+        timing["cache"] = "miss"
+        timing["cache_hit"] = False
 
     # ── Parallel data fetching (11 tasks) ─────────────────────────────────────
     overpass_data: dict = {}
@@ -866,39 +919,52 @@ def analyze():
         "no2":          lambda: fetch_no2_pollution(lat, lng),
     }
 
+    parallel_started = time.perf_counter()
+    parallel_timings: dict[str, Any] = {}
     with ThreadPoolExecutor(max_workers=11) as pool:
-        futures = {pool.submit(fn): key for key, fn in tasks.items()}
+        futures = {pool.submit(_run_timed_task, key, fn): key for key, fn in tasks.items()}
         for fut in as_completed(futures):
-            key = futures[fut]
-            try:
-                result = fut.result()
-                if key == "overpass":
-                    overpass_data = result
-                elif key == "elevation":
-                    elevation_data = result
-                elif key == "maps":
-                    maps_data = result
-                elif key == "gee_landcover":
-                    gee_data = result
-                elif key == "weather":
-                    weather_data = result
-                elif key == "admin":
-                    admin_data = result
-                elif key == "solar":
-                    solar_data = result
-                elif key == "soil":
-                    soil_data = result
-                elif key == "zones":
-                    zones_data = result
-                elif key == "groundwater":
-                    groundwater_data = result
-                elif key == "no2":
-                    no2_data = result
-            except Exception as exc:
-                print(f"[Terra AI] {key} fetch failed (non-fatal): {exc}")
+            key, result, task_ms, task_exc = fut.result()
+            if diagnostics:
+                parallel_timings[key] = {
+                    "elapsed_ms": task_ms,
+                    "ok": task_exc is None,
+                }
+            if task_exc is not None:
+                print(f"[Terra AI] {key} fetch failed (non-fatal): {task_exc}")
+                continue
+            if key == "overpass":
+                overpass_data = result
+            elif key == "elevation":
+                elevation_data = result
+            elif key == "maps":
+                maps_data = result
+            elif key == "gee_landcover":
+                gee_data = result
+            elif key == "weather":
+                weather_data = result
+            elif key == "admin":
+                admin_data = result
+            elif key == "solar":
+                solar_data = result
+            elif key == "soil":
+                soil_data = result
+            elif key == "zones":
+                zones_data = result
+            elif key == "groundwater":
+                groundwater_data = result
+            elif key == "no2":
+                no2_data = result
+
+    if diagnostics:
+        timing["parallel_total_ms"] = _elapsed_ms(parallel_started)
+        timing["parallel_tasks"] = parallel_timings
 
     # ── Spatial risk computation (synchronous, CPU-bound) ────────────────────
+    compute_started = time.perf_counter()
     spatial_risks = compute_risks(lat, lng, overpass_data)
+    if diagnostics:
+        timing["compute_risks_ms"] = _elapsed_ms(compute_started)
 
     # ── Data quality tracking ─────────────────────────────────────────────────
     data_quality = {
@@ -1045,27 +1111,37 @@ def analyze():
     print(f"[Terra AI] Payload assembled ({sum(data_quality.values())}/11 sources OK). Running sanitization middleware.")
 
     # ── Data sanitization middleware ─────────────────────────────────────────
+    sanitize_started = time.perf_counter()
     analysis_payload = _sanitize_payload(analysis_payload)
+    if diagnostics:
+        timing["sanitize_ms"] = _elapsed_ms(sanitize_started)
     tier = analysis_payload.get('_zone_tier', '?')
     print(f"[Terra AI] Zone Tier: {analysis_payload.get('_zone_tier_label', 'Unknown')}. Calling Gemini…")
 
     # ── Deterministic score computation (MUST happen before Gemini call) ──────
+    score_started = time.perf_counter()
     det_score, det_label, det_deductions = _compute_deterministic_score(analysis_payload)
     analysis_payload["_deterministic_score"] = det_score
     analysis_payload["_deterministic_label"] = det_label
     analysis_payload["_score_deductions"] = det_deductions
+    if diagnostics:
+        timing["deterministic_score_ms"] = _elapsed_ms(score_started)
 
     print(f"[Terra AI] Deterministic score: {det_score}/100 ({det_label})")
     print(f"[Terra AI] Deductions: {det_deductions if det_deductions else 'None'}")
 
     # ── Gemini synthesis ──────────────────────────────────────────────────────
     report_source = "gemini"
+    gemini_started = time.perf_counter()
     try:
         ai_report = synthesize_with_gemini(analysis_payload)
     except Exception as gemini_err:
         print(f"[Terra AI] Gemini error (falling back): {gemini_err}")
         report_source = "fallback"
         ai_report = _build_fallback_report(analysis_payload, str(gemini_err), det_deductions)
+    if diagnostics:
+        timing["synthesis_ms"] = _elapsed_ms(gemini_started)
+        timing["report_source"] = report_source
 
     model_used = ai_report.pop("_model_used", None) if isinstance(ai_report, dict) else None
 
@@ -1105,6 +1181,7 @@ def analyze():
         raw_jwt = auth_header.split(" ", 1)[1] if auth_header and " " in auth_header else None
         authed_sb = _make_authed_client(raw_jwt)
         if authed_sb is not None:
+            db_write_started = time.perf_counter()
             try:
                 # Derive a meaningful location name for the history sidebar
                 location_name = (
@@ -1137,10 +1214,17 @@ def analyze():
                 print(f"[Terra AI] DB write OK for ({lat_rounded}, {lng_rounded}) | user_id: {user_id}")
             except Exception as db_write_err:
                 print(f"[Terra AI] DB write failed (non-fatal): {db_write_err}")
+            if diagnostics:
+                timing["db_write_ms"] = _elapsed_ms(db_write_started)
         else:
             print("[Terra AI] Skipping DB write — could not build authenticated Supabase client.")
     else:
         print("[Terra AI] Skipping DB write — no authenticated user_id in JWT.")
+
+    if diagnostics:
+        timing["total_ms"] = _elapsed_ms(request_started)
+        timing["data_sources_ok"] = int(sum(data_quality.values()))
+        return jsonify(_with_timing(response_body, timing))
 
     return jsonify(response_body)
 

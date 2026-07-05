@@ -1,4 +1,5 @@
 import os
+import time
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -9,6 +10,15 @@ bp = Blueprint("vision", __name__)
 
 # ── Allowed MIME types for uploads ────────────────────────────────────────────
 _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/tiff"}
+
+
+def _elapsed_ms(started: float) -> float:
+    return round((time.perf_counter() - started) * 1000, 2)
+
+
+def _diagnostics_enabled() -> bool:
+    raw = str(request.headers.get("X-Terra-Diagnostics", "")).strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 @bp.post("/api/vision/analyze")
@@ -43,7 +53,24 @@ def vision_analyze():
             }), 415
 
     try:
+        request_started = time.perf_counter()
+        decode_started = time.perf_counter()
         rgb = decode_image_from_flask_request(request)
-        return jsonify(analyze_image(rgb))
+        decode_ms = _elapsed_ms(decode_started)
+
+        analysis_started = time.perf_counter()
+        response_body = analyze_image(rgb)
+        analysis_ms = _elapsed_ms(analysis_started)
+
+        timing = dict(response_body.get("timing") or {})
+        timing.update({
+            "decode_ms": decode_ms,
+            "analysis_ms": analysis_ms,
+            "total_request_ms": _elapsed_ms(request_started),
+        })
+        if _diagnostics_enabled():
+            timing["diagnostics_enabled"] = True
+        response_body["timing"] = timing
+        return jsonify(response_body)
     except Exception as err:
         return jsonify({"error": str(err)}), 400
