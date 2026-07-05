@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
@@ -30,6 +31,7 @@ const GATE_MESSAGE =
   'Your reports are saved and accessible from any device.';
 
 export default function Analyze() {
+  const navigate = useNavigate();
   const {
     user, session,
     mapState, engineState,
@@ -55,6 +57,14 @@ export default function Analyze() {
   };
 
   const [errorMsg, setErrorMsg] = useState(null);
+  const previousStatusRef = useRef(engineState.status);
+
+  useEffect(() => {
+    if (previousStatusRef.current === 'loading' && engineState.status === 'done') {
+      navigate('/report');
+    }
+    previousStatusRef.current = engineState.status;
+  }, [engineState.status, navigate]);
 
   const handleSpatialAnalyze = async () => {
     // ── AUTH GATE ─────────────────────────────────────────────

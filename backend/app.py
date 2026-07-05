@@ -23,13 +23,19 @@ start_background_warmup(wait=os.getenv("TERRA_WARMUP_SYNC", "1") == "1")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-# Allow requests from the Vercel frontend (set FRONTEND_URL in Render env vars).
-# Falls back to localhost for local development.
+# Allow requests from the configured frontend plus common preview hosts.
+# This keeps the API reachable even when FRONTEND_URL is stale on Render.
 _frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+_cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    r"https://.*\.vercel\.app",
+    r"https://terra-ai-revised.*\.onrender\.com",
+]
 if _frontend_url:
-    CORS(app, origins=[_frontend_url, "http://localhost:5173", "http://localhost:5174"])
-else:
-    CORS(app)
+    _cors_origins.insert(0, _frontend_url)
+
+CORS(app, resources={r"/*": {"origins": _cors_origins}})
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
 # Protects Gemini, Google Maps and GEE API quotas from abuse.

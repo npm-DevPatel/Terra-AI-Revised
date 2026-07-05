@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://terra-ai-revised.onrender.com/api/:path*"
+      "destination": "https://terra-ai-revised-backend.onrender.com/api/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://terra-ai-revised.onrender.com/health"
+      "destination": "https://terra-ai-revised-backend.onrender.com/health"
     },
     {
       "source": "/(.*)",

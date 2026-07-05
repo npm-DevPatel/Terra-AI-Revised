@@ -5,6 +5,7 @@ import useTerraStore from '../../store/useTerraStore';
 
 const NAIROBI_CENTER = { lat: -1.286389, lng: 36.817223 };
 const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 
 const MAP_TYPES = [
   { id: 'hybrid',  label: 'GEE',     },  // satellite + labels (default visual)
@@ -194,14 +195,13 @@ export default function InteractiveMap({ onPinDropped }) {
       zoom: 13,
       // 'hybrid' = satellite tiles + road/place name labels (best of both)
       mapTypeId: 'hybrid',
-      // mapId is required for AdvancedMarkerElement
-      mapId: 'terra_ai_map',
       tilt: 0,
       zoomControl: true,
       mapTypeControl: false,   // we build our own toggle
       streetViewControl: false,
       fullscreenControl: true,
       gestureHandling: 'greedy',
+      ...(MAP_ID ? { mapId: MAP_ID } : {}),
     });
     mapInstanceRef.current = map;
     setMapReady(true);
@@ -221,30 +221,43 @@ export default function InteractiveMap({ onPinDropped }) {
 
     // Remove existing marker
     if (markerRef.current) {
-      markerRef.current.map = null;
+      if (typeof markerRef.current.setMap === 'function') {
+        markerRef.current.setMap(null);
+      } else {
+        markerRef.current.map = null;
+      }
       markerRef.current = null;
     }
 
-    const pinEl = document.createElement('div');
-    pinEl.style.cssText = [
-      'width:28px',
-      'height:28px',
-      'border-radius:9999px',
-      'background:radial-gradient(circle at 30% 30%, #ffffff 0%, #bbf7d0 18%, #22c55e 42%, #15803d 100%)',
-      'border:3px solid rgba(255,255,255,0.95)',
-      'box-shadow:0 0 0 10px rgba(34,197,94,0.18), 0 16px 30px rgba(15,23,42,0.45)',
-      'transform:translateY(-4px)',
-      'pointer-events:none',
-    ].join(';');
+    const AdvancedMarkerElement = window.google.maps.marker?.AdvancedMarkerElement;
+    if (MAP_ID && AdvancedMarkerElement) {
+      const pinEl = document.createElement('div');
+      pinEl.style.cssText = [
+        'width:28px',
+        'height:28px',
+        'border-radius:9999px',
+        'background:radial-gradient(circle at 30% 30%, #ffffff 0%, #bbf7d0 18%, #22c55e 42%, #15803d 100%)',
+        'border:3px solid rgba(255,255,255,0.95)',
+        'box-shadow:0 0 0 10px rgba(34,197,94,0.18), 0 16px 30px rgba(15,23,42,0.45)',
+        'transform:translateY(-4px)',
+        'pointer-events:none',
+      ].join(';');
 
-    // Use AdvancedMarkerElement (non-deprecated)
-    const { AdvancedMarkerElement } = window.google.maps.marker;
-    markerRef.current = new AdvancedMarkerElement({
-      position: { lat, lng },
-      map,
-      content: pinEl,
-      title: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-    });
+      markerRef.current = new AdvancedMarkerElement({
+        position: { lat, lng },
+        map,
+        content: pinEl,
+        title: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      });
+    } else {
+      markerRef.current = new window.google.maps.Marker({
+        position: { lat, lng },
+        map,
+        title: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        animation: window.google.maps.Animation.DROP,
+      });
+    }
+
     spotlightCoordsRef.current = { lat, lng };
     map.panTo({ lat, lng });
     updateSpotlight();

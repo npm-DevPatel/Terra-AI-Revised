@@ -7,6 +7,59 @@ import {
 } from '../../utils/analyzeUtils';
 import useTerraStore from '../../store/useTerraStore';
 
+async function fetchNominatimSearchCandidates(searchTerm) {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=ke&limit=6&addressdetails=1&q=${encodeURIComponent(searchTerm)}`,
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Nominatim lookup failed with ${response.status}`);
+  }
+
+  const results = await response.json();
+  return Array.isArray(results)
+    ? results.map((result, index) => ({
+        id: result.place_id || `nominatim-${index}`,
+        name:
+          result.name ||
+          result.address?.suburb ||
+          result.address?.town ||
+          result.address?.city ||
+          result.address?.village ||
+          result.display_name?.split(',')?.[0] ||
+          'Place',
+        region: result.display_name || 'Kenya',
+        country: result.address?.country || 'Kenya',
+        latitude: Number(result.lat),
+        longitude: Number(result.lon),
+        overview: result.display_name || '',
+        wikiTitle: result.name || result.display_name?.split(',')?.[0] || '',
+      })).filter((candidate) => Number.isFinite(candidate.latitude) && Number.isFinite(candidate.longitude))
+    : [];
+}
+
+async function reverseGeocodeWithNominatim({ lat, lng }) {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`,
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Nominatim reverse geocode failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
 /**
  * LocationSearch — search bar + candidate list for confirming a map location.
  * Uses Google Places Autocomplete and Geocoding APIs.
@@ -68,9 +121,15 @@ export default function LocationSearch({ onLocationConfirmed }) {
     const maps = await ensureGoogleServices();
 
     if (!maps || !window.google?.maps?.places?.AutocompleteService) {
-      setCandidates(FALLBACK_LOCATION_CANDIDATES);
-      setOpen(true);
-      setLoading(false);
+      try {
+        const fallbackCandidates = await fetchNominatimSearchCandidates(searchTerm);
+        setCandidates(fallbackCandidates.length > 0 ? fallbackCandidates : FALLBACK_LOCATION_CANDIDATES);
+      } catch {
+        setCandidates(FALLBACK_LOCATION_CANDIDATES);
+      } finally {
+        setOpen(true);
+        setLoading(false);
+      }
       return;
     }
 
@@ -147,7 +206,43 @@ export default function LocationSearch({ onLocationConfirmed }) {
   const loadCandidatesForPin = async ({ lat, lng }) => {
     try {
       const maps = await ensureGoogleServices();
-      if (!maps || !geocoderRef.current) return;
+      if (!maps || !geocoderRef.current) {
+        const fallback = await reverseGeocodeWithNominatim({ lat, lng });
+        const address = fallback?.address || {};
+        const candidate = {
+          id: fallback?.place_id || `pin-${lat}-${lng}`,
+          name:
+            address.suburb ||
+            address.town ||
+            address.city ||
+            address.village ||
+            fallback?.name ||
+            fallback?.display_name?.split(',')?.[0] ||
+            'Selected location',
+          region: fallback?.display_name || 'Kenya',
+          locality: address.city || address.town || address.village || address.county || null,
+          country: address.country || 'Kenya',
+          latitude: lat,
+          longitude: lng,
+          overview: fallback?.display_name || 'Reverse geocode result',
+          wikiTitle: fallback?.name || fallback?.display_name?.split(',')?.[0] || 'Selected location',
+        };
+        const locationData = {
+          address: candidate.region,
+          placeName: candidate.name,
+          country: candidate.country,
+          latitude: candidate.latitude,
+          longitude: candidate.longitude,
+        };
+        setApprovedLocationData(locationData);
+        searchRequestIdRef.current += 1;
+        suppressSearchRef.current = true;
+        setCandidates([candidate]);
+        setQuery(candidate.name);
+        setOpen(false);
+        onLocationConfirmed?.(candidate);
+        return;
+      }
 
       const { results } = await geocoderRef.current.geocode({ location: { lat, lng } });
       const bestResult = results?.[0];
