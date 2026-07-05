@@ -92,6 +92,8 @@ MAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 _WEATHER_CACHE = TTLCache[dict](ttl_seconds=21_600, max_entries=256)
 _ADMIN_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
 _SOLAR_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+_GEE_LANDCOVER_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+_NO2_CACHE = TTLCache[dict](ttl_seconds=43_200, max_entries=256)
 
 
 def _coord_cache_key(lat: float, lng: float) -> str:
@@ -909,14 +911,20 @@ def analyze():
         "overpass":     lambda: fetch_overpass_data(lat, lng),
         "elevation":    lambda: fetch_elevation_data(lat, lng),
         "maps":         lambda: fetch_maps_data(lat, lng),
-        "gee_landcover": lambda: fetch_gee_landcover(lat, lng),
+        "gee_landcover": lambda: _GEE_LANDCOVER_CACHE.get_or_set(
+            _coord_cache_key(lat, lng),
+            lambda: fetch_gee_landcover(lat, lng),
+        ),
         "weather":      lambda: fetch_weather_risk(lat, lng),
         "admin":        lambda: fetch_admin_context(lat, lng),
         "solar":        lambda: fetch_solar_data(lat, lng),
         "soil":         lambda: fetch_soil_data(lat, lng),
         "zones":        lambda: compute_zone_risks(lat, lng),
         "groundwater":  lambda: query_groundwater(lat, lng),
-        "no2":          lambda: fetch_no2_pollution(lat, lng),
+        "no2":          lambda: _NO2_CACHE.get_or_set(
+            _coord_cache_key(lat, lng),
+            lambda: fetch_no2_pollution(lat, lng),
+        ),
     }
 
     parallel_started = time.perf_counter()
