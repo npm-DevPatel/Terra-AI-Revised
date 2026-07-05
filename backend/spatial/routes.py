@@ -17,10 +17,14 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
 from flask import Blueprint, current_app, jsonify, request
+
+from http_client import get_http_session
+from runtime_cache import TTLCache
 
 # Load env vars from both repo-root and backend/.env.
 # Order: repo-root first, then backend overrides (if present).
@@ -85,6 +89,13 @@ def _make_authed_client(jwt_token: str | None):
 bp = Blueprint("spatial", __name__)
 
 MAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+_WEATHER_CACHE = TTLCache[dict](ttl_seconds=21_600, max_entries=256)
+_ADMIN_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+_SOLAR_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+
+
+def _coord_cache_key(lat: float, lng: float) -> str:
+    return f"{round(lat, 4):.4f}:{round(lng, 4):.4f}"
 
 # ── JWT Auth enforcement ──────────────────────────────────────────────────────
 # Supabase JWT secret — used to verify tokens without calling Supabase API.
@@ -153,7 +164,7 @@ def _risk_label(score: int) -> str:
     return "CRITICAL / HIGH RISK"
 
 
-def _build_fallback_report(payload: dict, reason: str, deductions: list = None) -> dict:
+def _build_fallback_report(payload: dict, reason: str, deductions: list[Any] | None = None) -> dict:
     """Create a minimal on-server report when Gemini is unavailable.
 
     Score philosophy: Start at 100. Deduct ONLY for genuine build-blocking
@@ -593,26 +604,29 @@ def fetch_weather_risk(lat: float, lng: float) -> dict:
     Fetches current soil moisture as a flood/drainage risk indicator.
     Rate limit: 10,000 requests/day on the free tier.
     """
-    try:
-        soil_url = (
-            f"https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}&longitude={lng}"
-            f"&hourly=soil_moisture_0_to_1cm"
-            f"&forecast_days=1"
-        )
-        resp = requests.get(soil_url, timeout=8)
-        resp.raise_for_status()
-        data = resp.json()
-        moisture_values = data.get("hourly", {}).get("soil_moisture_0_to_1cm", [])
-        valid = [v for v in moisture_values if v is not None]
-        avg_moisture = sum(valid) / len(valid) if valid else None
-        return {
-            "soil_moisture": round(avg_moisture, 3) if avg_moisture is not None else None,
-            "high_moisture_risk": avg_moisture > 0.35 if avg_moisture is not None else False,
-        }
-    except Exception as exc:
-        print(f"[Terra AI] Open-Meteo fetch failed (non-fatal): {exc}")
-        return {"soil_moisture": None, "high_moisture_risk": False}
+    def _fetch() -> dict:
+        try:
+            soil_url = (
+                f"https://api.open-meteo.com/v1/forecast"
+                f"?latitude={lat}&longitude={lng}"
+                f"&hourly=soil_moisture_0_to_1cm"
+                f"&forecast_days=1"
+            )
+            resp = get_http_session().get(soil_url, timeout=5)
+            resp.raise_for_status()
+            data = resp.json()
+            moisture_values = data.get("hourly", {}).get("soil_moisture_0_to_1cm", [])
+            valid = [v for v in moisture_values if v is not None]
+            avg_moisture = sum(valid) / len(valid) if valid else None
+            return {
+                "soil_moisture": round(avg_moisture, 3) if avg_moisture is not None else None,
+                "high_moisture_risk": avg_moisture > 0.35 if avg_moisture is not None else False,
+            }
+        except Exception as exc:
+            print(f"[Terra AI] Open-Meteo fetch failed (non-fatal): {exc}")
+            return {"soil_moisture": None, "high_moisture_risk": False}
+
+    return _WEATHER_CACHE.get_or_set(_coord_cache_key(lat, lng), _fetch)
 
 
 def fetch_admin_context(lat: float, lng: float) -> dict:
@@ -621,50 +635,51 @@ def fetch_admin_context(lat: float, lng: float) -> dict:
     Returns county, sub-county, ward, and place name.
     Critical for Gemini context — it knows Kenya's administrative areas.
     """
-    url = (
-        f"https://nominatim.openstreetmap.org/reverse"
-        f"?format=jsonv2&lat={lat}&lon={lng}&zoom=10&addressdetails=1"
-    )
-    headers = {"User-Agent": "TerraAI/1.0 land-risk-analysis kenya"}
-    try:
-        resp = requests.get(url, timeout=8, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        address = data.get("address", {})
-        # Nominatim returns different field names for different admin levels
-        county = (
-            address.get("state")
-            or address.get("county")
-            or address.get("region")
-            or ""
+    def _fetch() -> dict:
+        url = (
+            f"https://nominatim.openstreetmap.org/reverse"
+            f"?format=jsonv2&lat={lat}&lon={lng}&zoom=10&addressdetails=1"
         )
-        subcounty = address.get("county") or address.get("district") or ""
-        ward = (
-            address.get("suburb")
-            or address.get("neighbourhood")
-            or address.get("village")
-            or address.get("town")
-            or ""
-        )
-        # Prefer the most local human-readable name (suburb/neighbourhood > city > fallback)
-        place_name = (
-            address.get("suburb")
-            or address.get("neighbourhood")
-            or address.get("village")
-            or address.get("town")
-            or address.get("city")
-            or address.get("county")
-            or data.get("display_name", "").split(",")[0].strip()
-        )
-        return {
-            "county": county,
-            "subcounty": subcounty,
-            "ward": ward,
-            "place_name": place_name,
-        }
-    except Exception as exc:
-        print(f"[Terra AI] Nominatim fetch failed (non-fatal): {exc}")
-        return {"county": "", "subcounty": "", "ward": "", "place_name": ""}
+        headers = {"User-Agent": "TerraAI/1.0 land-risk-analysis kenya"}
+        try:
+            resp = get_http_session().get(url, timeout=5, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            address = data.get("address", {})
+            county = (
+                address.get("state")
+                or address.get("county")
+                or address.get("region")
+                or ""
+            )
+            subcounty = address.get("county") or address.get("district") or ""
+            ward = (
+                address.get("suburb")
+                or address.get("neighbourhood")
+                or address.get("village")
+                or address.get("town")
+                or ""
+            )
+            place_name = (
+                address.get("suburb")
+                or address.get("neighbourhood")
+                or address.get("village")
+                or address.get("town")
+                or address.get("city")
+                or address.get("county")
+                or data.get("display_name", "").split(",")[0].strip()
+            )
+            return {
+                "county": county,
+                "subcounty": subcounty,
+                "ward": ward,
+                "place_name": place_name,
+            }
+        except Exception as exc:
+            print(f"[Terra AI] Nominatim fetch failed (non-fatal): {exc}")
+            return {"county": "", "subcounty": "", "ward": "", "place_name": ""}
+
+    return _ADMIN_CACHE.get_or_set(_coord_cache_key(lat, lng), _fetch)
 
 
 def fetch_solar_data(lat: float, lng: float) -> dict:
@@ -673,33 +688,35 @@ def fetch_solar_data(lat: float, lng: float) -> dict:
     Returns solar potential for the plot location.
     Falls back to Kenya standard values if API returns 404 (no coverage).
     """
-    if not MAPS_KEY:
-        return _kenya_solar_fallback()
-
-    url = (
-        "https://solar.googleapis.com/v1/buildingInsights:findClosest"
-        f"?location.latitude={lat}&location.longitude={lng}"
-        f"&requiredQuality=LOW&key={MAPS_KEY}"
-    )
-    try:
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 403:
-            print(f"[Terra AI - Solar API 403] Google Response: {resp.text}")
-        if resp.status_code == 404:
-            # No Solar API coverage for this location — use Kenya standard
+    def _fetch() -> dict:
+        if not MAPS_KEY:
             return _kenya_solar_fallback()
-        resp.raise_for_status()
-        data = resp.json()
-        solar_potential = data.get("solarPotential", {})
-        return {
-            "solar_available": True,
-            "max_panels": solar_potential.get("maxArrayPanelsCount", 0),
-            "annual_sunshine_hours": solar_potential.get("maxSunshineHoursPerYear", 0),
-            "carbon_offset_kg": solar_potential.get("carbonOffsetFactorKgPerMwh", 0),
-        }
-    except Exception as exc:
-        print(f"[Terra AI] Solar API error (non-fatal): {exc}")
-        return _kenya_solar_fallback()
+
+        url = (
+            "https://solar.googleapis.com/v1/buildingInsights:findClosest"
+            f"?location.latitude={lat}&location.longitude={lng}"
+            f"&requiredQuality=LOW&key={MAPS_KEY}"
+        )
+        try:
+            resp = get_http_session().get(url, timeout=6)
+            if resp.status_code == 403:
+                print(f"[Terra AI - Solar API 403] Google Response: {resp.text}")
+            if resp.status_code == 404:
+                return _kenya_solar_fallback()
+            resp.raise_for_status()
+            data = resp.json()
+            solar_potential = data.get("solarPotential", {})
+            return {
+                "solar_available": True,
+                "max_panels": solar_potential.get("maxArrayPanelsCount", 0),
+                "annual_sunshine_hours": solar_potential.get("maxSunshineHoursPerYear", 0),
+                "carbon_offset_kg": solar_potential.get("carbonOffsetFactorKgPerMwh", 0),
+            }
+        except Exception as exc:
+            print(f"[Terra AI] Solar API error (non-fatal): {exc}")
+            return _kenya_solar_fallback()
+
+    return _SOLAR_CACHE.get_or_set(_coord_cache_key(lat, lng), _fetch)
 
 
 def _kenya_solar_fallback() -> dict:
@@ -795,8 +812,10 @@ def analyze():
                 .limit(1)
                 .execute()
             )
-            if db_result.data:
-                cached_payload = db_result.data[0]["payload"]
+            db_rows = db_result.data if isinstance(db_result.data, list) else []
+            if db_rows:
+                first_row = db_rows[0] if isinstance(db_rows[0], dict) else {}
+                cached_payload = first_row.get("payload")
                 print(f"[Terra AI] L2 DB cache hit for ({lat_rounded}, {lng_rounded}) — returning instantly")
                 # Reconstruct response body from cached payload
                 # We stored the full response body in the payload column
@@ -807,7 +826,7 @@ def analyze():
                     response_body = {
                         "success": True,
                         "payload": cached_payload,
-                        "report": cached_payload.get("_report"),
+                        "report": cached_payload.get("_report") if isinstance(cached_payload, dict) else None,
                         "report_source": "database",
                         "model_used": None,
                     }

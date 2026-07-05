@@ -9,6 +9,7 @@ torch.set_num_threads(1)
 
 from vision.routes import bp as vision_bp
 from spatial.routes import bp as spatial_bp
+from bootstrap import start_background_warmup, warmup_status
 
 try:
     from flask_limiter import Limiter  # type: ignore
@@ -21,6 +22,7 @@ except ImportError:
 
 
 app = Flask(__name__)
+start_background_warmup(wait=os.getenv("TERRA_WARMUP_SYNC", "1") == "1")
 
 # ── Request size cap ──────────────────────────────────────────────────────────
 # Prevents huge payloads from exhausting memory.
@@ -145,6 +147,13 @@ def health():
     keep-alive ping and Render's own health checks always get through.
     """
     return jsonify({"ok": True})
+
+
+@app.get("/ready")
+def ready():
+    status = warmup_status()
+    code = 200 if status.get("ready") else 503
+    return jsonify(status), code
 
 
 if __name__ == "__main__":

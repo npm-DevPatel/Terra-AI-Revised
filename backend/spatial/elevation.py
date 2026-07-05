@@ -16,7 +16,9 @@ GEE datasets used:
 """
 
 import os
-import requests
+
+from http_client import get_http_session
+from runtime_cache import TTLCache
 
 MAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 GEE_KEY = (
@@ -27,6 +29,12 @@ GEE_KEY = (
 )
 
 GEE_URL = "https://earthengine.googleapis.com/v1/projects/earthengine-public/value:compute"
+_ELEVATION_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+_GEE_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+
+
+def _cache_key(lat: float, lng: float) -> str:
+    return f"{round(lat, 4):.4f}:{round(lng, 4):.4f}"
 
 # ~100 m bounding box half-width (for 3×3 sinkhole grid)
 _SINKHOLE_OFFSET_DEG = 0.00090   # ≈ 100 m
@@ -93,9 +101,43 @@ def fetch_elevation_data(lat: float, lng: float) -> dict:
         {elevation_m, slope_percent, flood_history, is_topographical_sinkhole,
          sinkhole_center_elev, sinkhole_surrounding_avg}
     """
-    if not MAPS_KEY:
-        print("[Terra AI] GOOGLE_MAPS_API_KEY not set — skipping elevation.")
-        return {
+    def _fetch() -> dict:
+        if not MAPS_KEY:
+            print("[Terra AI] GOOGLE_MAPS_API_KEY not set — skipping elevation.")
+            return {
+                "elevation_m": None,
+                "slope_percent": None,
+                "flood_history": False,
+                "is_topographical_sinkhole": False,
+                "sinkhole_center_elev": None,
+                "sinkhole_surrounding_avg": None,
+            }
+
+        # ------------------------------------------------------------------
+        # Build 3×3 grid within 100 m bounding box
+        # Grid layout (index):
+        #   0  1  2
+        #   3  4  5   ← index 4 is the centre pin
+        #   6  7  8
+        # ------------------------------------------------------------------
+        full = _SINKHOLE_OFFSET_DEG       # 100 m offset for outer ring
+
+        grid_offsets = [
+            (-full,  full), (0,  full), ( full,  full),
+            (-full,  0   ), (0,  0   ), ( full,  0   ),
+            (-full, -full), (0, -full), ( full, -full),
+        ]
+
+        locations_str = "|".join(
+            f"{lat + dlat},{lng + dlng}" for dlat, dlng in grid_offsets
+        )
+
+        url = (
+            "https://maps.googleapis.com/maps/api/elevation/json"
+            f"?locations={locations_str}&key={MAPS_KEY}"
+        )
+
+        elevation_result = {
             "elevation_m": None,
             "slope_percent": None,
             "flood_history": False,
@@ -104,73 +146,36 @@ def fetch_elevation_data(lat: float, lng: float) -> dict:
             "sinkhole_surrounding_avg": None,
         }
 
-    # ------------------------------------------------------------------
-    # Build 3×3 grid within 100 m bounding box
-    # Grid layout (index):
-    #   0  1  2
-    #   3  4  5   ← index 4 is the centre pin
-    #   6  7  8
-    # ------------------------------------------------------------------
-    half = _SINKHOLE_OFFSET_DEG / 2   # 50 m offset for inner ring
-    full = _SINKHOLE_OFFSET_DEG       # 100 m offset for outer ring
-
-    grid_offsets = [
-        (-full,  full), (0,  full), ( full,  full),   # top row
-        (-full,  0   ), (0,  0   ), ( full,  0   ),   # middle row (index 4 = centre)
-        (-full, -full), (0, -full), ( full, -full),   # bottom row
-    ]
-
-    locations_str = "|".join(
-        f"{lat + dlat},{lng + dlng}" for dlat, dlng in grid_offsets
-    )
-
-    url = (
-        "https://maps.googleapis.com/maps/api/elevation/json"
-        f"?locations={locations_str}&key={MAPS_KEY}"
-    )
-
-    elevation_result = {
-        "elevation_m": None,
-        "slope_percent": None,         # will be filled by GEE in fetch_gee_landcover
-        "flood_history": False,
-        "is_topographical_sinkhole": False,
-        "sinkhole_center_elev": None,
-        "sinkhole_surrounding_avg": None,
-    }
-
-    try:
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        results = resp.json().get("results", [])
-
-        if len(results) < 9:
-            print(f"[Terra AI] Expected 9 elevation points, got {len(results)}")
-        else:
-            elevations = [r["elevation"] for r in results]
-            center_elev   = elevations[4]               # index 4 = pin
-            surrounding   = [elevations[i] for i in range(9) if i != 4]
-            surr_avg      = sum(surrounding) / len(surrounding)
-
-            elevation_result["elevation_m"] = round(center_elev, 1)
-            elevation_result["sinkhole_center_elev"] = round(center_elev, 2)
-            elevation_result["sinkhole_surrounding_avg"] = round(surr_avg, 2)
-
-            # Sinkhole: centre lower than 80% of the 8 surrounding points
-            lower_count = sum(1 for e in surrounding if center_elev < e)
-            elevation_result["is_topographical_sinkhole"] = lower_count >= 7  # 7 of 8
-
-        # ------------------------------------------------------------------
-        # Flood history check (non-fatal inner try)
-        # ------------------------------------------------------------------
         try:
-            elevation_result["flood_history"] = _check_flood_history(lat, lng)
-        except Exception as flood_err:
-            print(f"[Terra AI] Flood check failed (non-fatal): {flood_err}")
+            resp = get_http_session().get(url, timeout=6)
+            resp.raise_for_status()
+            results = resp.json().get("results", [])
 
-    except Exception as err:
-        print(f"[Terra AI] Elevation/sinkhole fetch error: {err}")
+            if len(results) < 9:
+                print(f"[Terra AI] Expected 9 elevation points, got {len(results)}")
+            else:
+                elevations = [r["elevation"] for r in results]
+                center_elev = elevations[4]
+                surrounding = [elevations[i] for i in range(9) if i != 4]
+                surr_avg = sum(surrounding) / len(surrounding)
 
-    return elevation_result
+                elevation_result["elevation_m"] = round(center_elev, 1)
+                elevation_result["sinkhole_center_elev"] = round(center_elev, 2)
+                elevation_result["sinkhole_surrounding_avg"] = round(surr_avg, 2)
+                lower_count = sum(1 for e in surrounding if center_elev < e)
+                elevation_result["is_topographical_sinkhole"] = lower_count >= 7
+
+            try:
+                elevation_result["flood_history"] = _check_flood_history(lat, lng)
+            except Exception as flood_err:
+                print(f"[Terra AI] Flood check failed (non-fatal): {flood_err}")
+
+        except Exception as err:
+            print(f"[Terra AI] Elevation/sinkhole fetch error: {err}")
+
+        return elevation_result
+
+    return _ELEVATION_CACHE.get_or_set(_cache_key(lat, lng), _fetch)
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +231,7 @@ def _check_flood_history(lat: float, lng: float) -> bool:
         }
     }
 
-    resp = requests.post(
+    resp = get_http_session().post(
         GEE_URL,
         json=payload,
         params={"key": GEE_KEY},

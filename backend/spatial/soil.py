@@ -30,7 +30,9 @@ Classification logic uses the 30-60 cm depth tier per blueprint spec:
 """
 
 import math
-import requests
+
+from http_client import get_http_session
+from runtime_cache import TTLCache
 
 # ---------------------------------------------------------------------------
 # Public constants
@@ -78,6 +80,12 @@ _FALLBACK: dict = {
     "foundation_premium_kes": 0,
     "data_source": "fallback",
 }
+
+_SOIL_CACHE = TTLCache[dict](ttl_seconds=86_400, max_entries=256)
+
+
+def _cache_key(lat: float, lng: float) -> str:
+    return f"{round(lat, 4):.4f}:{round(lng, 4):.4f}"
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +198,10 @@ def fetch_soil_data(lat: float, lng: float) -> dict:
 
     Never raises — all exceptions are caught and the fallback dict is returned.
     """
-    return _fetch_isric_point(lat, lng, allow_nn_fallback=True)
+    return _SOIL_CACHE.get_or_set(
+        _cache_key(lat, lng),
+        lambda: _fetch_isric_point(lat, lng, allow_nn_fallback=True),
+    )
 
 
 def _fetch_isric_point(lat: float, lng: float, allow_nn_fallback: bool = True) -> dict:
@@ -209,7 +220,7 @@ def _fetch_isric_point(lat: float, lng: float, allow_nn_fallback: bool = True) -
     }
 
     try:
-        resp = requests.get(
+        resp = get_http_session().get(
             ISRIC_API_URL,
             params=params,
             timeout=ISRIC_TIMEOUT_S,

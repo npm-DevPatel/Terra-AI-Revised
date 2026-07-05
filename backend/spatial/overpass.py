@@ -8,7 +8,12 @@ Changes from original:
 - Returns raw_elements alongside categorised lists for shapely_engine consumption
 """
 
+import os
+
 import requests
+
+from http_client import get_http_session
+from runtime_cache import TTLCache
 
 OVERPASS_INSTANCES = [
     "https://overpass-api.de/api/interpreter",
@@ -17,6 +22,11 @@ OVERPASS_INSTANCES = [
 
 RADIUS_M = 800      # 800 m radius for most features (shrunk for rate limits)
 AERO_RADIUS_M = 6000  # 6 km radius for aerodromes (shrunk for rate limits)
+_OVERPASS_CACHE = TTLCache[dict](ttl_seconds=int(os.getenv("TERRA_OVERPASS_CACHE_TTL", "86400")), max_entries=256)
+
+
+def _cache_key(lat: float, lng: float) -> str:
+    return f"{round(lat, 4):.4f}:{round(lng, 4):.4f}"
 
 
 def fetch_overpass_data(lat: float, lng: float) -> dict:
@@ -77,37 +87,40 @@ def fetch_overpass_data(lat: float, lng: float) -> dict:
 out geom;
 """
 
-    last_error = None
-    for instance in OVERPASS_INSTANCES:
-        try:
-            response = requests.post(
-                instance,
-                data={"data": query},
-                timeout=25,
-                headers={
-                    "Accept": "application/json",
-                    "User-Agent": "TerraAI/1.0 (terra-ai@example.com)"
-                },
-            )
-            response.raise_for_status()
-            elements = response.json().get("elements", [])
-            return _categorise(elements)
-        except Exception as exc:
-            print(f"[Terra AI] Overpass instance {instance} failed: {exc}, trying next…")
-            last_error = exc
-            continue
+    def _fetch() -> dict:
+        session = get_http_session()
+        last_error = None
+        for instance in OVERPASS_INSTANCES:
+            try:
+                response = session.post(
+                    instance,
+                    data={"data": query},
+                    timeout=12,
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": "TerraAI/1.0 (terra-ai@example.com)"
+                    },
+                )
+                response.raise_for_status()
+                elements = response.json().get("elements", [])
+                return _categorise(elements)
+            except Exception as exc:
+                print(f"[Terra AI] Overpass instance {instance} failed: {exc}, trying next…")
+                last_error = exc
+                continue
 
-    # All instances failed — return graceful empty result
-    print(f"[Terra AI] All Overpass instances failed. Last error: {last_error}")
-    return {
-        "waterways": [],
-        "highways": [],
-        "power_lines": [],
-        "substations": [],
-        "power_poles": [],
-        "aerodromes": [],
-        "raw_elements": [],
-    }
+        print(f"[Terra AI] All Overpass instances failed. Last error: {last_error}")
+        return {
+            "waterways": [],
+            "highways": [],
+            "power_lines": [],
+            "substations": [],
+            "power_poles": [],
+            "aerodromes": [],
+            "raw_elements": [],
+        }
+
+    return _OVERPASS_CACHE.get_or_set(_cache_key(lat, lng), _fetch)
 
 
 def _categorise(elements: list) -> dict:

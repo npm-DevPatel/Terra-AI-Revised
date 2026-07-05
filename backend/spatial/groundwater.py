@@ -78,6 +78,18 @@ def _ensure_loaded() -> None:
                 _load_shapefile()
 
 
+def warm_groundwater_data() -> None:
+    _ensure_loaded()
+
+
+def groundwater_status() -> dict:
+    return {
+        "ready": _gdf is not None and _load_error is None,
+        "loaded": _gdf is not None,
+        "error": _load_error,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Depth parser
 # ---------------------------------------------------------------------------

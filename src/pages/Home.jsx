@@ -5,6 +5,7 @@ import Button from '../components/ui/Button';
 import useTerraStore from '../store/useTerraStore';
 import { supabase } from '../lib/supabaseClient';
 import heroBackground from '../assets/hero_section.png';
+import landingPageImage from '../assets/front_page/landing_page.jpeg';
 import terraLogo from '../assets/front_page/terra_logo.png';
 
 const FEATURES = [
@@ -20,6 +21,25 @@ const STATS = [
   { value: '100%', label: 'Kenya Coverage' },
 ];
 
+const FOOTER_LINKS = {
+  Product: [
+    { label: 'Analyze Land', to: '/analyze' },
+    { label: 'Pricing', to: '/pricing' },
+    { label: 'Generate Report', to: '/report' },
+  ],
+  Explore: [
+    { label: 'Hero', href: '#hero' },
+    { label: 'Stats', href: '#stats' },
+    { label: 'Features', href: '#features' },
+    { label: 'Landscape Intelligence', href: '#landscape-intelligence' },
+  ],
+  Account: [
+    { label: 'Sign In', action: 'signin' },
+    { label: 'Create Account', action: 'signup' },
+    { label: 'Sign Out', action: 'signout' },
+  ],
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { user, logout, openAuthModal } = useTerraStore();
@@ -34,6 +54,7 @@ export default function Home() {
 
       {/* ── Hero (background covers header + hero) ── */}
       <section
+        id="hero"
         className="relative overflow-hidden min-h-screen bg-white"
       >
         {/* Bottom image (occupies ~40% of hero height) */}
@@ -134,7 +155,7 @@ export default function Home() {
       </section>
 
       {/* ── Stats bar ── */}
-      <section className="bg-white border-y border-terra-border py-8">
+      <section id="stats" className="bg-white border-y border-terra-border py-8">
         <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-8">
           {STATS.map(({ value, label }, i) => (
             <motion.div
@@ -153,7 +174,7 @@ export default function Home() {
       </section>
 
       {/* ── Features ── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
+      <section id="features" className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-black text-terra-heading mb-4">
             Enterprise-grade intelligence
@@ -180,6 +201,67 @@ export default function Home() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* ── Landscape Story Section (3rd section) ── */}
+      <section id="landscape-intelligence" className="max-w-6xl mx-auto px-4 sm:px-8 pb-14 sm:pb-24">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-3xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-lime-50"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.16),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(132,204,22,0.14),transparent_48%)]" />
+
+          <div className="relative grid lg:grid-cols-2 gap-8 p-6 sm:p-10 lg:p-12 items-center">
+            <div>
+              <p className="inline-flex items-center rounded-full border border-emerald-300/60 bg-white/80 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                Visual + Spatial Fusion
+              </p>
+              <h2 className="mt-4 text-3xl md:text-4xl font-black text-terra-heading leading-tight">
+                See hidden risks before they become expensive surprises.
+              </h2>
+              <p className="mt-4 text-terra-body leading-relaxed max-w-xl">
+                Terra combines on-ground visual cues with layered geospatial checks to reveal flood pathways, slope instability,
+                zoning conflicts, and environmental constraints in one clean decision view.
+              </p>
+
+              <div className="mt-7 grid sm:grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Hydrology</p>
+                  <p className="mt-1 text-sm text-terra-body">River proximity, drainage direction, and riparian safety buffers.</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Terrain</p>
+                  <p className="mt-1 text-sm text-terra-body">Slope and elevation signals that impact construction feasibility.</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Planning Confidence</p>
+                  <p className="mt-1 text-sm text-terra-body">A single, lender-friendly summary built from multiple verified risk vectors.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-emerald-500/25 to-lime-400/25 blur-2xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/70 shadow-2xl">
+                <img
+                  src={landingPageImage}
+                  alt="Landscape preview used for Terra AI analysis"
+                  className="w-full h-[300px] sm:h-[380px] object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 bg-gradient-to-t from-black/55 to-transparent">
+                  <p className="text-white text-sm sm:text-base font-semibold">
+                    Live scene intelligence for faster land due diligence.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       {/* ── CTA Banner ── */}
@@ -217,6 +299,99 @@ export default function Home() {
           </div>
         </motion.div>
       </section>
+
+      {/* ── Footer ── */}
+      <footer className="bg-slate-950 text-slate-200">
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/70 to-transparent" />
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-14">
+          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <img
+                src={terraLogo}
+                alt="Terra AI logo"
+                className="h-12 w-auto object-contain"
+                loading="lazy"
+                decoding="async"
+              />
+              <p className="mt-4 text-sm text-slate-300 max-w-md leading-relaxed">
+                Intelligent land assessment for confident decisions. From first photo to final report, Terra helps you move faster with fewer unknowns.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">Vision AI</span>
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">Spatial Analysis</span>
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">Risk Reports</span>
+              </div>
+            </div>
+
+            {Object.entries(FOOTER_LINKS).map(([group, links]) => (
+              <div key={group}>
+                <h3 className="text-sm font-black uppercase tracking-wider text-white">{group}</h3>
+                <ul className="mt-4 space-y-2.5 text-sm">
+                  {links.map((link) => {
+                    const isHiddenForAuthState =
+                      (user && (link.action === 'signin' || link.action === 'signup')) ||
+                      (!user && link.action === 'signout');
+
+                    if (isHiddenForAuthState) return null;
+
+                    if (link.to) {
+                      return (
+                        <li key={link.label}>
+                          <button
+                            onClick={() => navigate(link.to)}
+                            className="text-slate-300 hover:text-emerald-300 transition-colors"
+                          >
+                            {link.label}
+                          </button>
+                        </li>
+                      );
+                    }
+
+                    if (link.href) {
+                      return (
+                        <li key={link.label}>
+                          <a href={link.href} className="text-slate-300 hover:text-emerald-300 transition-colors">
+                            {link.label}
+                          </a>
+                        </li>
+                      );
+                    }
+
+                    if (link.action === 'signin' || link.action === 'signup') {
+                      return (
+                        <li key={link.label}>
+                          <button
+                            onClick={() => setAuthOpen(true)}
+                            className="text-slate-300 hover:text-emerald-300 transition-colors"
+                          >
+                            {link.label}
+                          </button>
+                        </li>
+                      );
+                    }
+
+                    return (
+                      <li key={link.label}>
+                        <button
+                          onClick={handleSignOut}
+                          className="text-slate-300 hover:text-emerald-300 transition-colors"
+                        >
+                          {link.label}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center sm:justify-between text-xs text-slate-400">
+            <p>© {new Date().getFullYear()} Terra AI. All rights reserved.</p>
+            <p>Built for modern land intelligence in Kenya.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

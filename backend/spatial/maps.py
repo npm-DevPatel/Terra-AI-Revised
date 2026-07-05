@@ -9,9 +9,16 @@ Provides:
 
 import math
 import os
-import requests
+
+from http_client import get_http_session
+from runtime_cache import TTLCache
 
 MAPS_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+_MAPS_CACHE = TTLCache[dict](ttl_seconds=int(os.getenv("TERRA_MAPS_CACHE_TTL", "86400")), max_entries=256)
+
+
+def _cache_key(lat: float, lng: float) -> str:
+    return f"{round(lat, 4):.4f}:{round(lng, 4):.4f}"
 
 
 def fetch_maps_data(lat: float, lng: float) -> dict:
@@ -23,42 +30,46 @@ def fetch_maps_data(lat: float, lng: float) -> dict:
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    results = {"neighborhood": "Unknown Area", "nearest_police_km": None, "nearest_hospital_km": None}
+    def _fetch() -> dict:
+        results = {"neighborhood": "Unknown Area", "nearest_police_km": None, "nearest_hospital_km": None}
 
-    if not MAPS_KEY:
-        print("[Terra AI] GOOGLE_MAPS_API_KEY not set — skipping Maps data.")
+        if not MAPS_KEY:
+            print("[Terra AI] GOOGLE_MAPS_API_KEY not set — skipping Maps data.")
+            return results
+
+        tasks = {
+            "geo": lambda: _reverse_geocode(lat, lng),
+            "police": lambda: _nearest_place(lat, lng, "police"),
+            "hospital": lambda: _nearest_place(lat, lng, "hospital"),
+        }
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = {pool.submit(fn): key for key, fn in tasks.items()}
+            for fut in as_completed(futures):
+                key = futures[fut]
+                try:
+                    value = fut.result()
+                    if key == "geo":
+                        results["neighborhood"] = value
+                    elif key == "police":
+                        results["nearest_police_km"] = value
+                    elif key == "hospital":
+                        results["nearest_hospital_km"] = value
+                except Exception as exc:
+                    print(f"[Terra AI] Maps data error ({key}): {exc}")
+
         return results
 
-    tasks = {
-        "geo": lambda: _reverse_geocode(lat, lng),
-        "police": lambda: _nearest_place(lat, lng, "police"),
-        "hospital": lambda: _nearest_place(lat, lng, "hospital"),
-    }
-
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {pool.submit(fn): key for key, fn in tasks.items()}
-        for fut in as_completed(futures):
-            key = futures[fut]
-            try:
-                value = fut.result()
-                if key == "geo":
-                    results["neighborhood"] = value
-                elif key == "police":
-                    results["nearest_police_km"] = value
-                elif key == "hospital":
-                    results["nearest_hospital_km"] = value
-            except Exception as exc:
-                print(f"[Terra AI] Maps data error ({key}): {exc}")
-
-    return results
+    return _MAPS_CACHE.get_or_set(_cache_key(lat, lng), _fetch)
 
 
 def _reverse_geocode(lat: float, lng: float) -> str:
+    session = get_http_session()
     url = (
         "https://maps.googleapis.com/maps/api/geocode/json"
         f"?latlng={lat},{lng}&key={MAPS_KEY}"
     )
-    resp = requests.get(url, timeout=10)
+    resp = session.get(url, timeout=6)
     resp.raise_for_status()
     results_list = resp.json().get("results", [])
     if not results_list:
@@ -75,15 +86,17 @@ def _reverse_geocode(lat: float, lng: float) -> str:
             if "locality" in component["types"]:
                 return component["long_name"]
     # Last resort: first formatted address segment
+    first_addr = results_list[0].get("formatted_address", "") if results_list else ""
     return first_addr.split(",")[0] if first_addr else "Kenya"
 
 
 def _nearest_place(lat: float, lng: float, place_type: str) -> float | None:
+    session = get_http_session()
     url = (
         "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
         f"?location={lat},{lng}&rankby=distance&type={place_type}&key={MAPS_KEY}"
     )
-    resp = requests.get(url, timeout=10)
+    resp = session.get(url, timeout=6)
     resp.raise_for_status()
     places = resp.json().get("results", [])
     if not places:
