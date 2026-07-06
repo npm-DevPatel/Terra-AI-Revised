@@ -5,6 +5,20 @@ import Analyze from './pages/Analyze';
 import Pricing from './pages/Pricing';
 import Report from './pages/Report';
 import UpdatePassword from './pages/UpdatePassword';
+// Products
+import TerraLens from './pages/products/TerraLens';
+import TerraSim from './pages/products/TerraSim';
+import TerraFlow from './pages/products/TerraFlow';
+// Solutions
+import LandDueDiligence from './pages/solutions/LandDueDiligence';
+import ResidentialDevelopment from './pages/solutions/ResidentialDevelopment';
+import FloodDrainage from './pages/solutions/FloodDrainage';
+import EnvironmentalImpact from './pages/solutions/EnvironmentalImpact';
+// Industries
+import RealEstate from './pages/industries/RealEstate';
+import Construction from './pages/industries/Construction';
+import Government from './pages/industries/Government';
+import EngineeringConsultants from './pages/industries/EngineeringConsultants';
 import { supabase } from './lib/supabaseClient';
 import useTerraStore from './store/useTerraStore';
 import AuthModal from './components/auth/AuthModal';
@@ -109,13 +123,27 @@ export default function App() {
       <AuthSubscription />
       <AuthModal key={authModal.isOpen} />
       <Routes>
-        <Route path="/"         element={<Home />} />
-        <Route path="/analyze"  element={<Analyze />} />
-        <Route path="/pricing"  element={<Pricing />} />
-        <Route path="/report"   element={<Report />} />
-        <Route path="/reset-password" element={<UpdatePassword />} />
+        <Route path="/"                   element={<Home />} />
+        <Route path="/analyze"             element={<Analyze />} />
+        <Route path="/pricing"             element={<Pricing />} />
+        <Route path="/report"              element={<Report />} />
+        <Route path="/reset-password"      element={<UpdatePassword />} />
+        {/* Products */}
+        <Route path="/products/terra-lens" element={<TerraLens />} />
+        <Route path="/products/terra-sim"  element={<TerraSim />} />
+        <Route path="/products/terra-flow" element={<TerraFlow />} />
+        {/* Solutions */}
+        <Route path="/solutions/land-due-diligence"     element={<LandDueDiligence />} />
+        <Route path="/solutions/residential-development" element={<ResidentialDevelopment />} />
+        <Route path="/solutions/flood-drainage"         element={<FloodDrainage />} />
+        <Route path="/solutions/environmental-impact"   element={<EnvironmentalImpact />} />
+        {/* Industries */}
+        <Route path="/industries/real-estate"              element={<RealEstate />} />
+        <Route path="/industries/construction"             element={<Construction />} />
+        <Route path="/industries/government"               element={<Government />} />
+        <Route path="/industries/engineering-consultants"  element={<EngineeringConsultants />} />
         {/* Catch-all → home */}
-        <Route path="*"         element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,162 +1,156 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Shield, Zap, FileText, Star, LogIn, LogOut, User } from 'lucide-react';
-import Button from '../components/ui/Button';
+import {
+  ArrowRight, Shield, Zap, FileText, ScanLine, LayoutTemplate,
+  CheckCircle2, Globe, Cpu, Leaf, ChevronRight, Bot, Layers,
+} from 'lucide-react';
+import MarketingLayout from '../components/layout/MarketingLayout';
+import AnimatedChat from '../components/ui/AnimatedChat';
 import useTerraStore from '../store/useTerraStore';
-import { supabase } from '../lib/supabaseClient';
-import heroBackground from '../assets/hero_section.png';
 import landingPageImage from '../assets/front_page/landing_page.jpeg';
-import terraLogo from '../assets/front_page/terra_logo.png';
-
-const FEATURES = [
-  { icon: Zap,      title: 'Vision AI',         desc: 'YOLO-powered detection of vegetation, terrain, and water bodies from a single photo.' },
-  { icon: Shield,   title: 'Spatial Risk Engine', desc: 'Riparian buffers, slope analysis, and zoning cross-reference via live Nairobi data.' },
-  { icon: FileText, title: 'Enterprise PDF',      desc: 'A $5,000-quality geospatial risk report ready to share with lenders and surveyors.' },
-];
+import scanPhoto from '../assets/analysis_page/scan_photo.jpeg';
+import deepScan from '../assets/analysis_page/deep_scan.jpeg';
+import '../styles/home.css';
 
 const STATS = [
-  { value: '98%', label: 'Risk Detection Accuracy' },
-  { value: '<60s', label: 'Analysis Time' },
-  { value: '12+', label: 'Risk Vectors Checked' },
+  { value: '98%',  label: 'Risk Detection Accuracy' },
+  { value: '<60s', label: 'Full Analysis Time' },
+  { value: '15+',  label: 'Risk Vectors Checked' },
   { value: '100%', label: 'Kenya Coverage' },
 ];
 
-const FOOTER_LINKS = {
-  Product: [
-    { label: 'Analyze Land', to: '/analyze' },
-    { label: 'Pricing', to: '/pricing' },
-    { label: 'Generate Report', to: '/report' },
-  ],
-  Explore: [
-    { label: 'Hero', href: '#hero' },
-    { label: 'Stats', href: '#stats' },
-    { label: 'Features', href: '#features' },
-    { label: 'Landscape Intelligence', href: '#landscape-intelligence' },
-  ],
-  Account: [
-    { label: 'Sign In', action: 'signin' },
-    { label: 'Create Account', action: 'signup' },
-    { label: 'Sign Out', action: 'signout' },
-  ],
-};
+const PRODUCTS = [
+  {
+    label: 'Terra Lens',
+    tagline: 'See. Understand. Assess.',
+    desc: 'AI-powered site scanning that detects vegetation, terrain features, water bodies, and legal risks from a single photo or satellite view.',
+    href: '/products/terra-lens',
+    icon: ScanLine,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-100',
+    demo: 'lens',
+    badge: 'Vision AI',
+    badgeColor: 'bg-emerald-100 text-emerald-700',
+  },
+  {
+    label: 'Terra Sim',
+    tagline: 'Plan. Optimise. Build Smart.',
+    desc: 'AI planning assistant for architects. Recommend building placement, setbacks, solar orientation, and site layouts before design begins.',
+    href: '/products/terra-sim',
+    icon: LayoutTemplate,
+    color: 'text-indigo-600',
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-100',
+    demo: 'sim',
+    badge: 'AI Planner',
+    badgeColor: 'bg-indigo-100 text-indigo-700',
+  },
+  {
+    label: 'Terra Flow',
+    tagline: 'Decide. Report. Monitor.',
+    desc: 'Generate professional-grade land intelligence reports, monitor construction progress, and deliver client dashboards with one click.',
+    href: '/products/terra-flow',
+    icon: FileText,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-100',
+    demo: 'flow',
+    badge: 'Reporting',
+    badgeColor: 'bg-amber-100 text-amber-700',
+  },
+];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, logout, openAuthModal } = useTerraStore();
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    logout();
-  };
+  const { user, openAuthModal } = useTerraStore();
 
   return (
-    <div className="min-h-screen bg-terra-bg font-gabarito">
+    <MarketingLayout>
+      {/* ── HERO ──────────────────────────────────────────────── */}
+      <section className="relative min-h-[92vh] hero-gradient flex flex-col items-center justify-center overflow-hidden px-4 pb-0">
+        {/* background blobs */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl -z-10" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-teal-200/20 rounded-full blur-3xl -z-10" />
 
-      {/* ── Hero (background covers header + hero) ── */}
-      <section
-        id="hero"
-        className="relative overflow-hidden min-h-screen bg-white"
-      >
-        {/* Bottom image (occupies ~40% of hero height) */}
-        <div
-          className="absolute inset-x-0 bottom-0 h-[40vh] bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${heroBackground})` }}
-        />
-
-        {/* ── Navbar ── */}
-        <nav className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 bg-transparent">
-          <div className="flex items-center">
-            <img
-              src={terraLogo}
-              alt="Terra"
-              className="h-12 sm:h-14 w-auto object-contain"
-              loading="eager"
-              decoding="async"
-            />
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className="text-center max-w-4xl mx-auto"
+        >
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold px-4 py-1.5 rounded-full mb-8 float-badge">
+            <Zap className="w-3.5 h-3.5" />
+            Kenya's AI-Native Land Intelligence Platform
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/pricing')}
-              className="inline-flex rounded-full bg-white text-terra-heading hover:bg-slate-50 border border-terra-border"
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-black text-slate-900 leading-[1.05] tracking-tight mb-6">
+            Know the land.
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">
+              Own the decision.
+            </span>
+          </h1>
+
+          <p className="text-lg sm:text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed mb-10">
+            Terra AI fuses computer vision, satellite data, and geospatial intelligence to surface hidden land risks in under 60 seconds — before you sign anything.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <button
+              onClick={() => navigate('/analyze')}
+              className="flex items-center gap-2 px-7 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all cta-glow shadow-lg shadow-emerald-200"
             >
-              Pricing
-            </Button>
-
-            {user ? (
-              /* ── Logged-in state ── */
-              <button
-                id="home-signout-btn"
-                onClick={handleSignOut}
-                className="flex items-center gap-1.5 text-xs font-semibold bg-white text-terra-heading hover:bg-slate-50 transition-colors px-3 py-2 rounded-full border border-terra-border"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Sign Out
-              </button>
-            ) : (
-              /* ── Logged-out state ── */
-              <button
-                id="home-signin-btn"
-                onClick={() => openAuthModal()}
-                className="flex items-center gap-1.5 text-sm font-semibold bg-white text-terra-heading hover:bg-slate-50 transition-colors px-3 py-2 rounded-full border border-terra-border"
-              >
-                <LogIn className="w-4 h-4" />
-                Sign In
-              </button>
-            )}
+              Analyse Your Land Free <ArrowRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => navigate('/products/terra-lens')}
+              className="flex items-center gap-2 px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm rounded-full border border-slate-200 transition-all shadow-sm"
+            >
+              See How It Works <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-        </nav>
 
-        {/* Centered copy */}
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 min-h-screen text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-2xl mx-auto pt-28 sm:pt-32 pb-[40vh]"
-          >
-            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-              <Star className="w-3 h-3 fill-current" /> Kenya's #1 Land Intelligence Platform
-            </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-terra-heading leading-[1.1] tracking-tight mb-4 sm:mb-6">
-              Know the land
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-emerald-500">
-                before you buy it.
-              </span>
-            </h1>
-            <p className="text-lg text-terra-body leading-relaxed">
-              Understand land constraints and sustainable building before you buy. Terra AI fuses computer vision with geospatial intelligence to surface hidden risks in seconds.
-            </p>
+          {/* Social proof */}
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-10 text-xs text-slate-400 font-medium">
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> No credit card required</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Results in 60 seconds</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Full Kenya coverage</span>
+          </div>
+        </motion.div>
 
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              <Button
-                variant="primary"
-                size="lg"
-                iconRight={ArrowRight}
-                onClick={() => navigate('/analyze')}
-                className="rounded-full"
-              >
-                Analyze Your Land
-              </Button>
-              {!user && (
-                <button
-                  onClick={() => openAuthModal({ tab: 'signup' })}
-                  className="flex items-center gap-2 text-sm font-semibold bg-white text-terra-heading hover:bg-slate-50 border border-terra-border px-5 py-3 rounded-full transition-all"
-                >
-                  <User className="w-4 h-4" />
-                  Create Free Account
-                </button>
-              )}
+        {/* Hero image */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.3 }}
+          className="mt-16 w-full max-w-5xl mx-auto px-4"
+        >
+          <div className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-2xl shadow-slate-300/40">
+            <img
+              src={landingPageImage}
+              alt="Terra AI land analysis"
+              className="w-full h-64 sm:h-96 object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
+            {/* Floating score badge */}
+            <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-xl border border-slate-200/80">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Land Score</p>
+              <p className="text-2xl font-black text-emerald-600">82 / 100</p>
+              <p className="text-xs font-semibold text-emerald-600">SAFE — Clear for Due Diligence</p>
             </div>
-          </motion.div>
-        </div>
+            <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-xl border border-slate-200/80">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Analysis Time</p>
+              <p className="text-2xl font-black text-slate-900">47s</p>
+              <p className="text-xs font-medium text-slate-500">15 risk vectors checked</p>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
-      {/* ── Stats bar ── */}
-      <section id="stats" className="bg-white border-y border-terra-border py-8">
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 px-4 sm:px-8">
+      {/* ── STATS ─────────────────────────────────────────────── */}
+      <section className="trust-strip py-10">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 px-6 text-center">
           {STATS.map(({ value, label }, i) => (
             <motion.div
               key={label}
@@ -164,234 +158,268 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="text-center"
             >
-              <p className="text-3xl font-black text-terra-emerald">{value}</p>
-              <p className="text-sm text-terra-muted font-medium mt-1">{label}</p>
+              <p className="text-4xl font-black stat-value">{value}</p>
+              <p className="text-sm text-slate-500 font-medium mt-1">{label}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* ── Features ── */}
-      <section id="features" className="max-w-6xl mx-auto px-4 sm:px-8 py-14 sm:py-24">
+      {/* ── PRODUCTS TRIO ─────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-6 py-24">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-black text-terra-heading mb-4">
-            Enterprise-grade intelligence
-          </h2>
-          <p className="text-terra-body max-w-xl mx-auto">
-            Three powerful engines working in concert to give you the clearest picture of any plot in Kenya.
-          </p>
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-3">The Platform</p>
+          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">Three products. One decision.</h2>
+          <p className="text-slate-500 max-w-xl mx-auto">From raw site photo to actionable development plan — Terra AI covers the entire pre-construction journey.</p>
         </div>
+
         <div className="grid md:grid-cols-3 gap-6">
-          {FEATURES.map(({ icon: Icon, title, desc }, i) => (
-            <motion.div
-              key={title}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.12 }}
-              className="bg-white rounded-2xl border border-terra-border p-6 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-            >
-              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-50 mb-4">
-                <Icon className="w-6 h-6 text-emerald-600" />
-              </div>
-              <h3 className="text-base font-bold text-terra-heading mb-2">{title}</h3>
-              <p className="text-sm text-terra-body leading-relaxed">{desc}</p>
-            </motion.div>
-          ))}
+          {PRODUCTS.map((p, i) => {
+            const Icon = p.icon;
+            return (
+              <motion.div
+                key={p.label}
+                initial={{ opacity: 0, y: 28 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+                className={`product-card bg-white border ${p.border} rounded-3xl p-7 flex flex-col`}
+              >
+                <div className={`w-12 h-12 ${p.bg} rounded-2xl flex items-center justify-center mb-5`}>
+                  <Icon className={`w-5 h-5 ${p.color}`} />
+                </div>
+                <span className={`self-start text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${p.badgeColor} mb-3`}>{p.badge}</span>
+                <h3 className="text-xl font-black text-slate-900 mb-1">{p.label}</h3>
+                <p className="text-sm font-semibold text-slate-500 mb-3">{p.tagline}</p>
+                <p className="text-sm text-slate-500 leading-relaxed flex-1">{p.desc}</p>
+                <Link
+                  to={p.href}
+                  className={`mt-6 flex items-center gap-2 text-sm font-bold ${p.color} hover:gap-3 transition-all`}
+                >
+                  Try {p.label} <ArrowRight className="w-4 h-4" />
+                </Link>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
-      {/* ── Landscape Story Section (3rd section) ── */}
-      <section id="landscape-intelligence" className="max-w-6xl mx-auto px-4 sm:px-8 pb-14 sm:pb-24">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="relative overflow-hidden rounded-3xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-lime-50"
-        >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.16),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(132,204,22,0.14),transparent_48%)]" />
+      {/* ── TERRA LENS SECTION ────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-6 py-16">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="feature-pill bg-emerald-100 text-emerald-700 mb-5">
+              <ScanLine className="w-3 h-3" /> Terra Lens
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-5">
+              One photo.<br />
+              <span className="text-emerald-500">Infinite insight.</span>
+            </h2>
+            <p className="text-slate-500 leading-relaxed mb-6">
+              Drop a site photo or satellite image and Terra Lens instantly detects vegetation cover, drainage patterns, terrain features, and potential legal flag zones. No GIS expertise needed.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {['YOLO-v8 object detection on every frame','JRC flood history + CHIRPS rainfall overlay','NEMA riparian buffer enforcement (30m)','Slope & sinkhole risk from SRTM data'].map((f) => (
+                <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link to="/products/terra-lens" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-emerald-200">
+              Try Terra Lens <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <AnimatedChat demo="lens" className="w-full" />
+          </motion.div>
+        </div>
+      </section>
 
-          <div className="relative grid lg:grid-cols-2 gap-8 p-6 sm:p-10 lg:p-12 items-center">
-            <div>
-              <p className="inline-flex items-center rounded-full border border-emerald-300/60 bg-white/80 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
-                Visual + Spatial Fusion
-              </p>
-              <h2 className="mt-4 text-3xl md:text-4xl font-black text-terra-heading leading-tight">
-                See hidden risks before they become expensive surprises.
-              </h2>
-              <p className="mt-4 text-terra-body leading-relaxed max-w-xl">
-                Terra combines on-ground visual cues with layered geospatial checks to reveal flood pathways, slope instability,
-                zoning conflicts, and environmental constraints in one clean decision view.
-              </p>
+      {/* ── TERRA SIM SECTION ─────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-6 py-16 bg-slate-50 rounded-3xl my-8">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="order-2 lg:order-1"
+          >
+            <AnimatedChat demo="sim" className="w-full" />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="order-1 lg:order-2"
+          >
+            <span className="feature-pill bg-indigo-100 text-indigo-700 mb-5">
+              <LayoutTemplate className="w-3 h-3" /> Terra Sim
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-5">
+              The planning tool<br />
+              <span className="text-indigo-500">architects trust.</span>
+            </h2>
+            <p className="text-slate-500 leading-relaxed mb-6">
+              Terra Sim is the AI planning assistant that recommends optimal building placement, setbacks, sun orientation, and layout before your architect picks up a pencil.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {['Building placement & orientation optimisation','FAR estimates & setback recommendations','Parking, circulation & green space planning','Constraint maps & heatmap exports'].map((f) => (
+                <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link to="/products/terra-sim" className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-indigo-200">
+              Try Terra Sim <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+        </div>
+      </section>
 
-              <div className="mt-7 grid sm:grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Hydrology</p>
-                  <p className="mt-1 text-sm text-terra-body">River proximity, drainage direction, and riparian safety buffers.</p>
+      {/* ── TERRA FLOW SECTION ────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-6 py-16">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="feature-pill bg-amber-100 text-amber-700 mb-5">
+              <FileText className="w-3 h-3" /> Terra Flow
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-5">
+              Reports lenders<br />
+              <span className="text-amber-500">actually trust.</span>
+            </h2>
+            <p className="text-slate-500 leading-relaxed mb-6">
+              Terra Flow generates professional land intelligence reports, monitors construction milestones, and delivers client dashboards — all from a single analysis.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {['AI-generated PDF & DOCX risk reports','Construction progress monitoring','Timeline comparisons & compliance docs','Client dashboards with live updates'].map((f) => (
+                <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link to="/products/terra-flow" className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-amber-200">
+              Try Terra Flow <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <AnimatedChat demo="flow" className="w-full" />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── AI AGENTS SECTION ─────────────────────────────────── */}
+      <section className="mx-6 lg:mx-auto max-w-7xl my-8 rounded-3xl agents-bg overflow-hidden">
+        <div className="grid lg:grid-cols-2 gap-0">
+          <div className="px-10 py-16 flex flex-col justify-center">
+            <span className="feature-pill bg-white/10 text-emerald-300 mb-6">
+              <Bot className="w-3 h-3" /> AI Agents
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black text-white leading-tight mb-5">
+              Building a sustainable<br />
+              future with AI agents.
+            </h2>
+            <p className="text-slate-300 leading-relaxed mb-8">
+              Terra AI deploys autonomous agents that continuously monitor land use changes, detect encroachments, track construction compliance, and surface environmental risks — without human prompting. We're making sustainable building the path of least resistance.
+            </p>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              {[
+                { icon: Leaf, label: 'Environmental Monitoring', desc: 'Continuous satellite surveillance' },
+                { icon: Shield, label: 'Compliance Tracking', desc: 'Automated regulatory checks' },
+                { icon: Globe, label: 'Climate Risk Alerts', desc: 'Real-time hazard updates' },
+                { icon: Layers, label: 'Multi-site Intelligence', desc: 'Portfolio-scale oversight' },
+              ].map(({ icon: Icon, label, desc }) => (
+                <div key={label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                  <Icon className="w-4 h-4 text-emerald-400 mb-2" />
+                  <p className="text-sm font-bold text-white mb-0.5">{label}</p>
+                  <p className="text-xs text-slate-400">{desc}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Terrain</p>
-                  <p className="mt-1 text-sm text-terra-body">Slope and elevation signals that impact construction feasibility.</p>
-                </div>
-                <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Planning Confidence</p>
-                  <p className="mt-1 text-sm text-terra-body">A single, lender-friendly summary built from multiple verified risk vectors.</p>
-                </div>
-              </div>
+              ))}
             </div>
-
-            <div className="relative">
-              <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-emerald-500/25 to-lime-400/25 blur-2xl" />
-              <div className="relative overflow-hidden rounded-[2rem] border border-white/70 shadow-2xl">
-                <img
-                  src={landingPageImage}
-                  alt="Landscape preview used for Terra AI analysis"
-                  className="w-full h-[300px] sm:h-[380px] object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 bg-gradient-to-t from-black/55 to-transparent">
-                  <p className="text-white text-sm sm:text-base font-semibold">
-                    Live scene intelligence for faster land due diligence.
-                  </p>
-                </div>
+            <button
+              onClick={() => navigate('/analyze')}
+              className="self-start flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm rounded-full transition-all"
+            >
+              See It In Action <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="relative lg:block hidden">
+            <img
+              src={deepScan}
+              alt="AI agent monitoring land from satellite"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 to-transparent" />
+            {/* Floating agent status */}
+            <div className="absolute top-8 right-8 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold">3 Agents Active</span>
               </div>
+              <p className="text-xs text-slate-300">Monitoring 847 parcels</p>
+              <p className="text-xs text-slate-300">Last scan: 4 min ago</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* ── CTA Banner ── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-14 sm:pb-24">
+      {/* ── CTA BANNER ────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-6 py-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl px-6 sm:px-10 py-10 sm:py-16 text-center shadow-2xl"
+          className="text-center bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-3xl px-8 py-16"
         >
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            Ready to analyze your plot?
+          <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-4">Ready to start?</p>
+          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">
+            Your next land decision<br />starts here.
           </h2>
-          <p className="text-emerald-100 mb-8 max-w-md mx-auto">
-            Start with a photo or drop a pin on the map. Get a professional risk report in under 60 seconds.
+          <p className="text-slate-500 max-w-lg mx-auto mb-8">
+            Join thousands of developers, architects, and investors who use Terra AI to make smarter, faster land decisions.
           </p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Button
-              variant="secondary"
-              size="lg"
-              iconRight={ArrowRight}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <button
               onClick={() => navigate('/analyze')}
+              className="flex items-center gap-2 px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full transition-all shadow-lg shadow-emerald-200 text-sm"
             >
-              Start Free Analysis
-            </Button>
-            {!user && (
-              <button
-                onClick={() => openAuthModal({ tab: 'signup' })}
-                className="flex items-center gap-2 text-sm font-semibold text-emerald-100 hover:text-white border border-emerald-400/40 hover:border-emerald-300/60 px-5 py-3 rounded-xl transition-all"
-              >
-                <LogIn className="w-4 h-4" />
-                Create Account
-              </button>
-            )}
+              Start Free Analysis <ArrowRight className="w-4 h-4" />
+            </button>
+            <Link
+              to="/pricing"
+              className="flex items-center gap-2 px-8 py-4 bg-white border border-slate-200 text-slate-700 hover:border-slate-300 font-semibold rounded-full transition-all text-sm"
+            >
+              View Pricing
+            </Link>
           </div>
         </motion.div>
       </section>
-
-      {/* ── Footer ── */}
-      <footer className="bg-slate-950 text-slate-200">
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/70 to-transparent" />
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-14">
-          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
-            <div className="lg:col-span-2">
-              <img
-                src={terraLogo}
-                alt="Terra AI logo"
-                className="h-12 w-auto object-contain"
-                loading="lazy"
-                decoding="async"
-              />
-              <p className="mt-4 text-sm text-slate-300 max-w-md leading-relaxed">
-                Intelligent land assessment for confident decisions. From first photo to final report, Terra helps you move faster with fewer unknowns.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">Vision AI</span>
-                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">Spatial Analysis</span>
-                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">Risk Reports</span>
-              </div>
-            </div>
-
-            {Object.entries(FOOTER_LINKS).map(([group, links]) => (
-              <div key={group}>
-                <h3 className="text-sm font-black uppercase tracking-wider text-white">{group}</h3>
-                <ul className="mt-4 space-y-2.5 text-sm">
-                  {links.map((link) => {
-                    const isHiddenForAuthState =
-                      (user && (link.action === 'signin' || link.action === 'signup')) ||
-                      (!user && link.action === 'signout');
-
-                    if (isHiddenForAuthState) return null;
-
-                    if (link.to) {
-                      return (
-                        <li key={link.label}>
-                          <button
-                            onClick={() => navigate(link.to)}
-                            className="text-slate-300 hover:text-emerald-300 transition-colors"
-                          >
-                            {link.label}
-                          </button>
-                        </li>
-                      );
-                    }
-
-                    if (link.href) {
-                      return (
-                        <li key={link.label}>
-                          <a href={link.href} className="text-slate-300 hover:text-emerald-300 transition-colors">
-                            {link.label}
-                          </a>
-                        </li>
-                      );
-                    }
-
-                    if (link.action === 'signin' || link.action === 'signup') {
-                      return (
-                        <li key={link.label}>
-                          <button
-                            onClick={() => setAuthOpen(true)}
-                            className="text-slate-300 hover:text-emerald-300 transition-colors"
-                          >
-                            {link.label}
-                          </button>
-                        </li>
-                      );
-                    }
-
-                    return (
-                      <li key={link.label}>
-                        <button
-                          onClick={handleSignOut}
-                          className="text-slate-300 hover:text-emerald-300 transition-colors"
-                        >
-                          {link.label}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center sm:justify-between text-xs text-slate-400">
-            <p>© {new Date().getFullYear()} Terra AI. All rights reserved.</p>
-            <p>Built for modern land intelligence in Kenya.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </MarketingLayout>
   );
 }
+

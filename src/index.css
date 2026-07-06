@@ -7,13 +7,12 @@
 @layer base {
   html {
     @apply scroll-smooth;
-    /* Prevent horizontal scroll on small screens */
     overflow-x: hidden;
   }
 
   body {
-    @apply font-sans bg-terra-bg text-terra-heading antialiased min-h-screen;
-    /* Prevent horizontal overflow on all screen sizes */
+    @apply bg-terra-bg text-terra-heading antialiased min-h-screen;
+    font-family: 'Gabarito', 'Inter', ui-sans-serif, system-ui;
     overflow-x: hidden;
   }
 

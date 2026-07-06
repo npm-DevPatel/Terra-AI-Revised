@@ -1,0 +1,32 @@
+/* product.css — shared styles for all product pages */
+
+.product-hero-bg {
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 60%, #f0f9ff 100%);
+}
+.product-hero-bg-indigo {
+  background: linear-gradient(135deg, #eef2ff 0%, #ffffff 60%, #f0f9ff 100%);
+}
+.product-hero-bg-amber {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 60%, #fef3c7 100%);
+}
+
+.capability-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.capability-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px -8px rgba(0,0,0,0.1);
+}
+
+.step-connector {
+  position: relative;
+}
+.step-connector::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 40px;
+  width: 2px;
+  height: calc(100% - 40px);
+  background: linear-gradient(to bottom, #10b981, transparent);
+}

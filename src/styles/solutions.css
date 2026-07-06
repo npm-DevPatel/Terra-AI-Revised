@@ -1,0 +1,16 @@
+/* solutions.css — shared styles for solutions & industries pages */
+
+.solution-hero {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #f0fdf4 100%);
+}
+
+.solution-stat {
+  background: linear-gradient(135deg, #10b981 0%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.industry-accent-card {
+  border-left: 3px solid #10b981;
+}

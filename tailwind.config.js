@@ -16,6 +16,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'Roboto', 'ui-sans-serif', 'system-ui'],
+        gabarito: ['Gabarito', 'Inter', 'ui-sans-serif', 'system-ui'],
       },
       colors: {
         terra: {
