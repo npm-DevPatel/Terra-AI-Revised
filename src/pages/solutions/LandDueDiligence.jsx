@@ -1,4 +1,5 @@
 import SolutionPage from './SolutionPage';
+import dueDiligenceImg from '../../assets/due_diligence.jpeg';
 export default function LandDueDiligence() {
   return <SolutionPage
     badge="Solution — Land Due Diligence"
@@ -17,6 +18,7 @@ export default function LandDueDiligence() {
     ctaLabel="Run a Due Diligence Check"
     ctaColor="bg-emerald-500 hover:bg-emerald-600"
     chatDemo="home"
+    heroImage={dueDiligenceImg}
     stats={[
       { value: 'KES 500', label: 'Title search cost' },
       { value: '15+', label: 'Risk vectors checked' },

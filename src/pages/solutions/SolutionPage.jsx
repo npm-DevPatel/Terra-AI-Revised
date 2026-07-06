@@ -28,6 +28,7 @@ export default function SolutionPage({
   subtext, benefits, ctaLabel, useCases, stats,
   ctaColor = 'bg-emerald-500 hover:bg-emerald-600',
   chatDemo = 'home',
+  heroImage = null,
 }) {
   const navigate = useNavigate();
   const lines = headline.split('\n');
@@ -65,6 +66,22 @@ export default function SolutionPage({
           </motion.div>
         </div>
       </section>
+
+      {/* Hero image band */}
+      {heroImage && (
+        <motion.section
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="max-w-7xl mx-auto px-6 pb-6"
+        >
+          <div className="relative rounded-3xl overflow-hidden border border-slate-200/60 shadow-2xl">
+            <img src={heroImage} alt="" className="w-full h-72 sm:h-[420px] object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/55 via-slate-900/10 to-transparent" />
+          </div>
+        </motion.section>
+      )}
 
       {/* Stats */}
       {stats?.length > 0 && (

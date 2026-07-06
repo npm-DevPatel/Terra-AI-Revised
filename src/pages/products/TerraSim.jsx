@@ -7,7 +7,8 @@ import { motion } from 'framer-motion';
 import { LayoutTemplate, ArrowRight, CheckCircle2, Sun, Wind, Car, Trees, Building2, Map } from 'lucide-react';
 import MarketingLayout from '../../components/layout/MarketingLayout';
 import AnimatedChat from '../../components/ui/AnimatedChat';
-import deepScan from '../../assets/analysis_page/deep_scan.jpeg';
+import terraPlanner from '../../assets/terra_planner.jpeg';
+import constructionImg from '../../assets/construction.jpeg';
 import '../../styles/product.css';
 
 const CAPABILITIES = [
@@ -110,6 +111,56 @@ export default function TerraSim() {
           <div className="relative hidden lg:block">
             <img src={deepScan} alt="Site planning" className="w-full h-full object-cover opacity-60" />
           </div>
+        </div>
+      </section>
+
+      {/* Planning visual section — sketch + construction */}
+      <section className="max-w-7xl mx-auto px-6 py-8 mb-4">
+        <div className="text-center mb-10">
+          <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-2">The complete pipeline</p>
+          <h2 className="text-3xl font-black text-slate-900">From first sketch to final build.</h2>
+        </div>
+        <div className="grid md:grid-cols-2 gap-5">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-xl group"
+            style={{ minHeight: 340 }}
+          >
+            <img
+              src={terraPlanner}
+              alt="Architectural sketch"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              style={{ minHeight: 340 }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-slate-900/10 to-transparent" />
+            <div className="absolute bottom-6 left-6 right-6">
+              <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-indigo-300 bg-indigo-500/30 backdrop-blur-sm px-2.5 py-1 rounded-full mb-2">Concept</span>
+              <p className="text-xl font-black text-white leading-tight">Every building starts<br />as a sketch.</p>
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-xl group"
+            style={{ minHeight: 340 }}
+          >
+            <img
+              src={constructionImg}
+              alt="Construction in progress"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              style={{ minHeight: 340 }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-slate-900/10 to-transparent" />
+            <div className="absolute bottom-6 left-6 right-6">
+              <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-amber-300 bg-amber-500/30 backdrop-blur-sm px-2.5 py-1 rounded-full mb-2">Reality</span>
+              <p className="text-xl font-black text-white leading-tight">Terra Sim bridges<br />both worlds.</p>
+            </div>
+          </motion.div>
         </div>
       </section>
 

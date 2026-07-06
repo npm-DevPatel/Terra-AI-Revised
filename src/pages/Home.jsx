@@ -7,7 +7,7 @@ import {
 import MarketingLayout from '../components/layout/MarketingLayout';
 import AnimatedChat from '../components/ui/AnimatedChat';
 import useTerraStore from '../store/useTerraStore';
-import landingPageImage from '../assets/front_page/landing_page.jpeg';
+import heroSectionImg from '../assets/hero_section.png';
 import scanPhoto from '../assets/analysis_page/scan_photo.jpeg';
 import deepScan from '../assets/analysis_page/deep_scan.jpeg';
 import '../styles/home.css';
@@ -128,7 +128,7 @@ export default function Home() {
         >
           <div className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-2xl shadow-slate-300/40">
             <img
-              src={landingPageImage}
+              src={heroSectionImg}
               alt="Terra AI land analysis"
               className="w-full h-64 sm:h-96 object-cover"
             />

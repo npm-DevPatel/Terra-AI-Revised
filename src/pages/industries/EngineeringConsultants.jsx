@@ -1,4 +1,5 @@
 import SolutionPage from '../solutions/SolutionPage';
+import engImg from '../../assets/engineering_consultants.jpeg';
 export default function EngineeringConsultants() {
   return <SolutionPage
     badge="Industry — Engineering Consultants"
@@ -17,6 +18,7 @@ export default function EngineeringConsultants() {
     ctaLabel="Start a Feasibility Study"
     ctaColor="bg-slate-800 hover:bg-slate-700"
     chatDemo="lens"
+    heroImage={engImg}
     stats={[
       { value: '5x', label: 'Faster feasibility reporting' },
       { value: 'ISRIC', label: 'Soil data source' },

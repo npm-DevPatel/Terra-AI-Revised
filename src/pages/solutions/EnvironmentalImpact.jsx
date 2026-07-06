@@ -1,4 +1,5 @@
 import SolutionPage from './SolutionPage';
+import heroImg from '../../assets/hero_section.png';
 export default function EnvironmentalImpact() {
   return <SolutionPage
     badge="Solution — Environmental Impact"
@@ -17,6 +18,7 @@ export default function EnvironmentalImpact() {
     ctaLabel="Run Environmental Screening"
     ctaColor="bg-green-500 hover:bg-green-600"
     chatDemo="lens"
+    heroImage={heroImg}
     stats={[
       { value: '10m', label: 'ESA WorldCover resolution' },
       { value: 'NO₂', label: 'Sentinel-5P pollutant tracked' },

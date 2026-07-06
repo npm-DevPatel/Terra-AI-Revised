@@ -7,8 +7,9 @@ import { motion } from 'framer-motion';
 import { ScanLine, ArrowRight, CheckCircle2, Zap, Shield, Droplets, TreePine, Eye, Layers } from 'lucide-react';
 import MarketingLayout from '../../components/layout/MarketingLayout';
 import AnimatedChat from '../../components/ui/AnimatedChat';
-import scanPhoto from '../../assets/analysis_page/scan_photo.jpeg';
-import deepScan from '../../assets/analysis_page/deep_scan.jpeg';
+import terraLensPhone from '../../assets/terra_lens_phone.jpeg';
+import terraLens from '../../assets/terra_lens.jpeg';
+import terraLens1 from '../../assets/terra_lens_1.jpeg';
 import '../../styles/product.css';
 
 const CAPABILITIES = [
@@ -63,14 +64,65 @@ export default function TerraLens() {
         </div>
       </section>
 
-      {/* Photo showcase */}
-      <section className="max-w-7xl mx-auto px-6 py-16">
-        <div className="rounded-3xl overflow-hidden relative border border-slate-200 shadow-xl">
-          <img src={scanPhoto} alt="Terra Lens scanning a site" className="w-full h-72 object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-slate-900/20 to-transparent" />
-          <div className="absolute bottom-6 left-6 text-white">
-            <p className="text-xs font-bold uppercase tracking-widest text-emerald-300 mb-1">Live Analysis</p>
-            <p className="text-2xl font-black">15 risk vectors. 47 seconds.</p>
+      {/* Product Showcase — dark gallery */}
+      <section className="bg-slate-950 overflow-hidden py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3">Terra Lens — In the field</p>
+            <h2 className="text-4xl font-black text-white mb-3">See land like never before.</h2>
+            <p className="text-slate-400 max-w-md mx-auto text-sm leading-relaxed">Every photo becomes a full geospatial analysis. On any device. Anywhere in Kenya.</p>
+          </div>
+          <div className="flex items-end justify-center gap-5 md:gap-8">
+            {/* Left screenshot — slightly rotated */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="w-36 md:w-44 rounded-2xl overflow-hidden border border-white/10 shadow-2xl mb-10 flex-shrink-0"
+              style={{ transform: 'rotate(-3deg)' }}
+            >
+              <img src={terraLens1} alt="Terra Lens live viewfinder" className="w-full h-auto" />
+            </motion.div>
+            {/* Center phone mockup — prominent */}
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="w-52 md:w-64 rounded-3xl overflow-hidden border border-white/20 flex-shrink-0"
+              style={{ boxShadow: '0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)' }}
+            >
+              <img src={terraLensPhone} alt="Terra Lens on iPhone" className="w-full h-auto" />
+            </motion.div>
+            {/* Right screenshot — slightly rotated other way */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="w-36 md:w-44 rounded-2xl overflow-hidden border border-white/10 shadow-2xl mb-10 flex-shrink-0"
+              style={{ transform: 'rotate(3deg)' }}
+            >
+              <img src={terraLens} alt="Terra Lens camera scan" className="w-full h-auto" />
+            </motion.div>
+          </div>
+          {/* Bottom caption */}
+          <div className="flex items-center justify-center gap-8 mt-8">
+            <div className="text-center">
+              <p className="text-2xl font-black text-white">15</p>
+              <p className="text-xs text-slate-400 font-medium">Risk vectors</p>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="text-center">
+              <p className="text-2xl font-black text-white">47s</p>
+              <p className="text-xs text-slate-400 font-medium">Avg scan time</p>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="text-center">
+              <p className="text-2xl font-black text-white">98%</p>
+              <p className="text-xs text-slate-400 font-medium">Detection accuracy</p>
+            </div>
           </div>
         </div>
       </section>

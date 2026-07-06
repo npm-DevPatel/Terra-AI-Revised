@@ -1,4 +1,5 @@
 import SolutionPage from '../solutions/SolutionPage';
+import constructionImg from '../../assets/construction.jpeg';
 export default function Construction() {
   return <SolutionPage
     badge="Industry — Construction"
@@ -17,6 +18,7 @@ export default function Construction() {
     ctaLabel="Analyse a Construction Site"
     ctaColor="bg-orange-500 hover:bg-orange-600"
     chatDemo="sim"
+    heroImage={constructionImg}
     stats={[
       { value: '60s', label: 'Site risk assessment' },
       { value: 'NCA', label: 'Compliance alignment' },

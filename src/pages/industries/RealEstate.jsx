@@ -1,4 +1,5 @@
 import SolutionPage from '../solutions/SolutionPage';
+import realEstateImg from '../../assets/Modern Architectural Sketchbook & Practice Guide _ Digital Download PDF.jpeg';
 export default function RealEstate() {
   return <SolutionPage
     badge="Industry — Real Estate"
@@ -17,6 +18,7 @@ export default function RealEstate() {
     ctaLabel="Start a Free Analysis"
     ctaColor="bg-violet-500 hover:bg-violet-600"
     chatDemo="home"
+    heroImage={realEstateImg}
     stats={[
       { value: '3x', label: 'Faster site screening' },
       { value: '98%', label: 'Risk detection accuracy' },

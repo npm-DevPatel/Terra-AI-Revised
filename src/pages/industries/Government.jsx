@@ -1,4 +1,5 @@
 import SolutionPage from '../solutions/SolutionPage';
+import governmentImg from '../../assets/government.jpeg';
 export default function Government() {
   return <SolutionPage
     badge="Industry — Government"
@@ -17,6 +18,7 @@ export default function Government() {
     ctaLabel="Explore Government Solutions"
     ctaColor="bg-sky-500 hover:bg-sky-600"
     chatDemo="flow"
+    heroImage={governmentImg}
     stats={[
       { value: '47', label: 'Counties covered' },
       { value: '100%', label: 'Kenya satellite coverage' },

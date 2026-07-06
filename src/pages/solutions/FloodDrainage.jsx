@@ -1,4 +1,5 @@
 import SolutionPage from './SolutionPage';
+import floodImg from '../../assets/flood_drainage.jpeg';
 export default function FloodDrainage() {
   return <SolutionPage
     badge="Solution — Flood & Drainage Risk"
@@ -17,6 +18,7 @@ export default function FloodDrainage() {
     ctaLabel="Check Flood Risk"
     ctaColor="bg-cyan-500 hover:bg-cyan-600"
     chatDemo="lens"
+    heroImage={floodImg}
     stats={[
       { value: '40yrs', label: 'Rainfall history' },
       { value: '10m', label: 'ESA land cover resolution' },

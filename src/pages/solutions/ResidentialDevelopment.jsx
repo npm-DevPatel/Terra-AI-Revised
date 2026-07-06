@@ -1,4 +1,5 @@
 import SolutionPage from './SolutionPage';
+import residentialImg from '../../assets/residential_development.jpeg';
 export default function ResidentialDevelopment() {
   return <SolutionPage
     badge="Solution — Residential Development"
@@ -17,6 +18,7 @@ export default function ResidentialDevelopment() {
     ctaLabel="Analyse Your Site"
     ctaColor="bg-blue-500 hover:bg-blue-600"
     chatDemo="sim"
+    heroImage={residentialImg}
     stats={[
       { value: '3x', label: 'Faster site screening' },
       { value: '60s', label: 'Per-plot analysis' },
