@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -61,9 +62,48 @@ const PRODUCTS = [
   },
 ];
 
+const PRODUCT_PICKS = [
+  {
+    key: 'lens',
+    label: 'Terra Lens',
+    icon: ScanLine,
+    desc: 'Photo → instant land risk score',
+    color: '#34d399',
+    bg: 'rgba(52,211,153,0.08)',
+    border: 'rgba(52,211,153,0.25)',
+  },
+  {
+    key: 'sim',
+    label: 'Terra Sim',
+    icon: LayoutTemplate,
+    desc: 'AI layout & scenario planning',
+    color: '#60a5fa',
+    bg: 'rgba(96,165,250,0.08)',
+    border: 'rgba(96,165,250,0.25)',
+  },
+  {
+    key: 'flow',
+    label: 'Terra Flow',
+    icon: FileText,
+    desc: 'Professional reports in one click',
+    color: '#c084fc',
+    bg: 'rgba(192,132,252,0.08)',
+    border: 'rgba(192,132,252,0.25)',
+  },
+];
+
 export default function Home() {
   const navigate = useNavigate();
   const { user, openAuthModal } = useTerraStore();
+  const [hoveredProduct, setHoveredProduct] = useState(null);
+
+  const handleProductPick = (productKey) => {
+    if (user) {
+      navigate('/workspace');
+    } else {
+      openAuthModal({ tab: 'signup', redirectTo: '/workspace' });
+    }
+  };
 
   return (
     <MarketingLayout>
@@ -96,19 +136,41 @@ export default function Home() {
             Terra AI fuses computer vision, satellite data, and geospatial intelligence to surface hidden land risks in under 60 seconds — before you sign anything.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <button
-              onClick={() => navigate('/analyze')}
-              className="flex items-center gap-2 px-7 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all cta-glow shadow-lg shadow-emerald-200"
-            >
-              Analyse Your Land Free <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => navigate('/products/terra-lens')}
-              className="flex items-center gap-2 px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm rounded-full border border-slate-200 transition-all shadow-sm"
-            >
-              See How It Works <ChevronRight className="w-4 h-4" />
-            </button>
+          {/* Product picker */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+              Pick a product to try free
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
+              {PRODUCT_PICKS.map(({ key, label, icon: Icon, desc, color, bg, border }) => (
+                <motion.button
+                  key={key}
+                  onClick={() => handleProductPick(key)}
+                  whileHover={{ scale: 1.03, y: -2 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: hoveredProduct === key ? bg : '#fff',
+                    border: `1.5px solid ${hoveredProduct === key ? border : '#e2e8f0'}`,
+                    borderRadius: 14, padding: '12px 18px',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.18s', minWidth: 180, textAlign: 'left',
+                    boxShadow: hoveredProduct === key ? `0 4px 20px ${color}20` : '0 1px 4px rgba(0,0,0,0.06)',
+                  }}
+                  onMouseEnter={() => setHoveredProduct(key)}
+                  onMouseLeave={() => setHoveredProduct(null)}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon style={{ width: 16, height: 16, color }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>{label}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{desc}</div>
+                  </div>
+                  <ArrowRight style={{ width: 14, height: 14, color, marginLeft: 'auto', flexShrink: 0 }} />
+                </motion.button>
+              ))}
+            </div>
           </div>
 
           {/* Social proof */}
@@ -193,12 +255,12 @@ export default function Home() {
                 <h3 className="text-xl font-black text-slate-900 mb-1">{p.label}</h3>
                 <p className="text-sm font-semibold text-slate-500 mb-3">{p.tagline}</p>
                 <p className="text-sm text-slate-500 leading-relaxed flex-1">{p.desc}</p>
-                <Link
-                  to={p.href}
-                  className={`mt-6 flex items-center gap-2 text-sm font-bold ${p.color} hover:gap-3 transition-all`}
+                <button
+                  onClick={() => handleProductPick(p.demo)}
+                  className={`mt-6 flex items-center gap-2 text-sm font-bold ${p.color} hover:gap-3 transition-all bg-transparent border-none cursor-pointer p-0 font-inherit`}
                 >
                   Try {p.label} <ArrowRight className="w-4 h-4" />
-                </Link>
+                </button>
               </motion.div>
             );
           })}
@@ -225,16 +287,16 @@ export default function Home() {
               Drop a site photo or satellite image and Terra Lens instantly detects vegetation cover, drainage patterns, terrain features, and potential legal flag zones. No GIS expertise needed.
             </p>
             <ul className="space-y-3 mb-8">
-              {['YOLO-v8 object detection on every frame','JRC flood history + CHIRPS rainfall overlay','NEMA riparian buffer enforcement (30m)','Slope & sinkhole risk from SRTM data'].map((f) => (
+              {['Google Vision AI — labels, objects, text, colors','JRC flood history + CHIRPS rainfall overlay','NEMA riparian buffer enforcement (30m)','Slope & sinkhole risk from SRTM data'].map((f) => (
                 <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
                   {f}
                 </li>
               ))}
             </ul>
-            <Link to="/products/terra-lens" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-emerald-200">
+            <button onClick={() => handleProductPick('lens')} className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-emerald-200">
               Try Terra Lens <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, x: 24 }}
@@ -284,9 +346,9 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link to="/products/terra-sim" className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-indigo-200">
+            <button onClick={() => handleProductPick('sim')} className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-indigo-200">
               Try Terra Sim <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
           </motion.div>
         </div>
       </section>
@@ -318,9 +380,9 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link to="/products/terra-flow" className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-amber-200">
+            <button onClick={() => handleProductPick('flow')} className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-full transition-all shadow-sm shadow-amber-200">
               Try Terra Flow <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, x: 24 }}
@@ -362,7 +424,7 @@ export default function Home() {
               ))}
             </div>
             <button
-              onClick={() => navigate('/analyze')}
+              onClick={() => handleProductPick('lens')}
               className="self-start flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm rounded-full transition-all"
             >
               See It In Action <ArrowRight className="w-4 h-4" />
@@ -405,7 +467,7 @@ export default function Home() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <button
-              onClick={() => navigate('/analyze')}
+              onClick={() => handleProductPick('lens')}
               className="flex items-center gap-2 px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full transition-all shadow-lg shadow-emerald-200 text-sm"
             >
               Start Free Analysis <ArrowRight className="w-4 h-4" />
