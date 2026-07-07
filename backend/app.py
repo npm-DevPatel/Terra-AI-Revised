@@ -28,15 +28,14 @@ _frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 _cors_origins = [
     "http://localhost:5173",
     "http://localhost:5174",
-    r"https://.*\.vercel\.app",
-    r"https://terra-ai.*\.onrender\.com",
+    "https://terra-ai-revised-1.onrender.com",
+    "https://terra-ai-revised-frontend.onrender.com",
 ]
-if _frontend_url:
+if _frontend_url and _frontend_url not in _cors_origins:
     _cors_origins.insert(0, _frontend_url)
 
 CORS(app, resources={
-    r"/api/*": {"origins": _cors_origins},
-    r"/health": {"origins": _cors_origins},
+    r"/*": {"origins": _cors_origins, "supports_credentials": True}
 })
 
 # ── Blueprints ────────────────────────────────────────────────────────────────

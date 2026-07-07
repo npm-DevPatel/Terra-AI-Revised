@@ -60,7 +60,8 @@ export default function SimWorkspace() {
       loadMap();
     } else {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&loading=async`;
+      script.async = true;
       script.onload = loadMap;
       document.head.appendChild(script);
     }
