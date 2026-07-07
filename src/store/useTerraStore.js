@@ -216,6 +216,49 @@ const useTerraStore = create(
         set(() => ({ pdfState: { isGenerating } })),
 
       // ─────────────────────────────────────────────────────────
+      // § 5. WORKSPACE STATE
+      //   Active project, channels, copilot chat history.
+      // ─────────────────────────────────────────────────────────
+      workspace: {
+        activeProjectId: null,
+        activeProjectName: null,
+        activeChannelId: null,
+        copilotOpen: false,
+        copilotMessages: [], // [{role: 'user'|'assistant', content: string}]
+      },
+
+      setActiveProject: (id, name) =>
+        set((state) => ({
+          workspace: { ...state.workspace, activeProjectId: id, activeProjectName: name },
+        })),
+
+      setActiveChannel: (channelId) =>
+        set((state) => ({
+          workspace: { ...state.workspace, activeChannelId: channelId },
+        })),
+
+      toggleCopilot: () =>
+        set((state) => ({
+          workspace: { ...state.workspace, copilotOpen: !state.workspace.copilotOpen },
+        })),
+
+      addCopilotMessage: (role, content) =>
+        set((state) => ({
+          workspace: {
+            ...state.workspace,
+            copilotMessages: [
+              ...state.workspace.copilotMessages,
+              { role, content, id: Date.now() },
+            ],
+          },
+        })),
+
+      clearCopilotMessages: () =>
+        set((state) => ({
+          workspace: { ...state.workspace, copilotMessages: [] },
+        })),
+
+      // ─────────────────────────────────────────────────────────
       // § GLOBAL RESET
       //   Hard-resets everything except recentProjects and auth.
       // ─────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import Analyze from './pages/Analyze';
 import Pricing from './pages/Pricing';
 import Report from './pages/Report';
 import UpdatePassword from './pages/UpdatePassword';
-// Products
+// Products (marketing pages)
 import TerraLens from './pages/products/TerraLens';
 import TerraSim from './pages/products/TerraSim';
 import TerraFlow from './pages/products/TerraFlow';
@@ -19,6 +19,13 @@ import RealEstate from './pages/industries/RealEstate';
 import Construction from './pages/industries/Construction';
 import Government from './pages/industries/Government';
 import EngineeringConsultants from './pages/industries/EngineeringConsultants';
+// Workspace
+import WorkspaceDashboard from './pages/workspace/WorkspaceDashboard';
+import WorkspaceLayout from './components/workspace/WorkspaceLayout';
+import LensWorkspace from './pages/workspace/LensWorkspace';
+import SimWorkspace from './pages/workspace/SimWorkspace';
+import FlowWorkspace from './pages/workspace/FlowWorkspace';
+import ProfileSetup from './pages/workspace/ProfileSetup';
 import { supabase } from './lib/supabaseClient';
 import useTerraStore from './store/useTerraStore';
 import AuthModal from './components/auth/AuthModal';
@@ -29,24 +36,7 @@ import AuthModal from './components/auth/AuthModal';
  */
 function AuthSubscription() {
   const navigate = useNavigate();
-  const { setUser, setSession, setReportHistory, logout, openAuthModal } = useTerraStore();
-
-  async function fetchHistory(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('reports')
-        .select('id, location_name, feasibility_score, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!error && data) {
-        setReportHistory(data);
-      }
-    } catch (err) {
-      console.warn('[Terra AI] Failed to fetch report history:', err);
-    }
-  }
+  const { setUser, setSession, logout, openAuthModal } = useTerraStore();
 
   useEffect(() => {
     // ── 1. Hydrate from existing session on mount ──────────────
@@ -54,7 +44,6 @@ function AuthSubscription() {
       if (session) {
         setSession(session);
         setUser(session.user);
-        fetchHistory(session.user.id);
       }
     });
 
@@ -64,9 +53,7 @@ function AuthSubscription() {
         if (session) {
           setSession(session);
           setUser(session.user);
-          if (event === 'SIGNED_IN') {
-            fetchHistory(session.user.id);
-          } else if (event === 'PASSWORD_RECOVERY') {
+          if (event === 'PASSWORD_RECOVERY') {
             navigate('/reset-password');
           }
         } else {
@@ -128,7 +115,16 @@ export default function App() {
         <Route path="/pricing"             element={<Pricing />} />
         <Route path="/report"              element={<Report />} />
         <Route path="/reset-password"      element={<UpdatePassword />} />
-        {/* Products */}
+        {/* Profile setup */}
+        <Route path="/profile/setup"       element={<ProfileSetup />} />
+        {/* Workspace */}
+        <Route path="/workspace"           element={<WorkspaceDashboard />} />
+        <Route path="/workspace/:projectId" element={<WorkspaceLayout />}>
+          <Route path="lens" element={<LensWorkspace />} />
+          <Route path="sim"  element={<SimWorkspace />} />
+          <Route path="flow" element={<FlowWorkspace />} />
+        </Route>
+        {/* Products (marketing pages) */}
         <Route path="/products/terra-lens" element={<TerraLens />} />
         <Route path="/products/terra-sim"  element={<TerraSim />} />
         <Route path="/products/terra-flow" element={<TerraFlow />} />
