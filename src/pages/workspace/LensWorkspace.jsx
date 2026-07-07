@@ -21,7 +21,7 @@ function ScoreRing({ score }) {
   return (
     <div style={{ position: 'relative', width: 140, height: 140 }}>
       <svg width="140" height="140" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="70" cy="70" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+        <circle cx="70" cy="70" r={r} fill="none" stroke="#e2e8f0" strokeWidth="8" />
         <circle
           cx="70" cy="70" r={r} fill="none"
           stroke={color} strokeWidth="8"
@@ -35,7 +35,7 @@ function ScoreRing({ score }) {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       }}>
         <div style={{ fontSize: 32, fontWeight: 900, color, lineHeight: 1 }}>{score}</div>
-        <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Score</div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Score</div>
       </div>
     </div>
   );
@@ -149,10 +149,10 @@ export default function LensWorkspace() {
             style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16 }}
           >
             <div style={{ textAlign: 'center', marginBottom: 4 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f8', margin: 0 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0 }}>
                 Terra Lens
               </h2>
-              <p style={{ fontSize: 13, color: '#4b5563', margin: '6px 0 0' }}>
+              <p style={{ fontSize: 13, color: '#64748b', margin: '6px 0 0' }}>
                 Photograph a site. Terra AI reads the land.
               </p>
             </div>
@@ -172,7 +172,7 @@ export default function LensWorkspace() {
                     onClick={(e) => { e.stopPropagation(); setImage(null); }}
                     style={{
                       position: 'absolute', top: 12, right: 12, zIndex: 2,
-                      background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%',
                       width: 28, height: 28, display: 'flex', alignItems: 'center',
                       justifyContent: 'center', cursor: 'pointer', color: '#fff',
                     }}
@@ -304,7 +304,7 @@ export default function LensWorkspace() {
                   {result.vision.labels.map((l) => (
                     <span key={l} style={{
                       fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 100,
-                      background: 'rgba(255,255,255,0.06)', color: '#9ca3af',
+                      background: '#f1f5f9', color: '#64748b',
                     }}>{l}</span>
                   ))}
                   {result.vision.water_signals && (
@@ -344,7 +344,7 @@ export default function LensWorkspace() {
                   animate={{ opacity: 1 }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    background: '#fff', border: '1px solid #f1f5f9',
                     borderRadius: 12, padding: '14px 16px',
                   }}
                 >
@@ -357,7 +357,7 @@ export default function LensWorkspace() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   style={{
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
+                    background: '#f8fafc', border: '1px solid #f1f5f9',
                     borderRadius: 16, padding: '20px 22px',
                   }}
                 >
@@ -375,7 +375,7 @@ export default function LensWorkspace() {
                         {s.title}
                         <span style={{
                           fontSize: 10, padding: '2px 7px', borderRadius: 100, fontWeight: 700,
-                          background: s.risk_level === 'critical' ? 'rgba(239,68,68,0.12)' : s.risk_level === 'high' ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.06)',
+                          background: s.risk_level === 'critical' ? 'rgba(239,68,68,0.10)' : s.risk_level === 'high' ? 'rgba(245,158,11,0.10)' : '#f8fafc',
                           color: s.risk_level === 'critical' ? '#ef4444' : s.risk_level === 'high' ? '#f59e0b' : '#6b7280',
                         }}>{s.risk_level}</span>
                       </div>

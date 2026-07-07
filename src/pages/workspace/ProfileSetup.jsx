@@ -67,18 +67,18 @@ export default function ProfileSetup() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0a0a0f',
+      minHeight: '100vh', background: '#f8fafc',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: "'Gabarito', 'Inter', system-ui", padding: '40px 24px',
     }}>
       <div style={{ width: '100%', maxWidth: 480 }}>
         {/* Header */}
         <div style={{ marginBottom: 36, textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#34d399', marginBottom: 4 }}>Terra AI</div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f0f0f8', margin: '0 0 8px' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#10b981', marginBottom: 4 }}>Terra AI</div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: '0 0 8px' }}>
             Set up your profile
           </h1>
-          <p style={{ fontSize: 14, color: '#4b5563' }}>
+          <p style={{ fontSize: 14, color: '#64748b' }}>
             So teammates can find you, mention you, and know who they're working with.
           </p>
         </div>
@@ -88,9 +88,9 @@ export default function ProfileSetup() {
           <label style={{ position: 'relative', cursor: 'pointer' }}>
             <div style={{
               width: 80, height: 80, borderRadius: '50%',
-              background: avatarPreview ? 'transparent' : 'linear-gradient(135deg, #34d399, #3b82f6)',
+              background: avatarPreview ? 'transparent' : 'linear-gradient(135deg, #10b981, #3b82f6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden', border: '3px solid rgba(255,255,255,0.1)',
+              overflow: 'hidden', border: '3px solid #e2e8f0',
             }}>
               {avatarPreview
                 ? <img src={avatarPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -100,10 +100,10 @@ export default function ProfileSetup() {
             <div style={{
               position: 'absolute', bottom: 0, right: 0,
               width: 26, height: 26, borderRadius: '50%',
-              background: '#34d399', border: '2px solid #0a0a0f',
+              background: '#10b981', border: '2px solid #fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Upload size={12} color="#0a0a0f" />
+              <Upload size={12} color="#fff" />
             </div>
             <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
           </label>
@@ -119,7 +119,7 @@ export default function ProfileSetup() {
             autoFocus
           />
           <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#4b5563', fontSize: 14 }}>@</span>
+            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 14 }}>@</span>
             <input
               placeholder="username"
               value={username}
@@ -137,7 +137,7 @@ export default function ProfileSetup() {
 
           {/* Role selector */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
               I am a
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -147,9 +147,9 @@ export default function ProfileSetup() {
                   onClick={() => setRole(r)}
                   style={{
                     padding: '7px 14px', borderRadius: 100,
-                    background: role === r ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${role === r ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                    color: role === r ? '#34d399' : '#6b7280',
+                    background: role === r ? 'rgba(16,185,129,0.10)' : '#f8fafc',
+                    border: `1px solid ${role === r ? 'rgba(16,185,129,0.4)' : '#e2e8f0'}`,
+                    color: role === r ? '#10b981' : '#64748b',
                     fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     fontFamily: 'inherit', transition: 'all 0.15s',
                   }}
@@ -170,8 +170,8 @@ export default function ProfileSetup() {
             onClick={save}
             disabled={loading}
             style={{
-              background: loading ? '#1f2937' : '#34d399',
-              color: loading ? '#4b5563' : '#0a0a0f',
+              background: loading ? '#e2e8f0' : '#10b981',
+              color: loading ? '#94a3b8' : '#fff',
               border: 'none', borderRadius: 100, padding: '13px 24px',
               fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit', display: 'flex', alignItems: 'center',
@@ -192,10 +192,10 @@ export default function ProfileSetup() {
 }
 
 const inputStyle = {
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  background: '#f8fafc',
+  border: '1.5px solid #e2e8f0',
   borderRadius: 10, padding: '12px 14px',
-  color: '#e8e8f0', fontSize: 14,
+  color: '#0f172a', fontSize: 14,
   fontFamily: "'Gabarito','Inter',system-ui",
   outline: 'none', width: '100%',
 };

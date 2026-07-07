@@ -210,7 +210,7 @@ export default function SimWorkspace() {
                 onClick={() => togglePriority(p)}
                 style={{
                   padding: '5px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600,
-                  background: priorities.includes(p) ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
+                  background: priorities.includes(p) ? 'rgba(59,130,246,0.10)' : '#f8fafc',
                   border: `1px solid ${priorities.includes(p) ? 'rgba(59,130,246,0.35)' : 'rgba(255,255,255,0.08)'}`,
                   color: priorities.includes(p) ? '#60a5fa' : '#6b7280',
                   cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
@@ -263,7 +263,7 @@ export default function SimWorkspace() {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0', marginBottom: 4 }}>{s.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{s.name}</div>
                   <div style={{ fontSize: 11, color: '#6b7280' }}>{s.description}</div>
                 </div>
               ))}

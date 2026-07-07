@@ -2,20 +2,241 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   ScanSearch, LayoutDashboard, FileText, Hash, Plus,
-  Bell, Sparkles, ChevronLeft, Settings, Users, LogOut,
+  Sparkles, ChevronLeft, Settings, X, Send, Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
 import TerraCopilot from './TerraCopilot';
-import '../../styles/workspace.css';
 
 const PRODUCTS = [
-  { id: 'lens', label: 'Terra Lens', Icon: ScanSearch, color: '#34d399', path: 'lens' },
-  { id: 'sim',  label: 'Terra Sim',  Icon: LayoutDashboard, color: '#60a5fa', path: 'sim' },
-  { id: 'flow', label: 'Terra Flow', Icon: FileText, color: '#c084fc', path: 'flow' },
+  { id: 'lens', label: 'Terra Lens', Icon: ScanSearch, color: '#10b981', bg: '#f0fdf4', path: 'lens' },
+  { id: 'sim',  label: 'Terra Sim',  Icon: LayoutDashboard, color: '#3b82f6', bg: '#eff6ff', path: 'sim' },
+  { id: 'flow', label: 'Terra Flow', Icon: FileText, color: '#8b5cf6', bg: '#f5f3ff', path: 'flow' },
 ];
 
+/* ─── Invite Modal ─────────────────────────────────────────── */
+function InviteModal({ projectId, onClose }) {
+  const { user } = useTerraStore();
+  const [val, setVal] = useState('');
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function send() {
+    if (!val.trim()) return;
+    setSending(true);
+    const isEmail = val.includes('@') && !val.startsWith('@');
+    await supabase.from('project_invites').insert({
+      project_id: projectId,
+      invited_by: user?.id,
+      email: isEmail ? val.trim() : null,
+      username: !isEmail ? val.replace(/^@/, '') : null,
+    });
+    setSending(false);
+    setDone(true);
+    setTimeout(onClose, 1500);
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(6px)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        style={{ background: '#fff', borderRadius: 20, padding: 32, width: 420, boxShadow: '0 40px 80px rgba(0,0,0,0.15)', fontFamily: "'Gabarito', 'Inter', system-ui" }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0f172a' }}>Invite teammate</h2>
+          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', color: '#64748b' }}><X size={16} /></button>
+        </div>
+        {done ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: '#10b981', fontSize: 14, fontWeight: 600 }}>✓ Invite sent!</div>
+        ) : (
+          <>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>Enter an email address or @username to invite.</p>
+            <input
+              value={val} onChange={e => setVal(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="Email or @username"
+              style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#0f172a', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button onClick={onClose} style={{ flex: 1, background: '#f1f5f9', border: 'none', borderRadius: 100, padding: '11px 0', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={send} disabled={!val.trim() || sending} style={{ flex: 2, background: val.trim() ? '#10b981' : '#e2e8f0', border: 'none', borderRadius: 100, padding: '11px 0', color: val.trim() ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: val.trim() ? 'pointer' : 'default', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                {sending ? <Loader2 size={14} className="spin" /> : <Send size={13} />} Send invite
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+/* ─── New Channel Modal ────────────────────────────────────── */
+function NewChannelModal({ projectId, onClose, onCreate }) {
+  const { user } = useTerraStore();
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  async function create() {
+    if (!name.trim()) return;
+    setCreating(true);
+    const slug = name.trim().toLowerCase().replace(/\s+/g, '-');
+    const { data } = await supabase.from('channels').insert({ project_id: projectId, name: slug, created_by: user?.id }).select().single();
+    if (data) onCreate(data);
+    setCreating(false);
+    onClose();
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(6px)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        style={{ background: '#fff', borderRadius: 20, padding: 32, width: 400, boxShadow: '0 40px 80px rgba(0,0,0,0.15)', fontFamily: "'Gabarito', 'Inter', system-ui" }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0f172a' }}>New channel</h2>
+          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', color: '#64748b' }}><X size={16} /></button>
+        </div>
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>Choose a name for your channel. Spaces become hyphens.</p>
+        <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '0 14px' }}>
+          <Hash size={14} color="#94a3b8" />
+          <input
+            value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && create()}
+            placeholder="channel-name"
+            style={{ flex: 1, padding: '11px 10px', border: 'none', background: 'transparent', color: '#0f172a', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose} style={{ flex: 1, background: '#f1f5f9', border: 'none', borderRadius: 100, padding: '11px 0', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={create} disabled={!name.trim() || creating} style={{ flex: 2, background: name.trim() ? '#8b5cf6' : '#e2e8f0', border: 'none', borderRadius: 100, padding: '11px 0', color: name.trim() ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: name.trim() ? 'pointer' : 'default', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {creating ? <Loader2 size={14} className="spin" /> : <Hash size={13} />} Create channel
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ─── Channel Feed ─────────────────────────────────────────── */
+function ChannelFeed({ channelId, channelName, members, onInvite }) {
+  const { user } = useTerraStore();
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!channelId) return;
+    loadMessages();
+    const sub = supabase.channel(`ch:${channelId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel_id=eq.${channelId}` }, (payload) => {
+        setMessages(m => [...m, payload.new]);
+      }).subscribe();
+    return () => supabase.removeChannel(sub);
+  }, [channelId]);
+
+  async function loadMessages() {
+    setLoading(true);
+    const { data } = await supabase.from('messages').select('id, content, created_at, sender_id, profiles(display_name, username, avatar_url)').eq('channel_id', channelId).order('created_at', { ascending: true }).limit(100);
+    setMessages(data || []);
+    setLoading(false);
+  }
+
+  async function sendMessage() {
+    if (!text.trim()) return;
+    const msg = text.trim();
+    setText('');
+    await supabase.from('messages').insert({ channel_id: channelId, sender_id: user?.id, content: msg });
+  }
+
+  const initials = (name) => name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const avatarColors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#f87171'];
+  const avatarColor = (str) => { let h = 0; for (let i = 0; i < (str?.length || 0); i++) h = str.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
+  const fmtTime = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+  const soloMode = members.length <= 1;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff', borderLeft: '1px solid #f1f5f9' }}>
+      {/* Header */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Hash size={13} color="#8b5cf6" />
+          </div>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{channelName}</span>
+        </div>
+        <button onClick={onInvite} style={{ background: '#f0fdf4', border: 'none', borderRadius: 100, padding: '6px 12px', color: '#10b981', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Invite</button>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {loading && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#94a3b8', fontSize: 13 }}>
+            <Loader2 size={18} className="spin" style={{ marginRight: 8 }} /> Loading messages…
+          </div>
+        )}
+        {!loading && soloMode && messages.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16, textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Hash size={28} color="#10b981" />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>Invite your team to #{channelName}</div>
+              <div style={{ fontSize: 13, color: '#64748b', maxWidth: 280, lineHeight: 1.6 }}>This channel is ready. Bring in teammates to start collaborating.</div>
+            </div>
+            <button onClick={onInvite} style={{ background: '#10b981', border: 'none', borderRadius: 100, padding: '11px 24px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+              Invite teammates
+            </button>
+          </div>
+        )}
+        {!loading && messages.map((msg, i) => {
+          const prev = messages[i - 1];
+          const name = msg.profiles?.display_name || msg.profiles?.username || 'Unknown';
+          const sameUser = prev?.sender_id === msg.sender_id;
+          const isMe = msg.sender_id === user?.id;
+          return (
+            <div key={msg.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', marginTop: sameUser ? -8 : 0 }}>
+              {!sameUser && (
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: avatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                  {initials(name)}
+                </div>
+              )}
+              {sameUser && <div style={{ width: 32, flexShrink: 0 }} />}
+              <div style={{ maxWidth: '72%' }}>
+                {!sameUser && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3, flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{name}</span>
+                    <span style={{ fontSize: 10, color: '#94a3b8' }}>{fmtTime(msg.created_at)}</span>
+                  </div>
+                )}
+                <div style={{ background: isMe ? '#10b981' : '#f8fafc', color: isMe ? '#fff' : '#0f172a', padding: '9px 13px', borderRadius: isMe ? '14px 14px 4px 14px' : '4px 14px 14px 14px', fontSize: 13, lineHeight: 1.5 }}>
+                  {msg.content}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: '14px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: 10, flexShrink: 0 }}>
+        <input
+          value={text} onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+          placeholder={`Message #${channelName}`}
+          style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+        />
+        <button onClick={sendMessage} disabled={!text.trim()} style={{ width: 40, height: 40, borderRadius: 10, background: text.trim() ? '#10b981' : '#e2e8f0', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0 }}>
+          <Send size={15} color={text.trim() ? '#fff' : '#94a3b8'} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── WorkspaceLayout ──────────────────────────────────────── */
 export default function WorkspaceLayout() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -26,7 +247,10 @@ export default function WorkspaceLayout() {
   const [project, setProject] = useState(null);
   const [channels, setChannels] = useState([]);
   const [members, setMembers] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showChannelModal, setShowChannelModal] = useState(false);
+  const [channelFeedOpen, setChannelFeedOpen] = useState(false);
+  const [activeChannelName, setActiveChannelName] = useState('');
 
   const activeProduct = PRODUCTS.find(p => location.pathname.includes(`/${p.path}`));
 
@@ -35,219 +259,192 @@ export default function WorkspaceLayout() {
     loadProject();
     loadChannels();
     loadMembers();
-    subscribeToNotifications();
   }, [projectId]);
 
   async function loadProject() {
-    const { data } = await supabase
-      .from('projects')
-      .select('id, name, description, product')
-      .eq('id', projectId)
-      .single();
-    if (data) {
-      setProject(data);
-      setActiveProject(data.id, data.name);
-    }
+    try {
+      const { data } = await supabase.from('projects').select('id, name, description, product').eq('id', projectId).single();
+      if (data) { setProject(data); setActiveProject(data.id, data.name); }
+    } catch {}
   }
 
   async function loadChannels() {
-    const { data } = await supabase
-      .from('channels')
-      .select('id, name')
-      .eq('project_id', projectId)
-      .order('created_at');
-    if (data?.length) {
-      setChannels(data);
-      if (!workspace.activeChannelId) setActiveChannel(data[0].id);
-    }
+    try {
+      const { data } = await supabase.from('channels').select('id, name').eq('project_id', projectId).order('created_at');
+      if (data?.length) {
+        setChannels(data);
+        if (!workspace.activeChannelId) { setActiveChannel(data[0].id); setActiveChannelName(data[0].name); }
+      }
+    } catch {}
   }
 
   async function loadMembers() {
-    const { data } = await supabase
-      .from('project_members')
-      .select('user_id, role, profiles(display_name, avatar_url, username)')
-      .eq('project_id', projectId);
-    if (data) setMembers(data);
-  }
-
-  function subscribeToNotifications() {
-    const sub = supabase
-      .channel(`notifs:${user?.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'notifications',
-        filter: `user_id=eq.${user?.id}`,
-      }, () => setUnreadCount(n => n + 1))
-      .subscribe();
-    return () => supabase.removeChannel(sub);
+    try {
+      const { data } = await supabase.from('project_members').select('user_id, role, profiles(display_name, avatar_url, username)').eq('project_id', projectId);
+      if (data) setMembers(data);
+    } catch {}
   }
 
   const navigateTo = (path) => navigate(`/workspace/${projectId}/${path}`);
+  const initials = (name) => name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const avatarColors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#f87171'];
+  const avatarColor = (str) => { let h = 0; for (let i = 0; i < (str?.length || 0); i++) h = str.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
 
-  const initials = (name) => name
-    ? name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
-
-  const avatarColor = (str) => {
-    const colors = ['#34d399','#60a5fa','#c084fc','#f59e0b','#f87171','#a78bfa'];
-    let hash = 0;
-    for (let i = 0; i < (str?.length || 0); i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
-  };
+  function openChannel(ch) {
+    setActiveChannel(ch.id);
+    setActiveChannelName(ch.name);
+    setChannelFeedOpen(true);
+  }
 
   return (
-    <div className="workspace-shell" style={{ position: 'relative' }}>
-      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="workspace-sidebar">
-        {/* Project header */}
-        <div className="sidebar-project-header">
-          <button
-            onClick={() => navigate('/workspace')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 12, padding: 0, marginBottom: 10 }}
-          >
-            <ChevronLeft size={14} /> All Projects
+    <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: "'Gabarito', 'Inter', system-ui", overflow: 'hidden' }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; }
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+      `}</style>
+
+      {/* ── Sidebar ── */}
+      <aside style={{ width: 240, background: '#fff', borderRight: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+        {/* Back + project name */}
+        <div style={{ padding: '16px 16px 12px' }}>
+          <button onClick={() => navigate('/workspace')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12, padding: 0, marginBottom: 12, fontFamily: 'inherit' }}>
+            <ChevronLeft size={13} /> All Projects
           </button>
-          <div className="sidebar-project-name">{project?.name || '…'}</div>
-          <div className="sidebar-project-badge">Project workspace</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginBottom: 2, lineHeight: 1.3 }}>{project?.name || '…'}</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Project workspace</div>
         </div>
+
+        <div style={{ height: 1, background: '#f1f5f9', margin: '0 16px' }} />
 
         {/* Products */}
-        <div className="sidebar-section-label">Products</div>
-        {PRODUCTS.map(({ id, label, Icon, color, path }) => (
-          <button
-            key={id}
-            className={`sidebar-nav-item ${activeProduct?.id === id ? 'active' : ''}`}
-            onClick={() => navigateTo(path)}
-            style={activeProduct?.id === id ? { color } : {}}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
+        <div style={{ padding: '14px 16px 6px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Products</div>
+          {PRODUCTS.map(({ id, label, Icon, color, bg, path }) => {
+            const isActive = activeProduct?.id === id;
+            return (
+              <button
+                key={id}
+                onClick={() => { navigateTo(path); setChannelFeedOpen(false); }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 10, border: 'none', background: isActive ? bg : 'transparent', color: isActive ? color : '#475569', fontSize: 13, fontWeight: isActive ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s', marginBottom: 2 }}
+              >
+                <Icon size={14} color={isActive ? color : '#94a3b8'} />{label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ height: 1, background: '#f1f5f9', margin: '6px 16px' }} />
 
         {/* Channels */}
-        <div className="sidebar-section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 12 }}>
-          Channels
-          <button
-            onClick={async () => {
-              const name = prompt('Channel name:');
-              if (!name) return;
-              const { data } = await supabase.from('channels').insert({ project_id: projectId, name: name.toLowerCase().replace(/\s+/g, '-'), created_by: user?.id }).select().single();
-              if (data) setChannels(c => [...c, data]);
-            }}
-            style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: 0 }}
-          >
-            <Plus size={13} />
-          </button>
+        <div style={{ padding: '8px 16px 6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Channels</div>
+            <button onClick={() => setShowChannelModal(true)} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '3px 5px', cursor: 'pointer', display: 'flex', color: '#64748b' }}><Plus size={11} /></button>
+          </div>
+          {channels.map((ch) => {
+            const isActive = workspace.activeChannelId === ch.id && channelFeedOpen;
+            return (
+              <button
+                key={ch.id}
+                onClick={() => openChannel(ch)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, border: 'none', background: isActive ? '#f5f3ff' : 'transparent', color: isActive ? '#7c3aed' : '#475569', fontSize: 13, fontWeight: isActive ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s', marginBottom: 1 }}
+              >
+                <Hash size={12} color={isActive ? '#7c3aed' : '#94a3b8'} />{ch.name}
+              </button>
+            );
+          })}
         </div>
-        {channels.map((ch) => (
-          <button
-            key={ch.id}
-            className={`sidebar-channel-item ${workspace.activeChannelId === ch.id ? 'active' : ''}`}
-            onClick={() => setActiveChannel(ch.id)}
-          >
-            <Hash size={13} />
-            {ch.name}
-          </button>
-        ))}
 
-        {/* Bottom actions */}
-        <div style={{ marginTop: 'auto' }}>
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        <div style={{ height: 1, background: '#f1f5f9', margin: '0 16px' }} />
+
+        {/* Copilot + Settings */}
+        <div style={{ padding: '8px 16px' }}>
           <button
-            className="sidebar-nav-item"
-            onClick={() => { setUnreadCount(0); toggleCopilot(); }}
+            onClick={() => { setChannelFeedOpen(false); toggleCopilot(); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 10, border: 'none', background: workspace.copilotOpen ? '#f0fdf4' : 'transparent', color: workspace.copilotOpen ? '#10b981' : '#475569', fontSize: 13, fontWeight: workspace.copilotOpen ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 2 }}
           >
-            <div style={{ position: 'relative', display: 'flex' }}>
-              <Sparkles size={15} />
-              {unreadCount > 0 && (
-                <span className="notif-badge" style={{ width: 14, height: 14, fontSize: 9 }}>{unreadCount}</span>
-              )}
-            </div>
-            Terra Copilot
+            <Sparkles size={14} color={workspace.copilotOpen ? '#10b981' : '#94a3b8'} />Terra Copilot
           </button>
-          <button className="sidebar-nav-item" onClick={() => navigate('/workspace')}>
-            <Settings size={15} />
-            Settings
+          <button onClick={() => navigate('/workspace')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 10, border: 'none', background: 'transparent', color: '#475569', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Settings size={14} color="#94a3b8" />Settings
           </button>
         </div>
 
         {/* Team avatars */}
-        <div className="sidebar-team-avatars">
+        <div style={{ padding: '8px 16px 16px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {members.slice(0, 5).map((m) => {
             const name = m.profiles?.display_name || m.profiles?.username || '?';
             return (
-              <div
-                key={m.user_id}
-                className="team-avatar"
-                title={name}
-                style={{ background: avatarColor(name) }}
-              >
-                {m.profiles?.avatar_url
-                  ? <img src={m.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                  : initials(name)
-                }
+              <div key={m.user_id} title={name} style={{ width: 28, height: 28, borderRadius: 8, background: avatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                {m.profiles?.avatar_url ? <img src={m.profiles.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: 8, objectFit: 'cover' }} /> : initials(name)}
               </div>
             );
           })}
-          {members.length > 5 && (
-            <div className="team-avatar" style={{ background: '#1f2937', color: '#6b7280', fontSize: 10 }}>
-              +{members.length - 5}
-            </div>
-          )}
-          <button
-            onClick={async () => {
-              const email = prompt('Invite by email or @username:');
-              if (!email) return;
-              await supabase.from('project_invites').insert({ project_id: projectId, invited_by: user?.id, email: email.includes('@') && !email.startsWith('@') ? email : null, username: email.startsWith('@') ? email.slice(1) : null });
-              alert('Invite sent!');
-            }}
-            className="team-avatar"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.15)', color: '#6b7280', cursor: 'pointer' }}
-          >
+          <button onClick={() => setShowInviteModal(true)} style={{ width: 28, height: 28, borderRadius: 8, background: '#f1f5f9', border: '1.5px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>
             <Plus size={12} />
           </button>
         </div>
       </aside>
 
-      {/* ── Main ─────────────────────────────────────────────────────────── */}
-      <div className="workspace-main">
+      {/* ── Main ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Topbar */}
-        <div className="workspace-topbar">
-          <div className="workspace-topbar-title">
+        <div style={{ height: 56, background: '#fff', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {activeProduct && (
               <>
-                <span className={`product-pill ${activeProduct.id}`}>{activeProduct.label}</span>
-                {project?.name}
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: activeProduct.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <activeProduct.Icon size={14} color={activeProduct.color} />
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{activeProduct.label}</span>
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>/</span>
+                <span style={{ fontSize: 13, color: '#64748b' }}>{project?.name}</span>
               </>
             )}
-            {!activeProduct && <span style={{ color: '#6b7280' }}>Select a product</span>}
+            {channelFeedOpen && !activeProduct && (
+              <>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Hash size={14} color="#7c3aed" /></div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{activeChannelName}</span>
+              </>
+            )}
+            {!activeProduct && !channelFeedOpen && <span style={{ fontSize: 14, color: '#94a3b8' }}>Select a product or channel</span>}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={toggleCopilot}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: workspace.copilotOpen ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)',
-                border: '1px solid',
-                borderColor: workspace.copilotOpen ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.1)',
-                color: workspace.copilotOpen ? '#34d399' : '#9ca3af',
-                padding: '6px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600,
-                cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
-              }}
-            >
-              <Sparkles size={13} />
-              Copilot
-            </button>
-          </div>
+          <button
+            onClick={toggleCopilot}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: workspace.copilotOpen ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${workspace.copilotOpen ? '#bbf7d0' : '#e2e8f0'}`, color: workspace.copilotOpen ? '#10b981' : '#64748b', padding: '6px 14px', borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}
+          >
+            <Sparkles size={13} />Copilot
+          </button>
         </div>
 
-        {/* Product content */}
-        <div className="workspace-content">
-          <Outlet />
+        {/* Content area */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {channelFeedOpen && !activeProduct ? (
+            <ChannelFeed
+              channelId={workspace.activeChannelId}
+              channelName={activeChannelName}
+              members={members}
+              onInvite={() => setShowInviteModal(true)}
+            />
+          ) : (
+            <Outlet />
+          )}
         </div>
       </div>
 
-      {/* ── Copilot panel ────────────────────────────────────────────────── */}
+      {/* ── Copilot panel ── */}
       <TerraCopilot projectId={projectId} projectName={project?.name} />
+
+      {/* ── Modals ── */}
+      <AnimatePresence>
+        {showInviteModal && <InviteModal projectId={projectId} onClose={() => setShowInviteModal(false)} />}
+        {showChannelModal && <NewChannelModal projectId={projectId} onClose={() => setShowChannelModal(false)} onCreate={(ch) => setChannels(c => [...c, ch])} />}
+      </AnimatePresence>
     </div>
   );
 }

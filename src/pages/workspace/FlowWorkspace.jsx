@@ -112,7 +112,7 @@ export default function FlowWorkspace() {
             onClick={() => setShowNew(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              background: '#34d399', color: '#0a0a0f',
+              background: '#10b981', color: '#fff',
               border: 'none', borderRadius: 100, padding: '5px 10px',
               fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
             }}
@@ -139,7 +139,7 @@ export default function FlowWorkspace() {
             key={r.id}
             className={`flow-report-card ${activeReport?.id === r.id ? 'active' : ''}`}
             onClick={() => setActiveReport(r)}
-            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.07)', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ background: '#f8fafc', border: '1px solid #f1f5f9', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: TYPE_COLORS[r.report_type] || '#6b7280', flexShrink: 0 }} />
@@ -174,7 +174,7 @@ export default function FlowWorkspace() {
               onClick={() => setShowNew(true)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                background: '#c084fc', color: '#0a0a0f',
+                background: '#8b5cf6', color: '#fff',
                 border: 'none', borderRadius: 100, padding: '10px 20px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
               }}
@@ -191,7 +191,7 @@ export default function FlowWorkspace() {
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: `${typeColor}14`, color: typeColor, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                     {REPORT_TYPES.find(t => t.value === activeReport.report_type)?.label}
                   </span>
-                  <span style={{ fontSize: 11, color: '#4b5563', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: 100, border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ fontSize: 11, color: '#64748b', padding: '3px 8px', background: '#f1f5f9', borderRadius: 100, border: '1px solid #e2e8f0' }}>
                     {AUDIENCES.find(a => a.value === activeReport.audience)?.label}
                   </span>
                 </div>
@@ -204,7 +204,7 @@ export default function FlowWorkspace() {
               <button
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                  background: '#fff', border: '1.5px solid #e2e8f0',
                   borderRadius: 8, padding: '7px 12px', color: '#9ca3af',
                   fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 }}
@@ -249,22 +249,22 @@ export default function FlowWorkspace() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
             onClick={(e) => e.target === e.currentTarget && setShowNew(false)}
           >
             <motion.div
               initial={{ scale: 0.95, y: 16 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95 }}
-              style={{ background: '#111118', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 20 }}
+              style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 20, padding: 28, width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '0 40px 80px rgba(0,0,0,0.15)' }}
             >
               <div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f0f0f8', margin: 0 }}>Generate Report</h2>
-                <p style={{ fontSize: 13, color: '#4b5563', margin: '6px 0 0' }}>Terra AI will write it from your project data.</p>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: 0 }}>Generate Report</h2>
+                <p style={{ fontSize: 13, color: '#64748b', margin: '6px 0 0' }}>Terra AI will write it from your project data.</p>
               </div>
 
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Report Type</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Report Type</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {REPORT_TYPES.map(({ value, label, desc }) => (
                     <button
@@ -273,14 +273,14 @@ export default function FlowWorkspace() {
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '10px 14px', borderRadius: 10,
-                        background: reportType === value ? `${TYPE_COLORS[value]}10` : 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${reportType === value ? `${TYPE_COLORS[value]}35` : 'rgba(255,255,255,0.07)'}`,
+                        background: reportType === value ? `${TYPE_COLORS[value]}10` : '#f8fafc',
+                        border: `1px solid ${reportType === value ? `${TYPE_COLORS[value]}35` : '#e2e8f0'}`,
                         cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: reportType === value ? TYPE_COLORS[value] : '#d1d5db' }}>{label}</div>
-                        <div style={{ fontSize: 11, color: '#4b5563' }}>{desc}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: reportType === value ? TYPE_COLORS[value] : '#0f172a' }}>{label}</div>
+                        <div style={{ fontSize: 11, color: '#64748b' }}>{desc}</div>
                       </div>
                       {reportType === value && <ChevronRight size={14} color={TYPE_COLORS[value]} />}
                     </button>
@@ -289,7 +289,7 @@ export default function FlowWorkspace() {
               </div>
 
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Audience</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Audience</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {AUDIENCES.map(({ value, label }) => (
                     <button
@@ -297,9 +297,9 @@ export default function FlowWorkspace() {
                       onClick={() => setAudience(value)}
                       style={{
                         flex: 1, padding: '8px', borderRadius: 8,
-                        background: audience === value ? 'rgba(168,85,247,0.1)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${audience === value ? 'rgba(168,85,247,0.35)' : 'rgba(255,255,255,0.07)'}`,
-                        color: audience === value ? '#c084fc' : '#6b7280',
+                        background: audience === value ? 'rgba(139,92,246,0.08)' : '#f8fafc',
+                        border: `1px solid ${audience === value ? 'rgba(139,92,246,0.35)' : '#e2e8f0'}`,
+                        color: audience === value ? '#8b5cf6' : '#64748b',
                         fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
@@ -314,12 +314,12 @@ export default function FlowWorkspace() {
               )}
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button onClick={() => setShowNew(false)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 100, padding: '9px 18px', color: '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={() => setShowNew(false)} style={{ background: '#f1f5f9', border: '1.5px solid #e2e8f0', borderRadius: 100, padding: '9px 18px', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
                 <button
                   onClick={generate}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#c084fc', color: '#0a0a0f', border: 'none', borderRadius: 100, padding: '9px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
                   <Sparkles size={13} /> Generate
                 </button>
