@@ -34,7 +34,10 @@ _cors_origins = [
 if _frontend_url:
     _cors_origins.insert(0, _frontend_url)
 
-CORS(app, resources={r"/api/*": {"origins": _cors_origins}})
+CORS(app, resources={
+    r"/api/*": {"origins": _cors_origins},
+    r"/health": {"origins": _cors_origins},
+})
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(lens_bp)
