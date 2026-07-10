@@ -25,6 +25,7 @@ import WorkspaceLayout from './components/workspace/WorkspaceLayout';
 import LensWorkspace from './pages/workspace/LensWorkspace';
 import SimWorkspace from './pages/workspace/SimWorkspace';
 import FlowWorkspace from './pages/workspace/FlowWorkspace';
+import PlannerWorkspace from './pages/workspace/PlannerWorkspace';
 import ProfileSetup from './pages/workspace/ProfileSetup';
 import { supabase } from './lib/supabaseClient';
 import useTerraStore from './store/useTerraStore';
@@ -120,9 +121,10 @@ export default function App() {
         {/* Workspace */}
         <Route path="/workspace"           element={<WorkspaceDashboard />} />
         <Route path="/workspace/:projectId" element={<WorkspaceLayout />}>
-          <Route path="lens" element={<LensWorkspace />} />
-          <Route path="sim"  element={<SimWorkspace />} />
-          <Route path="flow" element={<FlowWorkspace />} />
+          <Route path="lens"    element={<LensWorkspace />} />
+          <Route path="sim"     element={<SimWorkspace />} />
+          <Route path="planner" element={<PlannerWorkspace />} />
+          <Route path="flow"    element={<FlowWorkspace />} />
         </Route>
         {/* Products (marketing pages) */}
         <Route path="/products/terra-lens" element={<TerraLens />} />

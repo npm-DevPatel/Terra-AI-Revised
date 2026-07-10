@@ -18,7 +18,7 @@ from flask import Blueprint, jsonify, request
 
 from core.auth import require_auth
 from core.vision import analyze_site_photo
-from core.gemini import synthesize_lens_report
+from core.gemini import synthesize_lens_report, generate_tap_answer
 from core.supabase import get_service_client
 from runtime_cache import TTLCache
 
@@ -243,3 +243,45 @@ def analyze():
         "gemini_done": False,
         "message": "Analysis saved. Gemini narrative will arrive in ~10s via Supabase Realtime.",
     })
+
+
+# ── Terra Tap — point-on-image Q&A ───────────────────────────────────────────
+
+@bp.route("/api/lens/tap", methods=["POST"])
+def tap():
+    """
+    Terra Tap: answer a question about a specific point the user tapped on their site image.
+    Accepts: {project_id, analysis_id (optional), tap_x_pct, tap_y_pct, question}
+    Returns: {answer: str}
+    """
+    user_id, raw_jwt, err = require_auth()
+    if err:
+        return err
+
+    body = request.get_json(silent=True) or {}
+    analysis_id = body.get("analysis_id")
+    project_id  = body.get("project_id")
+    tap_x_pct   = float(body.get("tap_x_pct", 0.5))
+    tap_y_pct   = float(body.get("tap_y_pct", 0.5))
+    question    = (body.get("question") or "").strip()
+
+    if not question:
+        return jsonify({"error": "question is required."}), 400
+    if not project_id and not analysis_id:
+        return jsonify({"error": "project_id or analysis_id is required."}), 400
+
+    # Fetch analysis context from Supabase
+    analysis_data = {}
+    sb = get_service_client()
+    if sb:
+        try:
+            if analysis_id:
+                res = sb.table("analyses").select("raw_result").eq("id", analysis_id).single().execute()
+            else:
+                res = sb.table("analyses").select("raw_result").eq("project_id", project_id).order("created_at", desc=True).limit(1).single().execute()
+            analysis_data = (res.data or {}).get("raw_result", {})
+        except Exception as exc:
+            print(f"[Lens Tap] Failed to fetch analysis (non-fatal): {exc}")
+
+    answer = generate_tap_answer(analysis_data, tap_x_pct, tap_y_pct, question)
+    return jsonify({"answer": answer})

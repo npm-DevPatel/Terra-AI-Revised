@@ -3,10 +3,16 @@ Terra AI — Backend API
 Flask application entry point.
 
 Routes:
-  POST /api/lens/analyze     — Vision + geospatial land analysis
-  POST /api/sim/recommend    — Site layout scenarios
-  POST /api/flow/report      — Professional report generation
-  POST /api/copilot/chat     — Cross-project AI assistant
+  POST  /api/lens/analyze       — Vision + geospatial land analysis
+  POST  /api/lens/tap           — Terra Tap point-on-image Q&A
+  POST  /api/sim/recommend      — Site layout scenarios
+  POST  /api/planner/generate   — AI project phase roadmap
+  POST  /api/planner/explain    — Explain a planner task
+  POST  /api/planner/priorities — Today's top 3 actions
+  PATCH /api/planner/update     — Evolve plan on new data
+  POST  /api/flow/report        — Professional JSON report
+  POST  /api/flow/html          — Beautiful 12-page HTML report
+  POST  /api/copilot/chat       — Cross-project AI assistant
 
 Collaboration (chat, notifications, invites, file storage) is handled
 entirely by Supabase from the frontend — no Python routes needed.
@@ -19,6 +25,7 @@ from lens.routes import bp as lens_bp
 from sim.routes import bp as sim_bp
 from flow.routes import bp as flow_bp
 from copilot.routes import bp as copilot_bp
+from planner.routes import bp as planner_bp
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB (photos)
@@ -43,6 +50,7 @@ app.register_blueprint(lens_bp)
 app.register_blueprint(sim_bp)
 app.register_blueprint(flow_bp)
 app.register_blueprint(copilot_bp)
+app.register_blueprint(planner_bp)
 
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.route("/health")

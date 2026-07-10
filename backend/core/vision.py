@@ -97,14 +97,17 @@ def analyze_site_photo(image_base64: str) -> dict:
     ]
     label_set = {l["description"] for l in labels}
 
-    # Extract detected objects with bounding boxes
-    objects = [
-        {
+    # Extract detected objects with normalized bounding boxes (for frontend overlay)
+    objects = []
+    for o in result_data.get("localizedObjectAnnotations", []):
+        verts = o.get("boundingPoly", {}).get("normalizedVertices", [])
+        # Normalised vertices are fractions 0-1; some may be missing x or y (default 0)
+        bbox = [{"x": v.get("x", 0), "y": v.get("y", 0)} for v in verts]
+        objects.append({
             "name": o["name"].lower(),
             "confidence": round(o["score"], 3),
-        }
-        for o in result_data.get("localizedObjectAnnotations", [])
-    ]
+            "bbox": bbox,  # 4 normalised vertices (top-left, top-right, bot-right, bot-left)
+        })
 
     # Extract any text visible on site (plot numbers, signage, warnings)
     text_annotations = result_data.get("textAnnotations", [])

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   ScanSearch, LayoutDashboard, FileText, Hash, Plus,
-  Sparkles, ChevronLeft, Settings, X, Send, Loader2,
+  Sparkles, ChevronLeft, Settings, X, Send, Loader2, Kanban,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
@@ -10,9 +10,10 @@ import { supabase } from '../../lib/supabaseClient';
 import TerraCopilot from './TerraCopilot';
 
 const PRODUCTS = [
-  { id: 'lens', label: 'Terra Lens', Icon: ScanSearch, color: '#10b981', bg: '#f0fdf4', path: 'lens' },
-  { id: 'sim',  label: 'Terra Sim',  Icon: LayoutDashboard, color: '#3b82f6', bg: '#eff6ff', path: 'sim' },
-  { id: 'flow', label: 'Terra Flow', Icon: FileText, color: '#8b5cf6', bg: '#f5f3ff', path: 'flow' },
+  { id: 'lens',    label: 'Terra Lens',    Icon: ScanSearch,      color: '#10b981', bg: '#f0fdf4', path: 'lens' },
+  { id: 'planner', label: 'Terra Planner', Icon: Kanban,           color: '#60a5fa', bg: '#eff6ff', path: 'planner' },
+  { id: 'sim',     label: 'Terra Sim',     Icon: LayoutDashboard, color: '#3b82f6', bg: '#eff6ff', path: 'sim' },
+  { id: 'flow',    label: 'Terra Report',  Icon: FileText,        color: '#8b5cf6', bg: '#f5f3ff', path: 'flow' },
 ];
 
 /* ─── Invite Modal ─────────────────────────────────────────── */

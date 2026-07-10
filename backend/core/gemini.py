@@ -1,11 +1,17 @@
 """
 core/gemini.py — All Gemini AI interactions for Terra AI.
 
-Four functions, each purpose-built:
-  1. synthesize_lens_report()  — land analysis from geospatial + vision data
-  2. answer_copilot()          — cross-project Q&A with @project context
-  3. recommend_sim_layout()    — site layout scenarios from saved Lens data
-  4. generate_flow_report()    — audience-calibrated professional report
+Functions:
+  1. synthesize_lens_report()     — land analysis from geospatial + vision data
+  2. answer_copilot()             — cross-project Q&A with @project context
+  3. recommend_sim_layout()       — site layout scenarios from saved Lens data
+  4. generate_flow_report()       — audience-calibrated professional report (JSON)
+  5. generate_tap_answer()        — Terra Tap: answer about a tapped image point
+  6. generate_planner_roadmap()   — AI phase roadmap for Terra Planner
+  7. explain_planner_task()       — explain why a specific task is in the plan
+  8. get_planner_priorities()     — surface today's top 3 actions
+  9. update_planner_from_event()  — dynamic plan evolution on new data
+ 10. generate_flow_html()         — beautiful 12-page branded HTML report
 """
 import json
 import logging
@@ -383,3 +389,327 @@ def _call_gemini(model_name: str, system_prompt: str, user_message: str, json_mo
     if json_mode:
         return {"error": f"Gemini unavailable: {str(last_exc)}", "gemini_failed": True}
     return f"Terra Copilot is temporarily unavailable: {str(last_exc)}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── 5. Terra Tap — point-on-image Q&A ────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+_TAP_SYSTEM = """You are Terra AI. A user tapped on a specific point in a site photograph and asked a question about it.
+Using the image analysis data provided, answer the question about the area near that point.
+Be concise (2-4 sentences). Be specific — reference what was visually detected.
+Respond as plain text (no JSON, no markdown)."""
+
+
+def generate_tap_answer(analysis_context: dict, tap_x_pct: float, tap_y_pct: float, question: str) -> str:
+    """
+    Answer a Terra Tap question about a specific point in a site image.
+
+    Args:
+        analysis_context: The raw_result from the analyses table (vision + geo data).
+        tap_x_pct: Horizontal tap position as a fraction 0–1 (left to right).
+        tap_y_pct: Vertical tap position as a fraction 0–1 (top to bottom).
+        question: The user's question about that point.
+    """
+    _require_key()
+
+    vision = analysis_context.get("vision_analysis", {})
+    objects = vision.get("objects", [])
+    labels = [l["description"] for l in vision.get("labels", [])[:8]]
+
+    # Find the object(s) whose bounding box contains or is nearest to the tap point
+    nearby = []
+    for obj in objects:
+        bbox = obj.get("bbox", [])
+        if len(bbox) == 4:
+            xs = [v.get("x", 0) for v in bbox]
+            ys = [v.get("y", 0) for v in bbox]
+            x_min, x_max = min(xs), max(xs)
+            y_min, y_max = min(ys), max(ys)
+            if x_min <= tap_x_pct <= x_max and y_min <= tap_y_pct <= y_max:
+                nearby.append(obj["name"])
+
+    user_msg = f"""The user tapped at position ({tap_x_pct:.2f}, {tap_y_pct:.2f}) in a site photograph where:
+  x=0 is left, x=1 is right, y=0 is top, y=1 is bottom.
+
+Objects detected in the image: {', '.join(o['name'] for o in objects[:8]) or 'None'}
+Objects at or near tap point: {', '.join(nearby) or 'None clearly at that point'}
+Scene labels: {', '.join(labels) or 'None'}
+Construction detected: {vision.get('construction_detected', False)}
+Water/drainage signals: {vision.get('water_signals', False)}
+Vegetation type: {vision.get('vegetation_type') or 'None classified'}
+Text on site: {', '.join(vision.get('text_on_site', [])[:3]) or 'None'}
+
+Site context (geospatial):
+  Score: {analysis_context.get('_deterministic_score', 'N/A')} / 100
+  Soil type: {analysis_context.get('soil_type', 'Unknown')}
+  Flood history: {analysis_context.get('flood_history', False)}
+  Riparian breach: {analysis_context.get('riparian_breach', False)}
+
+User's question about the tapped point: {question}"""
+
+    return _call_gemini(_FLASH, _TAP_SYSTEM, user_msg, json_mode=False)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── 6–9. Terra Planner ───────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+_PLANNER_SYSTEM = """You are Terra Planner — an expert construction project intelligence engine for Kenya.
+You generate AI-driven project roadmaps grounded in real site data.
+Every phase and task must be justified by the site analysis data.
+Reference soil type, flood risk, slope, legal constraints, infrastructure gaps explicitly.
+Respond ONLY with valid JSON. No markdown fences."""
+
+_PLANNER_SCHEMA = """{
+  "roadmap_title": "string",
+  "ai_intro": "string — 2-3 sentences explaining the plan rationale",
+  "total_estimated_weeks": "integer",
+  "site_context_summary": "string — key site facts that shaped this plan",
+  "phases": [
+    {
+      "id": "phase_1",
+      "number": 1,
+      "name": "string — e.g. Site Validation",
+      "status": "in_progress",
+      "ai_note": "string — why this phase comes at this position",
+      "estimated_weeks": "integer",
+      "tasks": [
+        {
+          "id": "string — short slug e.g. geotech_survey",
+          "name": "string",
+          "status": "pending",
+          "priority": "high|medium|low",
+          "estimated_days": "integer",
+          "auto_completed": "boolean — true if Lens already provides this data"
+        }
+      ]
+    }
+  ]
+}"""
+
+
+def generate_planner_roadmap(project_info: dict, analysis_data: dict) -> dict:
+    """
+    Generate a full 6-phase AI project roadmap for Terra Planner.
+
+    Args:
+        project_info: {name, description, use_class, budget_kes, floors}
+        analysis_data: raw_result from analyses table
+    """
+    _require_key()
+
+    score = analysis_data.get("_deterministic_score", 100)
+    deductions = analysis_data.get("_score_deductions", [])
+    risks = [d["reason"] for d in deductions]
+
+    user_msg = f"""Generate a detailed construction project roadmap for this Kenyan project.
+
+PROJECT:
+  Name: {project_info.get('name', 'Unnamed Project')}
+  Description: {project_info.get('description', 'Not specified')}
+  Use class: {project_info.get('use_class', 'residential')}
+  Target floors: {project_info.get('floors', 4)}
+  Budget: {project_info.get('budget_kes', 'Not specified')} KES
+
+TERRA LENS SITE ANALYSIS:
+  Feasibility score: {score}/100
+  Key risks detected: {', '.join(risks) or 'None'}
+  Soil type: {analysis_data.get('soil_type', 'Unknown')}
+  Clay %: {analysis_data.get('soil_clay_pct', 'N/A')}
+  Flood history: {analysis_data.get('flood_history', False)}
+  Riparian breach: {analysis_data.get('riparian_breach', False)}
+  Demolition risk: {analysis_data.get('demolition_risk', False)}
+  Slope %: {analysis_data.get('slope_percent', 'N/A')}
+  Distance to grid: {analysis_data.get('distance_to_grid_m', 'N/A')} m
+  Groundwater scarcity: {(analysis_data.get('groundwater') or {}).get('water_scarcity_risk', False)}
+
+Generate exactly 6 phases: Site Validation, Design, Approvals, Procurement, Construction, Completion.
+For each phase, generate realistic tasks. Mark tasks as auto_completed=true if Terra Lens already provides the data (e.g. terrain analysis = done if we have site analysis).
+The first phase should always have at least one auto_completed task to show immediate value."""
+
+    return _call_gemini(_FLASH, _PLANNER_SYSTEM + "\n\nSchema:\n" + _PLANNER_SCHEMA, user_msg)
+
+
+def explain_planner_task(task_name: str, phase_name: str, project_info: dict, analysis_data: dict) -> str:
+    """Return a 2-4 sentence plain-text explanation of why a task is in the plan."""
+    _require_key()
+
+    risks = [d["reason"] for d in analysis_data.get("_score_deductions", [])]
+    user_msg = f"""Task: "{task_name}" in phase "{phase_name}".
+Project: {project_info.get('name','')}, {project_info.get('use_class','residential')}, {project_info.get('floors',4)} floors.
+Site risks: {', '.join(risks) or 'None detected'}.
+Soil: {analysis_data.get('soil_type','Unknown')}, clay {analysis_data.get('soil_clay_pct','N/A')}%.
+Why is this task in the plan and why at this stage? Answer in 2-4 plain sentences."""
+
+    return _call_gemini(
+        _FLASH,
+        "You are Terra Planner. Explain a project task in 2-4 plain sentences grounded in site data. No JSON.",
+        user_msg, json_mode=False
+    )
+
+
+def get_planner_priorities(phases: list, analysis_data: dict) -> dict:
+    """
+    Surface the 3 most critical actions to take right now.
+    Returns {"priorities": [{"rank": 1, "task_name": str, "phase": str, "reason": str}]}
+    """
+    _require_key()
+
+    # Collect all pending tasks
+    pending = []
+    for ph in phases:
+        for t in ph.get("tasks", []):
+            if t.get("status") != "done" and not t.get("auto_completed"):
+                pending.append({"task": t["name"], "phase": ph["name"], "priority": t.get("priority", "medium")})
+
+    user_msg = f"""From these pending tasks, select the top 3 most critical to start today.
+Site score: {analysis_data.get('_deterministic_score', 100)}/100
+Flood risk: {analysis_data.get('flood_history', False)}
+Soil: {analysis_data.get('soil_type', 'Unknown')}
+Pending tasks: {json.dumps(pending[:20])}
+
+Return JSON: {{"priorities": [{{"rank": 1, "task_name": "str", "phase": "str", "reason": "str — 1 sentence"}}]}}"""
+
+    return _call_gemini(_FLASH, _PLANNER_SYSTEM, user_msg)
+
+
+def update_planner_from_event(phases: list, event_type: str, event_data: dict, analysis_data: dict) -> dict:
+    """
+    React to a new event (e.g. soil report uploaded) and update the plan.
+    Returns {"changes": [...], "updated_phases": [...same as roadmap phases...]}
+    """
+    _require_key()
+
+    user_msg = f"""The following event occurred on a Terra Planner project:
+Event type: {event_type}
+Event data: {json.dumps(event_data)[:1000]}
+
+Current phase summary: {json.dumps([{"phase": p['name'], "pending": sum(1 for t in p['tasks'] if t.get('status') != 'done')} for p in phases])}
+Site: soil={analysis_data.get('soil_type','Unknown')}, score={analysis_data.get('_deterministic_score',100)}
+
+Based on this event, what tasks can now be unlocked, reprioritised, or completed?
+Return JSON:
+{{
+  "changes": [{{"change_type": "task_unlocked|priority_raised|task_completed|timeline_reduced", "description": "string"}}],
+  "updated_phases": <same structure as planner schema phases[]>
+}}"""
+
+    return _call_gemini(_FLASH, _PLANNER_SYSTEM, user_msg)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── 10. Terra Report — beautiful HTML document ───────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+_HTML_SYSTEM = """You are Terra AI's report engine. Generate a beautiful, professional 12-page HTML report.
+OUTPUT: a single self-contained HTML string with ALL CSS inline in a <style> tag.
+No external fonts (use system fonts). No external images.
+The report must have:
+  - A cover page with the Terra AI name ("Terra AI"), the project name, report type, date, and a large inspiring quote
+  - A table of contents
+  - 10+ content sections with real data, professional tables, and key figures
+  - Footer on every page with "Terra AI — Where Building Begins..." and page info
+  - Terra AI branding in emerald green (#10b981) and dark slate (#0f172a)
+  - Inspiring Terra AI quotes spread through the document (pick from: "Every Building Tells a Story, We Help You Read It", "Every Project Deserves a Smarter Beginning", "AI That Sees Beyond the Surface", "Design Starts With Understanding")
+  - Data tables with proper borders and alternating row colours
+  - KES cost figures where available
+  - Professional typography, generous white space, print-ready layout using @media print
+Do NOT output anything except the HTML. Start with <!DOCTYPE html>."""
+
+
+_HTML_REPORT_SECTIONS = {
+    "site_suitability": [
+        "Executive Summary", "Site Overview & Coordinates",
+        "Land Feasibility Score", "Geotechnical Assessment",
+        "Hydrology & Flood Risk", "Legal & Regulatory Compliance",
+        "Infrastructure Assessment", "Environmental & Vegetation Analysis",
+        "Development Cost Estimates", "Risk Register", "Recommendations", "Appendix"
+    ],
+    "investor": [
+        "Executive Summary", "Investment Opportunity Overview",
+        "Site Risk Profile", "Market Context & Location Value",
+        "Development Feasibility", "Cost & Revenue Projections",
+        "Legal Status & Title", "Infrastructure & Utilities",
+        "Environmental Risk", "Risk-Adjusted Returns", "Recommendation", "Due Diligence Checklist"
+    ],
+    "architect": [
+        "Executive Summary", "Site Analysis Brief",
+        "Topography & Terrain", "Soil & Geotechnical Data",
+        "Solar Orientation & Passive Cooling", "Drainage & Hydrology",
+        "Zoning & Regulatory Constraints", "Infrastructure Connections",
+        "Vegetation & Site Cover", "Development Scenarios", "Sustainability Notes", "Appendix"
+    ],
+    "due_diligence": [
+        "Executive Summary", "Site Overview", "Legal & Title Status",
+        "Geotechnical Assessment", "Infrastructure Assessment",
+        "Risk Summary", "Cost Estimates", "Recommendation"
+    ],
+    "lender": [
+        "Executive Summary", "Property Overview", "Site Risk Assessment",
+        "Development Viability", "Cost & Revenue Analysis",
+        "Loan Security Assessment", "Conditions Precedent"
+    ],
+}
+
+
+def generate_flow_html(
+    analysis_data: dict,
+    sim_data: dict,
+    planner_data: dict,
+    report_type: str,
+    audience: str,
+    project_name: str = "Terra AI Project",
+) -> str:
+    """
+    Generate a beautiful 12-page branded HTML report.
+
+    Returns a raw HTML string ready to render in a browser and print as PDF.
+    """
+    _require_key()
+
+    sections = _HTML_REPORT_SECTIONS.get(report_type, _HTML_REPORT_SECTIONS["site_suitability"])
+    audience_note = _AUDIENCE_INSTRUCTIONS.get(audience, _AUDIENCE_INSTRUCTIONS["client"])
+    today = __import__("datetime").date.today().strftime("%B %d, %Y")
+
+    geo_summary = f"""
+Feasibility score: {analysis_data.get('_deterministic_score', 'N/A')}/100
+Label: {analysis_data.get('_deterministic_label', 'N/A')}
+Soil type: {analysis_data.get('soil_type', 'Unknown')} (clay {analysis_data.get('soil_clay_pct', 'N/A')}%)
+Slope: {analysis_data.get('slope_percent', 'N/A')}%
+Flood history: {analysis_data.get('flood_history', False)}
+Riparian breach: {analysis_data.get('riparian_breach', False)}
+Demolition risk: {analysis_data.get('demolition_risk', False)}
+Distance to grid: {analysis_data.get('distance_to_grid_m', 'N/A')} m
+Foundation premium estimate: KES {analysis_data.get('soil_foundation_premium_kes', 0):,}
+Groundwater scarcity: {(analysis_data.get('groundwater') or {}).get('water_scarcity_risk', False)}
+NDVI: {analysis_data.get('ndvi_score', 'N/A')} ({analysis_data.get('ndvi_interpretation', '')})
+Land cover: {analysis_data.get('land_cover_label', 'Unknown')}
+Address: {analysis_data.get('address', 'Not specified')}""" if analysis_data else "No Lens analysis available."
+
+    user_msg = f"""Generate a complete, professional {report_type.replace('_',' ').upper()} report as a full HTML document.
+
+Project name: {project_name}
+Report type: {report_type}
+Audience: {audience} — {audience_note}
+Date: {today}
+Required sections: {', '.join(sections)}
+
+TERRA LENS DATA:
+{geo_summary}
+
+TERRA SIM DATA:
+{json.dumps(sim_data, ensure_ascii=False)[:2000] if sim_data else 'No layout scenario available.'}
+
+TERRA PLANNER DATA:
+{json.dumps(planner_data, ensure_ascii=False)[:2000] if planner_data else 'No planner data available.'}
+
+Generate the full 12-page HTML now. Make every table data-driven using the figures above.
+Use emerald (#10b981) as the primary brand colour throughout.
+Include a professional risk register table, cost breakdown table, and timeline table.
+Spread the four Terra AI quotes across chapter dividers."""
+
+    result = _call_gemini(_PRO, _HTML_SYSTEM, user_msg, json_mode=False)
+    if isinstance(result, dict):
+        return f"<html><body><p>Report generation failed: {result.get('error','Unknown error')}</p></body></html>"
+    return result
