@@ -1,5 +1,6 @@
 import os
-from flask import Flask, jsonify
+import re
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from lens.routes import bp as lens_bp
@@ -12,19 +13,29 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB (photos)
 
 # ── CORS CONFIGURATION ────────────────────────────────────────────────────────
-allowed_origins = [
-    r"^https?://localhost:\d+$",                # Localhost development
-    r"^https://terra-ai-revised-.*\.onrender\.com$",  # Render PR previews / branch deploys
-    r"^https://terra-ai-revised-\d+\.onrender\.com$",  # Production frontend
+# NOTE: flask-cors does NOT evaluate plain strings as regex.
+# We use compiled regex patterns so matching actually works at runtime.
+_ORIGIN_PATTERNS = [
+    re.compile(r"^https?://localhost:\d+$"),                        # Local dev
+    re.compile(r"^https://terra-ai-revised(-\w+)?\.onrender\.com$"),# All Render deploys
 ]
 
-frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
-if frontend_url:
-    allowed_origins.append(frontend_url)
+# Exact URL set from env (optional hard-coded fallback)
+_EXTRA_ORIGINS: set[str] = set()
+_frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+if _frontend_url:
+    _EXTRA_ORIGINS.add(_frontend_url)
+
+
+def _is_allowed_origin(origin: str) -> bool:
+    if origin in _EXTRA_ORIGINS:
+        return True
+    return any(pat.match(origin) for pat in _ORIGIN_PATTERNS)
+
 
 CORS(
     app,
-    origins=allowed_origins,
+    origins=_is_allowed_origin,
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
     expose_headers=["Content-Type"],

@@ -9,7 +9,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: FRONTEND_URL
-        sync: false
+        value: https://terra-ai-revised-1.onrender.com
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: GEMINI_API_KEY
