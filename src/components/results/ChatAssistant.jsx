@@ -9,6 +9,8 @@ import micIcon from '../../assets/ai_chat/mic.png';
 import voiceLoadingGif from '../../assets/ai_chat/voice_loading.gif';
 import sendAudio from '../../assets/ai_chat/send.mp3';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 const OPENING_TEXT =
   'Hi, I am Terra AI. Ask me anything about this report, from land prices and family-use decisions to legal risk, access roads, drainage, and what you should verify before paying.';
 
@@ -123,7 +125,7 @@ export default function ChatAssistant({ open: controlledOpen, onOpenChange, hide
     setLoading(true);
 
     try {
-      const res = await fetch('/api/spatial/chat', {
+      const res = await fetch(`${API_BASE}/api/spatial/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

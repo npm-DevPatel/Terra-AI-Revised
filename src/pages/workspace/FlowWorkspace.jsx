@@ -23,6 +23,8 @@ import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles/workspace.css';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 const REPORT_TYPES = [
   { value: 'site_suitability', label: 'Site Suitability',  desc: 'Complete land assessment for any decision-maker', color: '#10b981', html: true },
   { value: 'investor',         label: 'Investor Report',   desc: 'Returns, risks, and viability for investors',    color: '#f59e0b', html: true },
@@ -118,7 +120,7 @@ export default function FlowWorkspace() {
   const generate = async () => {
     setGenerating(true); setError(''); setShowNew(false);
     try {
-      const endpoint = selectedMeta.html ? '/api/flow/html' : '/api/flow/report';
+      const endpoint = selectedMeta.html ? `${API_BASE}/api/flow/html` : `${API_BASE}/api/flow/report`;
       const res = await fetch(endpoint, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ project_id: projectId, report_type: reportType, audience }) });
@@ -230,7 +232,7 @@ export default function FlowWorkspace() {
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button onClick={() => {
                       setGenerating(true);
-                      fetch('/api/flow/html', { method: 'POST',
+                      fetch(`${API_BASE}/api/flow/html`, { method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
                         body: JSON.stringify({ project_id: projectId, report_type: activeReport.report_type, audience: activeReport.audience }) })
                         .then(r => r.json()).then(d => { if (d.html) setHtmlViewer({ html: d.html, title: d.title }); }).catch(() => {}).finally(() => setGenerating(false));

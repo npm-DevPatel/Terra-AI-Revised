@@ -38,6 +38,7 @@ export default function SimWorkspace() {
   const mapInstanceRef = useRef(null);
 
   const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
   // Load Google Maps with satellite layer
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function SimWorkspace() {
     setError('');
 
     try {
-      const res = await fetch('/api/sim/recommend', {
+      const res = await fetch(`${API_BASE}/api/sim/recommend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -9,6 +9,8 @@ import RiskSummaryCard from '../components/results/RiskSummaryCard';
 import useTerraStore from '../store/useTerraStore';
 import { supabase } from '../lib/supabaseClient';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 // ─── Error Toast ──────────────────────────────────────────────
 function ErrorToast({ message, onClose }) {
   return (
@@ -108,7 +110,7 @@ export default function Analyze() {
 
     // Fire an immediate wake-up ping before the main request
     try {
-      fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
+      fetch(`${API_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
     } catch {
       void 0;
     }
@@ -118,11 +120,11 @@ export default function Analyze() {
       if (attempt > 0) {
         setEngineStatus('loading', RETRY_MESSAGES[attempt - 1]);
         await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]));
-        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
+        fetch(`${API_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
       }
 
       try {
-        const res = await fetch('/api/spatial/scan', {
+        const res = await fetch(`${API_BASE}/api/spatial/scan`, {
           method: 'POST',
           headers,
           body,
@@ -189,7 +191,7 @@ export default function Analyze() {
         if (!isRetryable || attempt >= MAX_RETRIES) {
           break;
         }
-        fetch('/health', { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
+        fetch(`${API_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(5000) }).catch(() => {});
       }
     }
 

@@ -5,6 +5,8 @@ import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
 import '../../../src/styles/workspace.css';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export default function TerraCopilot({ projectId, projectName }) {
   const { workspace, toggleCopilot, addCopilotMessage, clearCopilotMessages } = useTerraStore();
   const { copilotOpen, copilotMessages } = workspace;
@@ -78,7 +80,7 @@ export default function TerraCopilot({ projectId, projectName }) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/copilot/chat', {
+      const res = await fetch(`${API_BASE}/api/copilot/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

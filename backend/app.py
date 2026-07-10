@@ -16,8 +16,8 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB (photos)
 # NOTE: flask-cors does NOT evaluate plain strings as regex.
 # We use compiled regex patterns so matching actually works at runtime.
 _ORIGIN_PATTERNS = [
-    re.compile(r"^https?://localhost:\d+$"),                        # Local dev
-    re.compile(r"^https://terra-ai-revised(-\w+)?\.onrender\.com$"),# All Render deploys
+    re.compile(r"^https?://localhost:\d+$"),                         # Local dev
+    re.compile(r"^https://terra-ai-revised(-[\w\d]+)*\.onrender\.com$"),  # All Render deploys
 ]
 
 # Exact URL set from env (optional hard-coded fallback)
@@ -42,6 +42,25 @@ CORS(
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     max_age=600,
 )
+
+
+@app.before_request
+def handle_preflight():
+    """Explicitly handle OPTIONS preflight so CORS headers are always present,
+    even when gunicorn/flask-cors miss them on cold starts."""
+    if request.method != "OPTIONS":
+        return None
+    origin = request.headers.get("Origin", "")
+    if not _is_allowed_origin(origin):
+        return None  # Let Flask return 403 naturally
+    from flask import make_response
+    resp = make_response("", 204)
+    resp.headers["Access-Control-Allow-Origin"] = origin
+    resp.headers["Access-Control-Allow-Credentials"] = "true"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    resp.headers["Access-Control-Max-Age"] = "600"
+    return resp
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(lens_bp)

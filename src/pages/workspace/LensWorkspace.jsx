@@ -21,6 +21,7 @@ import useTerraStore from '../../store/useTerraStore';
 import '../../styles/workspace.css';
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 /* ── Google Places Autocomplete input ─────────────────────────── */
 function PlacesInput({ onPlaceSelected }) {
@@ -208,7 +209,7 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
   const handleTapAsk = async q => {
     setTapLoading(true);
     try {
-      const res = await fetch('/api/lens/tap', { method: 'POST',
+      const res = await fetch(`${API_BASE}/api/lens/tap`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ project_id: projectId, analysis_id: analysisId, tap_x_pct: tapPos.xPct, tap_y_pct: tapPos.yPct, question: q }) });
       const data = await res.json();
@@ -224,7 +225,7 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
     setChatMsgs(p => [...p, { role: 'user', text: msg }]);
     setChatLoading(true);
     try {
-      const res = await fetch('/api/copilot/chat', { method: 'POST',
+      const res = await fetch(`${API_BASE}/api/copilot/chat`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ message: msg, resolved_refs: [{ type: 'project', id: projectId }] }) });
       const data = await res.json();
@@ -426,7 +427,7 @@ export default function LensWorkspace() {
     if (!image) return;
     setPhase('analyzing'); setError('');
     try {
-      const res = await fetch('/api/lens/analyze', { method: 'POST',
+      const res = await fetch(`${API_BASE}/api/lens/analyze`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({
           photo_base64: image.base64,

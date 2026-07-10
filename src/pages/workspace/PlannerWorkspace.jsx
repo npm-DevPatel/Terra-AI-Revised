@@ -23,6 +23,8 @@ import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles/workspace.css';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 const THINKING_STEPS = [
   'Understanding project type',
   'Analyzing site characteristics',
@@ -94,7 +96,7 @@ function ExplainModal({ taskName, phaseName, projectId, analysisId, onClose, ses
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/planner/explain', { method: 'POST',
+    fetch(`${API_BASE}/api/planner/explain`, { method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
       body: JSON.stringify({ project_id: projectId, task_name: taskName, phase_name: phaseName, analysis_id: analysisId }) })
       .then(r => r.json()).then(d => { setExplanation(d.explanation || 'No explanation available.'); setLoading(false); })
@@ -232,7 +234,7 @@ export default function PlannerWorkspace() {
   async function loadPriorities(phases) {
     setLoadingPriorities(true);
     try {
-      const res = await fetch('/api/planner/priorities', { method: 'POST',
+      const res = await fetch(`${API_BASE}/api/planner/priorities`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ project_id: projectId }) });
       const data = await res.json();
@@ -248,7 +250,7 @@ export default function PlannerWorkspace() {
 
   const onThinkingDone = async () => {
     try {
-      const res = await fetch('/api/planner/generate', { method: 'POST',
+      const res = await fetch(`${API_BASE}/api/planner/generate`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ project_id: projectId }) });
       const data = await res.json();
