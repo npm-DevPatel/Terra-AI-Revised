@@ -13,12 +13,87 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Camera, Upload, X, AlertTriangle, CheckCircle,
   Maximize2, Minimize2, Crosshair, MessageSquare,
-  LayoutDashboard, FileText, Sparkles, Send, Loader2,
+  LayoutDashboard, FileText, Sparkles, Send, Loader2, MapPin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 import useTerraStore from '../../store/useTerraStore';
 import '../../styles/workspace.css';
+
+const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+/* ── Google Places Autocomplete input ─────────────────────────── */
+function PlacesInput({ onPlaceSelected }) {
+  const inputRef = useRef(null);
+  const [value, setValue] = useState('');
+  const [ready, setReady] = useState(false);
+  const acRef = useRef(null);
+
+  // Load the Places library once
+  useEffect(() => {
+    if (!MAPS_KEY) return;
+    const loadPlaces = () => {
+      if (!window.google?.maps?.places) return;
+      acRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+        types: ['geocode'],
+        componentRestrictions: { country: 'ke' }, // Kenya-first (user can override)
+        fields: ['formatted_address', 'geometry', 'name', 'address_components'],
+      });
+      acRef.current.addListener('place_changed', () => {
+        const place = acRef.current.getPlace();
+        if (!place.geometry?.location) return;
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const label = place.formatted_address || place.name || '';
+        setValue(label);
+        onPlaceSelected({ lat, lng, label });
+      });
+      setReady(true);
+    };
+
+    if (window.google?.maps?.places) {
+      loadPlaces();
+    } else {
+      const scriptId = 'google-maps-places';
+      if (!document.getElementById(scriptId)) {
+        const s = document.createElement('script');
+        s.id = scriptId;
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&loading=async`;
+        s.async = true;
+        s.onload = loadPlaces;
+        document.head.appendChild(s);
+      } else {
+        // Script already loading — poll until ready
+        const iv = setInterval(() => {
+          if (window.google?.maps?.places) { clearInterval(iv); loadPlaces(); }
+        }, 200);
+        return () => clearInterval(iv);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleChange = e => {
+    setValue(e.target.value);
+    // If user clears the field, reset coords
+    if (!e.target.value) onPlaceSelected(null);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
+        <MapPin size={14} color="#94a3b8" />
+      </div>
+      <input
+        ref={inputRef}
+        className="sim-input"
+        placeholder="Search location — e.g. Mutitu, Kilgoris, Narok County"
+        value={value}
+        onChange={handleChange}
+        style={{ paddingLeft: 34 }}
+      />
+    </div>
+  );
+}
 
 const OBJ_COLORS = {
   tree:'#34d399', grass:'#4ade80', vegetation:'#86efac', water:'#60a5fa',
@@ -309,8 +384,7 @@ export default function LensWorkspace() {
 
   const [phase, setPhase] = useState('upload');
   const [image, setImage] = useState(null);
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
+  const [location, setLocation] = useState(null);  // { lat, lng, label } — set by PlacesInput
   const [title, setTitle] = useState('');
   const [result, setResult] = useState(null);
   const [geminiReport, setGeminiReport] = useState(null);
@@ -354,12 +428,16 @@ export default function LensWorkspace() {
     try {
       const res = await fetch('/api/lens/analyze', { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ photo_base64: image.base64,
-          lat: lat ? parseFloat(lat) : undefined, lng: lng ? parseFloat(lng) : undefined,
-          project_id: projectId, title: title || undefined }) });
+        body: JSON.stringify({
+          photo_base64: image.base64,
+          lat: location?.lat,
+          lng: location?.lng,
+          project_id: projectId,
+          // Use the place name as title if the user hasn't typed one
+          title: title || location?.label || undefined,
+        }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed.');
-      // Carry vision objects (with bboxes) through to viewer
       data.vision.objects = data.vision_objects_full || data.vision?.objects || [];
       setResult(data); setAnalysisId(data.analysis_id);
       setPhase('result'); subscribeToGemini(data.analysis_id);
@@ -368,7 +446,7 @@ export default function LensWorkspace() {
 
   const reset = () => {
     setPhase('upload'); setImage(null); setResult(null); setGeminiReport(null);
-    setError(''); setLat(''); setLng(''); setTitle(''); setAnalysisId(null); setFullscreen(false);
+    setError(''); setLocation(null); setTitle(''); setAnalysisId(null); setFullscreen(false);
   };
 
   if (fullscreen && image && result) {
@@ -414,11 +492,17 @@ export default function LensWorkspace() {
               <Camera size={16} /> Take a photo
             </button>
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => processFile(e.target.files?.[0])} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input className="sim-input" placeholder="Latitude (optional)" value={lat} onChange={e => setLat(e.target.value)} />
-              <input className="sim-input" placeholder="Longitude (optional)" value={lng} onChange={e => setLng(e.target.value)} />
-            </div>
-            <input className="sim-input" placeholder="Name this analysis — e.g. Ruiru plot 3" value={title} onChange={e => setTitle(e.target.value)} />
+            {/* Location search — replaces lat/lng fields */}
+            <PlacesInput onPlaceSelected={setLocation} />
+            {location && (
+              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#10b981', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '7px 12px' }}>
+                <MapPin size={12} />
+                <span>{location.label}</span>
+                <span style={{ color: '#4b5563', marginLeft: 'auto' }}>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
+              </motion.div>
+            )}
+            <input className="sim-input" placeholder="Name this analysis — e.g. Ruiru plot 3 (optional)" value={title} onChange={e => setTitle(e.target.value)} />
             {error && <div style={{ fontSize: 13, color: '#ef4444', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px' }}>{error}</div>}
             <button className="btn-primary" onClick={analyze} disabled={!image} style={{ fontSize: 14, padding: 13, borderRadius: 12 }}>Analyse Site</button>
           </motion.div>

@@ -14,7 +14,11 @@ import os
 import json
 from http_client import get_http_session
 
-_VISION_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")  # Same GCP project key
+_VISION_KEY = (
+    os.getenv("GOOGLE_CLOUD_VISION_API_KEY") or   # dedicated Vision key (preferred)
+    os.getenv("GOOGLE_MAPS_API_KEY") or            # fallback: same GCP project key
+    ""
+)
 _VISION_URL = "https://vision.googleapis.com/v1/images:annotate"
 
 # Features we request from Vision API
@@ -67,7 +71,8 @@ def analyze_site_photo(image_base64: str) -> dict:
         }
     """
     if not _VISION_KEY:
-        return {"error": "GOOGLE_MAPS_API_KEY not set — Vision API unavailable.", "labels": [], "objects": []}
+        print("[Vision] GOOGLE_CLOUD_VISION_API_KEY / GOOGLE_MAPS_API_KEY not set — skipping Vision API.")
+        return {"error": "Vision API key not configured.", "vision_available": False, "labels": [], "objects": []}
 
     payload = {
         "requests": [{
@@ -83,10 +88,23 @@ def analyze_site_photo(image_base64: str) -> dict:
             json=payload,
             timeout=15,
         )
+        if resp.status_code == 403:
+            print(f"[Vision] 403 Forbidden — Cloud Vision API not enabled on this key or quota exceeded.")
+            return {"error": "Vision API not enabled on this key (403).", "vision_available": False, "labels": [], "objects": []}
+        if resp.status_code == 400:
+            print(f"[Vision] 400 Bad Request — {resp.text[:200]}")
+            return {"error": "Vision API bad request.", "vision_available": False, "labels": [], "objects": []}
         resp.raise_for_status()
         data = resp.json()
     except Exception as exc:
-        return {"error": str(exc), "labels": [], "objects": []}
+        print(f"[Vision] Request failed: {exc}")
+        return {"error": str(exc), "vision_available": False, "labels": [], "objects": []}
+
+    # Check for Vision API error in response body
+    api_error = data.get("responses", [{}])[0].get("error")
+    if api_error:
+        print(f"[Vision] API error in response: {api_error}")
+        return {"error": api_error.get("message", "Unknown Vision error"), "vision_available": False, "labels": [], "objects": []}
 
     result_data = data.get("responses", [{}])[0]
 
@@ -137,7 +155,9 @@ def analyze_site_photo(image_base64: str) -> dict:
 
     water_signals = bool(label_set & _WATER_LABELS)
 
+    print(f"[Vision] OK — {len(labels)} labels, {len(objects)} objects detected.")
     return {
+        "vision_available": True,
         "labels": labels,
         "objects": objects,
         "text_on_site": text_on_site,

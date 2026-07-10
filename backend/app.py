@@ -18,7 +18,8 @@ Collaboration (chat, notifications, invites, file storage) is handled
 entirely by Supabase from the frontend — no Python routes needed.
 """
 import os
-from flask import Flask, jsonify
+import re
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from lens.routes import bp as lens_bp
@@ -32,18 +33,46 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB (photos)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 _frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
-_cors_origins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "https://terra-ai-revised-1.onrender.com",
-    "https://terra-ai-revised-frontend.onrender.com",
-]
-if _frontend_url and _frontend_url not in _cors_origins:
-    _cors_origins.insert(0, _frontend_url)
 
-CORS(app, resources={
-    r"/*": {"origins": _cors_origins, "supports_credentials": True}
-})
+# Allow any terra-ai-revised*.onrender.com subdomain (handles Render preview URLs)
+# plus localhost dev servers and the explicit FRONTEND_URL env var.
+_ORIGIN_RE = re.compile(
+    r'^(https?://localhost:\d+|https://terra-ai-revised[^.]*\.onrender\.com)$',
+    re.IGNORECASE,
+)
+
+def _is_origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if _frontend_url and origin.rstrip("/") == _frontend_url:
+        return True
+    return bool(_ORIGIN_RE.match(origin))
+
+CORS(
+    app,
+    origins=_is_origin_allowed,
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    expose_headers=["Content-Type"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    max_age=600,
+)
+
+@app.after_request
+def _add_cors_headers(response):
+    """Belt-and-suspenders: ensure CORS headers on every response."""
+    origin = request.headers.get("Origin", "")
+    if _is_origin_allowed(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization, X-Requested-With"
+        )
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        )
+        response.headers["Vary"] = "Origin"
+    return response
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(lens_bp)

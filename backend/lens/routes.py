@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Blueprint, jsonify, request
 
 from core.auth import require_auth
-from core.vision import analyze_site_photo
+from core.vision import analyze_site_photo, _VISION_KEY
 from core.gemini import synthesize_lens_report, generate_tap_answer
 from core.supabase import get_service_client
 from runtime_cache import TTLCache
@@ -233,11 +233,14 @@ def analyze():
         "risk_flags_count": sum(1 for d in deductions),
         "key_risks": [d["reason"] for d in deductions],
         "vision": {
+            "vision_available": vision_result.get("vision_available", False),
             "construction_detected": vision_result.get("construction_detected", False),
             "vegetation_type": vision_result.get("vegetation_type"),
             "water_signals": vision_result.get("water_signals", False),
             "labels": [l["description"] for l in vision_result.get("labels", [])[:5]],
             "text_on_site": vision_result.get("text_on_site", []),
+            # Include full objects list with bboxes for the annotated viewer
+            "objects": vision_result.get("objects", []),
         },
         "geospatial_available": bool(lat is not None),
         "gemini_done": False,
@@ -285,3 +288,34 @@ def tap():
 
     answer = generate_tap_answer(analysis_data, tap_x_pct, tap_y_pct, question)
     return jsonify({"answer": answer})
+
+
+# ── GET /api/lens/vision-health — test Vision API connectivity ────────────────
+
+@bp.route("/api/lens/vision-health", methods=["GET"])
+def vision_health():
+    """
+    Diagnostic endpoint — no auth required.
+    Returns whether Vision API is reachable and which key is configured.
+    Call: GET /api/lens/vision-health
+    """
+    import os
+    key_set = bool(_VISION_KEY)
+    key_source = (
+        "GOOGLE_CLOUD_VISION_API_KEY" if os.getenv("GOOGLE_CLOUD_VISION_API_KEY")
+        else "GOOGLE_MAPS_API_KEY" if os.getenv("GOOGLE_MAPS_API_KEY")
+        else "none"
+    )
+    # Test with a tiny 1×1 white pixel PNG (base64) — minimal API cost
+    TINY_PNG_B64 = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI6QAAAABJRU5ErkJggg=="
+    )
+    result = analyze_site_photo(TINY_PNG_B64)
+    return jsonify({
+        "key_configured": key_set,
+        "key_source": key_source,
+        "vision_available": result.get("vision_available", False),
+        "error": result.get("error"),
+        "labels_count": len(result.get("labels", [])),
+        "objects_count": len(result.get("objects", [])),
+    })
