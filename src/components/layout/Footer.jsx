@@ -8,10 +8,10 @@ import terraLogo from '../../assets/front_page/terra_logo.png';
 
 const FOOTER_LINKS = {
   Products: [
-    { label: 'Terra Lens',  to: '/products/terra-lens' },
-    { label: 'Terra Sim',   to: '/products/terra-sim' },
-    { label: 'Terra Flow',  to: '/products/terra-flow' },
-    { label: 'Pricing',     to: '/pricing' },
+    { label: 'Terra Lens',    to: '/products/terra-lens' },
+    { label: 'Terra Planner', to: '/products/terra-planner' },
+    { label: 'Terra Flow',    to: '/products/terra-flow' },
+    { label: 'Pricing',       to: '/pricing' },
   ],
   Solutions: [
     { label: 'Land Due Diligence',      to: '/solutions/land-due-diligence' },
@@ -26,9 +26,9 @@ const FOOTER_LINKS = {
     { label: 'Engineering Consultants', to: '/industries/engineering-consultants' },
   ],
   Company: [
-    { label: 'Analyze Land',  to: '/analyze' },
-    { label: 'Pricing',       to: '/pricing' },
-    { label: 'Sign In',       to: null, action: 'signin' },
+    { label: 'Workspace',  to: '/workspace' },
+    { label: 'Pricing',    to: '/pricing' },
+    { label: 'Sign In',    to: null, action: 'signin' },
   ],
 };
 
@@ -47,7 +47,7 @@ export default function Footer() {
             </p>
           </div>
           <Link
-            to="/analyze"
+            to="/workspace"
             className="flex-shrink-0 flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm rounded-full transition-colors shadow-lg shadow-emerald-900/40"
           >
             Start Analysing <ArrowRight className="w-4 h-4" />

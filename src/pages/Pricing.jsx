@@ -24,7 +24,7 @@ const SECTIONS = [
     ],
   },
   {
-    label: 'Terra Sim',
+    label: 'Terra Planner',
     icon: LayoutTemplate,
     color: 'text-indigo-500',
     rows: [
@@ -185,7 +185,7 @@ export default function Pricing() {
                 {plan.desc}
               </p>
               <button
-                onClick={() => plan.id === 'ent' ? null : navigate('/analyze')}
+                onClick={() => plan.id === 'ent' ? null : navigate('/workspace')}
                 className={`w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold transition-all ${plan.ctaStyle}`}
               >
                 {plan.cta} <ArrowRight className="w-3.5 h-3.5" />
@@ -282,7 +282,7 @@ export default function Pricing() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 relative z-10">
             <button
-              onClick={() => navigate('/analyze')}
+              onClick={() => navigate('/workspace')}
               className="flex items-center gap-2 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-full transition-all shadow-lg shadow-emerald-500/30 text-sm"
             >
               Start Free Analysis <ArrowRight className="w-4 h-4" />

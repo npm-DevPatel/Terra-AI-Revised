@@ -35,10 +35,10 @@ const PRODUCTS = [
     badgeColor: 'bg-emerald-100 text-emerald-700',
   },
   {
-    label: 'Terra Sim',
+    label: 'Terra Planner',
     tagline: 'Plan. Optimise. Build Smart.',
     desc: 'AI planning assistant for architects. Recommend building placement, setbacks, solar orientation, and site layouts before design begins.',
-    href: '/products/terra-sim',
+    href: '/products/terra-planner',
     icon: LayoutTemplate,
     color: 'text-indigo-600',
     bg: 'bg-indigo-50',
@@ -74,7 +74,7 @@ const PRODUCT_PICKS = [
   },
   {
     key: 'sim',
-    label: 'Terra Sim',
+    label: 'Terra Planner',
     icon: LayoutTemplate,
     desc: 'AI layout & scenario planning',
     color: '#60a5fa',
@@ -97,11 +97,18 @@ export default function Home() {
   const { user, openAuthModal } = useTerraStore();
   const [hoveredProduct, setHoveredProduct] = useState(null);
 
+  // Project ID for the default demo/landing project
+  const DEMO_PROJECT_ID = '87d674dd-9e52-45aa-8d97-c92085fc7975';
+
+  // Tool key → workspace sub-route
+  const TOOL_ROUTE = { lens: 'lens', sim: 'planner', flow: 'flow' };
+
   const handleProductPick = (productKey) => {
+    const tool = TOOL_ROUTE[productKey] || 'lens';
     if (user) {
-      navigate('/workspace');
+      navigate(`/workspace/${DEMO_PROJECT_ID}/${tool}`);
     } else {
-      openAuthModal({ tab: 'signup', redirectTo: '/workspace' });
+      openAuthModal({ tab: 'signup', redirectTo: `/workspace/${DEMO_PROJECT_ID}/${tool}` });
     }
   };
 

@@ -10,6 +10,7 @@ import AnimatedChat from '../../components/ui/AnimatedChat';
 import terraLensPhone from '../../assets/terra_lens_phone.jpeg';
 import terraLens from '../../assets/terra_lens.jpeg';
 import terraLens1 from '../../assets/terra_lens_1.jpeg';
+import useTerraStore from '../../store/useTerraStore';
 import '../../styles/product.css';
 
 const CAPABILITIES = [
@@ -30,6 +31,9 @@ const HOW_IT_WORKS = [
 
 export default function TerraLens() {
   const navigate = useNavigate();
+  const { user, openAuthModal } = useTerraStore();
+  const DEST = '/workspace/87d674dd-9e52-45aa-8d97-c92085fc7975/lens';
+  const handleTry = () => user ? navigate(DEST) : openAuthModal({ tab: 'signup', redirectTo: DEST });
   return (
     <MarketingLayout>
       {/* Hero */}
@@ -47,8 +51,7 @@ export default function TerraLens() {
               The world's first AI land screener that fuses computer vision with geospatial intelligence to surface hidden site risks before you sign a single document.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => navigate('/analyze')}
+              <button onClick={handleTry}
                 className="flex items-center gap-2 px-7 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-full transition-all shadow-md shadow-emerald-200"
               >
                 Try Terra Lens Free <ArrowRight className="w-4 h-4" />
@@ -180,7 +183,7 @@ export default function TerraLens() {
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
         <h2 className="text-4xl font-black text-slate-900 mb-4">Ready to see your land differently?</h2>
         <p className="text-slate-500 mb-8">Drop a pin anywhere in Kenya. Get results in 60 seconds.</p>
-        <button onClick={() => navigate('/analyze')} className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full transition-all shadow-lg shadow-emerald-200">
+        <button onClick={handleTry} className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full transition-all shadow-lg shadow-emerald-200">
           Start Free Analysis <ArrowRight className="w-4 h-4" />
         </button>
       </section>

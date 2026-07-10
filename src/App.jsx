@@ -127,9 +127,10 @@ export default function App() {
           <Route path="flow"    element={<FlowWorkspace />} />
         </Route>
         {/* Products (marketing pages) */}
-        <Route path="/products/terra-lens" element={<TerraLens />} />
-        <Route path="/products/terra-sim"  element={<TerraSim />} />
-        <Route path="/products/terra-flow" element={<TerraFlow />} />
+        <Route path="/products/terra-lens"    element={<TerraLens />} />
+        <Route path="/products/terra-planner" element={<TerraSim />} />
+        <Route path="/products/terra-sim"     element={<TerraSim />} />
+        <Route path="/products/terra-flow"    element={<TerraFlow />} />
         {/* Solutions */}
         <Route path="/solutions/land-due-diligence"     element={<LandDueDiligence />} />
         <Route path="/solutions/residential-development" element={<ResidentialDevelopment />} />

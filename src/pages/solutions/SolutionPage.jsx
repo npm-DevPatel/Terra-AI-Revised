@@ -55,7 +55,7 @@ export default function SolutionPage({
               ))}
             </ul>
             <button
-              onClick={() => navigate('/analyze')}
+              onClick={() => navigate('/workspace')}
               className={`flex items-center gap-2 px-7 py-3.5 ${ctaColor} text-white font-bold text-sm rounded-full transition-all shadow-md`}
             >
               {ctaLabel} <ArrowRight className="w-4 h-4" />
@@ -124,7 +124,7 @@ export default function SolutionPage({
         <h2 className="text-4xl font-black text-slate-900 mb-4">Ready to get started?</h2>
         <p className="text-slate-500 mb-8">Your first analysis is free. No credit card required.</p>
         <button
-          onClick={() => navigate('/analyze')}
+          onClick={() => navigate('/workspace')}
           className={`inline-flex items-center gap-2 px-8 py-4 ${ctaColor} text-white font-bold rounded-full transition-all shadow-lg`}
         >
           Start Free Analysis <ArrowRight className="w-4 h-4" />

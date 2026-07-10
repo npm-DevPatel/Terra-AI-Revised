@@ -8,6 +8,7 @@ import { FileText, ArrowRight, CheckCircle2, BarChart3, Clock, Users, Download, 
 import MarketingLayout from '../../components/layout/MarketingLayout';
 import AnimatedChat from '../../components/ui/AnimatedChat';
 import landingPageImage from '../../assets/front_page/landing_page.jpeg';
+import useTerraStore from '../../store/useTerraStore';
 import '../../styles/product.css';
 
 const CAPABILITIES = [
@@ -21,6 +22,9 @@ const CAPABILITIES = [
 
 export default function TerraFlow() {
   const navigate = useNavigate();
+  const { user, openAuthModal } = useTerraStore();
+  const DEST = '/workspace/87d674dd-9e52-45aa-8d97-c92085fc7975/flow';
+  const handleTry = () => user ? navigate(DEST) : openAuthModal({ tab: 'signup', redirectTo: DEST });
   return (
     <MarketingLayout>
       {/* Hero */}
@@ -39,7 +43,7 @@ export default function TerraFlow() {
             </p>
             <div className="flex flex-wrap gap-4">
               <button
-                onClick={() => navigate('/analyze')}
+                onClick={handleTry}
                 className="flex items-center gap-2 px-7 py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-full transition-all shadow-md shadow-amber-200"
               >
                 Generate a Report <ArrowRight className="w-4 h-4" />
@@ -126,7 +130,7 @@ export default function TerraFlow() {
       <section className="max-w-7xl mx-auto px-6 py-16 text-center">
         <h2 className="text-4xl font-black text-slate-900 mb-4">Your first report is free.</h2>
         <p className="text-slate-500 mb-8">Analyse any plot in Kenya and download your land intelligence report in under 60 seconds.</p>
-        <button onClick={() => navigate('/analyze')} className="inline-flex items-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-full transition-all shadow-lg shadow-amber-200">
+        <button onClick={handleTry} className="inline-flex items-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-full transition-all shadow-lg shadow-amber-200">
           Generate a Report <ArrowRight className="w-4 h-4" />
         </button>
       </section>

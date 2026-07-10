@@ -25,9 +25,9 @@ const NAV_ITEMS = {
         bg: 'bg-emerald-50',
       },
       {
-        label: 'Terra Sim',
+        label: 'Terra Planner',
         desc: 'AI planning assistant for architects',
-        href: '/products/terra-sim',
+        href: '/products/terra-planner',
         icon: LayoutTemplate,
         color: 'text-indigo-600',
         bg: 'bg-indigo-50',
@@ -201,7 +201,7 @@ export default function Navbar() {
             {user ? (
               <>
                 <button
-                  onClick={() => navigate('/analyze')}
+                  onClick={() => navigate('/workspace')}
                   className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors"
                 >
                   Dashboard
@@ -272,7 +272,7 @@ export default function Navbar() {
                   Pricing
                 </Link>
                 {user ? (
-                  <button onClick={() => navigate('/analyze')} className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                  <button onClick={() => navigate('/workspace')} className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
                     Dashboard
                   </button>
                 ) : (

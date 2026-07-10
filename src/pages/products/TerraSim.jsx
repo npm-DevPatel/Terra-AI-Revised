@@ -9,6 +9,7 @@ import MarketingLayout from '../../components/layout/MarketingLayout';
 import AnimatedChat from '../../components/ui/AnimatedChat';
 import terraPlanner from '../../assets/terra_planner.jpeg';
 import constructionImg from '../../assets/construction.jpeg';
+import useTerraStore from '../../store/useTerraStore';
 import '../../styles/product.css';
 
 const CAPABILITIES = [
@@ -31,6 +32,9 @@ const OUTPUTS = [
 
 export default function TerraSim() {
   const navigate = useNavigate();
+  const { user, openAuthModal } = useTerraStore();
+  const DEST = '/workspace/87d674dd-9e52-45aa-8d97-c92085fc7975/planner';
+  const handleTry = () => user ? navigate(DEST) : openAuthModal({ tab: 'signup', redirectTo: DEST });
   return (
     <MarketingLayout>
       {/* Hero */}
@@ -49,7 +53,7 @@ export default function TerraSim() {
             </p>
             <div className="flex flex-wrap gap-4">
               <button
-                onClick={() => navigate('/analyze')}
+                onClick={handleTry}
                 className="flex items-center gap-2 px-7 py-3.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-full transition-all shadow-md shadow-indigo-200"
               >
                 Try Terra Sim <ArrowRight className="w-4 h-4" />
@@ -104,12 +108,12 @@ export default function TerraSim() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => navigate('/analyze')} className="self-start mt-8 flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-sm rounded-full transition-all">
+            <button onClick={handleTry} className="self-start mt-8 flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-sm rounded-full transition-all">
               Start Planning <ArrowRight className="w-4 h-4" />
             </button>
           </div>
           <div className="relative hidden lg:block">
-            <img src={deepScan} alt="Site planning" className="w-full h-full object-cover opacity-60" />
+            <img src={terraPlanner} alt="Site planning" className="w-full h-full object-cover opacity-60" />
           </div>
         </div>
       </section>
@@ -168,7 +172,7 @@ export default function TerraSim() {
       <section className="max-w-7xl mx-auto px-6 py-16 text-center">
         <h2 className="text-4xl font-black text-slate-900 mb-4">Stop guessing. Start planning with AI.</h2>
         <p className="text-slate-500 mb-8">Terra Sim is free to try on any Kenyan plot.</p>
-        <button onClick={() => navigate('/analyze')} className="inline-flex items-center gap-2 px-8 py-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-full transition-all shadow-lg shadow-indigo-200">
+        <button onClick={handleTry} className="inline-flex items-center gap-2 px-8 py-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-full transition-all shadow-lg shadow-indigo-200">
           Try Terra Sim Free <ArrowRight className="w-4 h-4" />
         </button>
       </section>
