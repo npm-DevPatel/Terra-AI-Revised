@@ -1,7 +1,6 @@
 import os
 import re
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from flask import Flask, jsonify, make_response, request
 
 from lens.routes import bp as lens_bp
 from sim.routes import bp as sim_bp
@@ -12,55 +11,74 @@ from planner.routes import bp as planner_bp
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB (photos)
 
-# ── CORS CONFIGURATION ────────────────────────────────────────────────────────
-# NOTE: flask-cors does NOT evaluate plain strings as regex.
-# We use compiled regex patterns so matching actually works at runtime.
-_ORIGIN_PATTERNS = [
-    re.compile(r"^https?://localhost:\d+$"),                         # Local dev
-    re.compile(r"^https://terra-ai-revised(-[\w\d]+)*\.onrender\.com$"),  # All Render deploys
-]
+# ── CORS — fully manual, no flask-cors dependency ────────────────────────────
+# flask-cors callable-origin support is unreliable across versions.
+# We own the full CORS logic here: explicit allowlist + regex fallback.
 
-# Exact URL set from env (optional hard-coded fallback)
-_EXTRA_ORIGINS: set[str] = set()
-_frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
-if _frontend_url:
-    _EXTRA_ORIGINS.add(_frontend_url)
+_ALLOWED_ORIGINS_EXPLICIT: set[str] = {
+    # Hard-coded safe list — covers all known Render deploy URLs
+    "https://terra-ai-revised-1.onrender.com",
+    "https://terra-ai-revised.onrender.com",
+    "https://terra-ai-revised-backend.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000",
+}
+
+# Also pick up FRONTEND_URL from environment (set in render.yaml)
+_frontend_env = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+if _frontend_env:
+    _ALLOWED_ORIGINS_EXPLICIT.add(_frontend_env)
+
+# Regex fallback — covers any future terra-ai-revised-*.onrender.com
+_ORIGIN_RE = re.compile(r"^https?://(?:localhost:\d+|terra-ai-revised[\w-]*\.onrender\.com)$")
 
 
-def _is_allowed_origin(origin: str) -> bool:
-    if origin in _EXTRA_ORIGINS:
+def _is_allowed(origin: str) -> bool:
+    """Return True if the request Origin should receive CORS headers."""
+    if not origin:
+        return False
+    if origin in _ALLOWED_ORIGINS_EXPLICIT:
         return True
-    return any(pat.match(origin) for pat in _ORIGIN_PATTERNS)
+    return bool(_ORIGIN_RE.match(origin))
 
 
-CORS(
-    app,
-    origins=_is_allowed_origin,
-    supports_credentials=True,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-    expose_headers=["Content-Type"],
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    max_age=600,
-)
+_CORS_HEADERS = {
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods":     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers":     "Content-Type, Authorization, X-Requested-With",
+    "Access-Control-Max-Age":           "600",
+}
 
 
 @app.before_request
-def handle_preflight():
-    """Explicitly handle OPTIONS preflight so CORS headers are always present,
-    even when gunicorn/flask-cors miss them on cold starts."""
+def cors_preflight():
+    """Handle OPTIONS preflight — must return 204 with CORS headers immediately."""
     if request.method != "OPTIONS":
         return None
     origin = request.headers.get("Origin", "")
-    if not _is_allowed_origin(origin):
-        return None  # Let Flask return 403 naturally
-    from flask import make_response
+    if not _is_allowed(origin):
+        # Still return 200 so the browser doesn't get a network error, but
+        # without Allow-Origin the browser will block the follow-up request.
+        return make_response("", 204)
     resp = make_response("", 204)
     resp.headers["Access-Control-Allow-Origin"] = origin
-    resp.headers["Access-Control-Allow-Credentials"] = "true"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-    resp.headers["Access-Control-Max-Age"] = "600"
+    for k, v in _CORS_HEADERS.items():
+        resp.headers[k] = v
     return resp
+
+
+@app.after_request
+def cors_headers(response):
+    """Inject Access-Control-Allow-Origin on every non-OPTIONS response."""
+    origin = request.headers.get("Origin", "")
+    if _is_allowed(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        # Expose Content-Type so fetch() can read it
+        response.headers["Access-Control-Expose-Headers"] = "Content-Type"
+    return response
+
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(lens_bp)
@@ -74,17 +92,21 @@ app.register_blueprint(planner_bp)
 def health():
     return jsonify({"status": "ok", "service": "terra-ai-api"})
 
+
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"error": "Route not found."}), 404
+
 
 @app.errorhandler(413)
 def too_large(e):
     return jsonify({"error": "Request too large. Max 20 MB."}), 413
 
+
 @app.errorhandler(500)
 def server_error(e):
     return jsonify({"error": "Internal server error."}), 500
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
