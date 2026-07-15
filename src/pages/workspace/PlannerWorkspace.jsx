@@ -222,11 +222,11 @@ export default function PlannerWorkspace() {
   async function loadExistingPlan() {
     const { data } = await supabase.from('sim_plans')
       .select('id,result,created_at').eq('project_id', projectId)
-      .eq('scenario', 'planner').order('created_at', { ascending: false }).limit(1).single();
-    if (data?.result?.phases?.length) {
-      setPlan(data.result);
+      .eq('scenario', 'planner').order('created_at', { ascending: false }).limit(1);
+    if (data && data[0]?.result?.phases?.length) {
+      setPlan(data[0].result);
       setUiState('ready');
-      loadPriorities(data.result.phases);
+      loadPriorities(data[0].result.phases);
     }
   }
 

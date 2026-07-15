@@ -3,10 +3,12 @@ import { useParams, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   ScanSearch, LayoutDashboard, FileText, Hash, Plus,
   Sparkles, ChevronLeft, Settings, X, Send, Loader2, Kanban,
+  UserPlus, Mail, CheckCircle, AlertCircle, Users,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
+import { API_BASE_URL } from '../../lib/apiBase';
 import TerraCopilot from './TerraCopilot';
 
 const PRODUCTS = [
@@ -17,55 +19,112 @@ const PRODUCTS = [
 ];
 
 /* ─── Invite Modal ─────────────────────────────────────────── */
-function InviteModal({ projectId, onClose }) {
-  const { user } = useTerraStore();
-  const [val, setVal] = useState('');
+function InviteModal({ projectId, onClose, session }) {
+  const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState(false);
+  const [status, setStatus] = useState(null); // null | 'success' | 'error'
+  const [errorMsg, setErrorMsg] = useState('');
+  const [pendingInvites, setPendingInvites] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/invites/pending?project_id=${projectId}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    }).then(r => r.json()).then(d => setPendingInvites(d.invites || [])).catch(() => {});
+  }, [projectId, session]);
 
   async function send() {
-    if (!val.trim()) return;
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) return;
     setSending(true);
-    const isEmail = val.includes('@') && !val.startsWith('@');
-    await supabase.from('project_invites').insert({
-      project_id: projectId,
-      invited_by: user?.id,
-      email: isEmail ? val.trim() : null,
-      username: !isEmail ? val.replace(/^@/, '') : null,
-    });
+    setStatus(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/invites/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ project_id: projectId, email: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setErrorMsg(data.error || 'Failed to send invite.'); setStatus('error'); }
+      else {
+        setStatus('success');
+        setPendingInvites(prev => [{ id: data.invite_id, email: trimmed, created_at: new Date().toISOString() }, ...prev]);
+        setEmail('');
+      }
+    } catch { setErrorMsg('Network error.'); setStatus('error'); }
     setSending(false);
-    setDone(true);
-    setTimeout(onClose, 1500);
+  }
+
+  async function revoke(inviteId) {
+    await fetch(`${API_BASE_URL}/api/invites/${inviteId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    });
+    setPendingInvites(prev => prev.filter(i => i.id !== inviteId));
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(6px)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <motion.div
-        initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        style={{ background: '#fff', borderRadius: 20, padding: 32, width: 420, boxShadow: '0 40px 80px rgba(0,0,0,0.15)', fontFamily: "'Gabarito', 'Inter', system-ui" }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(8px)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        style={{ background: '#fff', borderRadius: 24, padding: 32, width: 460, boxShadow: '0 40px 80px rgba(0,0,0,0.18)', fontFamily: "'Gabarito','Inter',system-ui", maxHeight: '90vh', overflowY: 'auto' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0f172a' }}>Invite teammate</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UserPlus size={18} color="#10b981" />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Invite teammate</h2>
+              <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>They'll get a branded Terra AI email</p>
+            </div>
+          </div>
           <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', color: '#64748b' }}><X size={16} /></button>
         </div>
-        {done ? (
-          <div style={{ textAlign: 'center', padding: '24px 0', color: '#10b981', fontSize: 14, fontWeight: 600 }}>✓ Invite sent!</div>
-        ) : (
-          <>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>Enter an email address or @username to invite.</p>
-            <input
-              value={val} onChange={e => setVal(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && send()}
-              placeholder="Email or @username"
-              style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#0f172a', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+
+        {/* Email input */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '0 14px' }}>
+            <Mail size={14} color="#94a3b8" />
+            <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="colleague@email.com"
+              style={{ flex: 1, padding: '11px 0', border: 'none', background: 'transparent', color: '#0f172a', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
             />
-            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-              <button onClick={onClose} style={{ flex: 1, background: '#f1f5f9', border: 'none', borderRadius: 100, padding: '11px 0', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={send} disabled={!val.trim() || sending} style={{ flex: 2, background: val.trim() ? '#10b981' : '#e2e8f0', border: 'none', borderRadius: 100, padding: '11px 0', color: val.trim() ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: val.trim() ? 'pointer' : 'default', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                {sending ? <Loader2 size={14} className="spin" /> : <Send size={13} />} Send invite
-              </button>
-            </div>
-          </>
+          </div>
+          <button onClick={send} disabled={!email.trim() || sending}
+            style={{ background: email.trim() ? '#10b981' : '#e2e8f0', border: 'none', borderRadius: 10, padding: '0 18px', color: email.trim() ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: email.trim() ? 'pointer' : 'default', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+            {sending ? <Loader2 size={14} className="spin" /> : <Send size={13} />} Send
+          </button>
+        </div>
+
+        {status === 'success' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#16a34a' }}>
+            <CheckCircle size={14} /> Invite sent! They'll receive a branded email shortly.
+          </div>
+        )}
+        {status === 'error' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#dc2626' }}>
+            <AlertCircle size={14} /> {errorMsg}
+          </div>
+        )}
+
+        {/* Pending invites list */}
+        {pendingInvites.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Pending invites</p>
+            {pendingInvites.map(inv => (
+              <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: '#f8fafc', borderRadius: 8, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Mail size={12} color="#0284c7" />
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{inv.email}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#94a3b8' }}>Awaiting acceptance</p>
+                  </div>
+                </div>
+                <button onClick={() => revoke(inv.id)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>Revoke</button>
+              </div>
+            ))}
+          </div>
         )}
       </motion.div>
     </div>
@@ -243,7 +302,7 @@ export default function WorkspaceLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { workspace, setActiveProject, setActiveChannel, toggleCopilot, user } = useTerraStore();
+  const { workspace, setActiveProject, setActiveChannel, toggleCopilot, user, session } = useTerraStore();
 
   const [project, setProject] = useState(null);
   const [channels, setChannels] = useState([]);
@@ -443,7 +502,7 @@ export default function WorkspaceLayout() {
 
       {/* ── Modals ── */}
       <AnimatePresence>
-        {showInviteModal && <InviteModal projectId={projectId} onClose={() => setShowInviteModal(false)} />}
+        {showInviteModal && <InviteModal projectId={projectId} onClose={() => setShowInviteModal(false)} session={session} />}
         {showChannelModal && <NewChannelModal projectId={projectId} onClose={() => setShowChannelModal(false)} onCreate={(ch) => setChannels(c => [...c, ch])} />}
       </AnimatePresence>
     </div>

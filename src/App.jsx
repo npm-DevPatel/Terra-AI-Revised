@@ -27,6 +27,7 @@ import SimWorkspace from './pages/workspace/SimWorkspace';
 import FlowWorkspace from './pages/workspace/FlowWorkspace';
 import PlannerWorkspace from './pages/workspace/PlannerWorkspace';
 import ProfileSetup from './pages/workspace/ProfileSetup';
+import InviteAccept from './pages/InviteAccept';
 import { supabase } from './lib/supabaseClient';
 import useTerraStore from './store/useTerraStore';
 import AuthModal from './components/auth/AuthModal';
@@ -118,6 +119,8 @@ export default function App() {
         <Route path="/reset-password"      element={<UpdatePassword />} />
         {/* Profile setup */}
         <Route path="/profile/setup"       element={<ProfileSetup />} />
+        {/* Invite accept */}
+        <Route path="/invite/accept"        element={<InviteAccept />} />
         {/* Workspace */}
         <Route path="/workspace"           element={<WorkspaceDashboard />} />
         <Route path="/workspace/:projectId" element={<WorkspaceLayout />}>

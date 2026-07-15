@@ -7,6 +7,7 @@ from sim.routes import bp as sim_bp
 from flow.routes import bp as flow_bp
 from copilot.routes import bp as copilot_bp
 from planner.routes import bp as planner_bp
+from invites.routes import bp as invites_bp
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB (photos)
@@ -87,6 +88,7 @@ app.register_blueprint(sim_bp)
 app.register_blueprint(flow_bp)
 app.register_blueprint(copilot_bp)
 app.register_blueprint(planner_bp)
+app.register_blueprint(invites_bp)
 
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.route("/health")
