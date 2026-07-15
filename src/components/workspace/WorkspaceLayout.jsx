@@ -354,6 +354,7 @@ export default function WorkspaceLayout() {
     setActiveChannel(ch.id);
     setActiveChannelName(ch.name);
     setChannelFeedOpen(true);
+    navigate(`/workspace/${projectId}`);
   }
 
   return (
