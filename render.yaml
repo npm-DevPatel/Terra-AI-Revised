@@ -41,7 +41,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://terra-ai-revised-backend.onrender.com
+        value: https://terra-ai-revised.onrender.com
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY

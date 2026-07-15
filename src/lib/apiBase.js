@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = 'https://terra-ai-revised-backend.onrender.com';
+const DEFAULT_API_BASE_URL = 'https://terra-ai-revised.onrender.com';
 
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL)
   .trim()
