@@ -8,8 +8,7 @@ import ProgressiveLoader from '../components/results/ProgressiveLoader';
 import RiskSummaryCard from '../components/results/RiskSummaryCard';
 import useTerraStore from '../store/useTerraStore';
 import { supabase } from '../lib/supabaseClient';
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+import { API_BASE_URL as API_BASE } from '../lib/apiBase';
 
 // ─── Error Toast ──────────────────────────────────────────────
 function ErrorToast({ message, onClose }) {

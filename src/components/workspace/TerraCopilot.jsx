@@ -3,9 +3,8 @@ import { X, Sparkles, SendHorizonal, AtSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
+import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
 import '../../../src/styles/workspace.css';
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 export default function TerraCopilot({ projectId, projectName }) {
   const { workspace, toggleCopilot, addCopilotMessage, clearCopilotMessages } = useTerraStore();

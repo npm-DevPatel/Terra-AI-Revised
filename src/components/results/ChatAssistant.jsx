@@ -3,13 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, UserRound } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
+import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
 import terraLogo from '../../assets/front_page/terra_logo.png';
 import sendIcon from '../../assets/ai_chat/send.png';
 import micIcon from '../../assets/ai_chat/mic.png';
 import voiceLoadingGif from '../../assets/ai_chat/voice_loading.gif';
 import sendAudio from '../../assets/ai_chat/send.mp3';
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 const OPENING_TEXT =
   'Hi, I am Terra AI. Ask me anything about this report, from land prices and family-use decisions to legal risk, access roads, drainage, and what you should verify before paying.';

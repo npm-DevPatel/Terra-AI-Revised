@@ -18,10 +18,10 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 import useTerraStore from '../../store/useTerraStore';
+import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
 import '../../styles/workspace.css';
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 /* ── Google Places Autocomplete input ─────────────────────────── */
 function PlacesInput({ onPlaceSelected }) {

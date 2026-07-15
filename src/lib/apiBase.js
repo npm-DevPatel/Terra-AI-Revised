@@ -1,8 +1,14 @@
 const DEFAULT_API_BASE_URL = 'https://terra-ai-revised.onrender.com';
 
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL)
-  .trim()
-  .replace(/\/$/, '');
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && !envUrl.includes("terra-ai-revised-backend")) {
+    return envUrl.trim().replace(/\/$/, '');
+  }
+  return DEFAULT_API_BASE_URL;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const API_PREFIXES = ['/api/', '/health', '/ready'];
 

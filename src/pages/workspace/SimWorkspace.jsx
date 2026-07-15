@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Layers, Satellite, Map, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
+import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
 import '../../styles/workspace.css';
 
 const USE_CLASSES = [
@@ -38,7 +39,6 @@ export default function SimWorkspace() {
   const mapInstanceRef = useRef(null);
 
   const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
   // Load Google Maps with satellite layer
   useEffect(() => {

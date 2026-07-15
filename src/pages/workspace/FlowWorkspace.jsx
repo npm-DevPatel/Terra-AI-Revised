@@ -21,9 +21,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
+import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
 import '../../styles/workspace.css';
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 const REPORT_TYPES = [
   { value: 'site_suitability', label: 'Site Suitability',  desc: 'Complete land assessment for any decision-maker', color: '#10b981', html: true },
