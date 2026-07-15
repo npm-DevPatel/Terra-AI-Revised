@@ -20,6 +20,7 @@ _ALLOWED_ORIGINS_EXPLICIT: set[str] = {
     "https://terra-ai-revised-1.onrender.com",
     "https://terra-ai-revised.onrender.com",
     "https://terra-ai-revised-backend.onrender.com",
+    "https://terra-ai-revised-frontend.onrender.com",
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5000",
@@ -30,8 +31,8 @@ _frontend_env = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 if _frontend_env:
     _ALLOWED_ORIGINS_EXPLICIT.add(_frontend_env)
 
-# Regex fallback — covers any future terra-ai-revised-*.onrender.com
-_ORIGIN_RE = re.compile(r"^https?://(?:localhost:\d+|terra-ai-revised[\w-]*\.onrender\.com)$")
+# Regex fallback — covers ANY *.onrender.com subdomain (incl. Render preview deploys)
+_ORIGIN_RE = re.compile(r"^https?://(?:localhost:\d+|[\w-]+\.onrender\.com)$")
 
 
 def _is_allowed(origin: str) -> bool:
