@@ -190,7 +190,13 @@ function ChannelFeed({ channelId, channelName, members, onInvite }) {
     loadMessages();
     const sub = supabase.channel(`ch:${channelId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `channel_id=eq.${channelId}` }, (payload) => {
-        setMessages(m => [...m, payload.new]);
+        // Fetch profile details for new message if not present
+        const newMsg = payload.new;
+        supabase.from('profiles').select('display_name, username, avatar_url').eq('id', newMsg.sender_id).single()
+          .then(({ data }) => {
+            newMsg.profiles = data;
+            setMessages(m => [...m, newMsg]);
+          });
       }).subscribe();
     return () => supabase.removeChannel(sub);
   }, [channelId]);
@@ -213,9 +219,6 @@ function ChannelFeed({ channelId, channelName, members, onInvite }) {
   const avatarColors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#f87171'];
   const avatarColor = (str) => { let h = 0; for (let i = 0; i < (str?.length || 0); i++) h = str.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
   const fmtTime = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  const fmtDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-
-  const soloMode = members.length <= 1;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff', borderLeft: '1px solid #f1f5f9' }}>
@@ -227,7 +230,60 @@ function ChannelFeed({ channelId, channelName, members, onInvite }) {
           </div>
           <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{channelName}</span>
         </div>
-        <button onClick={onInvite} style={{ background: '#f0fdf4', border: 'none', borderRadius: 100, padding: '6px 12px', color: '#10b981', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ Invite</button>
+
+        {/* Member Avatars + Invite button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginRight: 4 }}>
+            {members.slice(0, 3).map((m, idx) => {
+              const name = m.profiles?.display_name || m.profiles?.username || 'Teammate';
+              return (
+                <div
+                  key={idx}
+                  title={name}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 100,
+                    background: avatarColor(name),
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    border: '2px solid #fff',
+                    marginLeft: idx > 0 ? -8 : 0,
+                    zIndex: 10 - idx,
+                  }}
+                >
+                  {initials(name)}
+                </div>
+              );
+            })}
+            {members.length > 3 && (
+              <div style={{
+                width: 26,
+                height: 26,
+                borderRadius: 100,
+                background: '#e2e8f0',
+                color: '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 9,
+                fontWeight: 700,
+                border: '2px solid #fff',
+                marginLeft: -8,
+                zIndex: 5,
+              }}>
+                +{members.length - 3}
+              </div>
+            )}
+          </div>
+          <button onClick={onInvite} style={{ background: '#f0fdf4', border: 'none', borderRadius: 100, padding: '6px 14px', color: '#10b981', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <UserPlus size={12} /> Invite
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -237,47 +293,52 @@ function ChannelFeed({ channelId, channelName, members, onInvite }) {
             <Loader2 size={18} className="spin" style={{ marginRight: 8 }} /> Loading messages…
           </div>
         )}
-        {!loading && soloMode && messages.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16, textAlign: 'center' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Hash size={28} color="#10b981" />
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>Invite your team to #{channelName}</div>
-              <div style={{ fontSize: 13, color: '#64748b', maxWidth: 280, lineHeight: 1.6 }}>This channel is ready. Bring in teammates to start collaborating.</div>
-            </div>
-            <button onClick={onInvite} style={{ background: '#10b981', border: 'none', borderRadius: 100, padding: '11px 24px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-              Invite teammates
-            </button>
-          </div>
-        )}
-        {!loading && messages.map((msg, i) => {
-          const prev = messages[i - 1];
-          const name = msg.profiles?.display_name || msg.profiles?.username || 'Unknown';
-          const sameUser = prev?.sender_id === msg.sender_id;
-          const isMe = msg.sender_id === user?.id;
-          return (
-            <div key={msg.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', marginTop: sameUser ? -8 : 0 }}>
-              {!sameUser && (
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: avatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                  {initials(name)}
-                </div>
-              )}
-              {sameUser && <div style={{ width: 32, flexShrink: 0 }} />}
-              <div style={{ maxWidth: '72%' }}>
-                {!sameUser && (
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3, flexDirection: isMe ? 'row-reverse' : 'row' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{name}</span>
-                    <span style={{ fontSize: 10, color: '#94a3b8' }}>{fmtTime(msg.created_at)}</span>
-                  </div>
-                )}
-                <div style={{ background: isMe ? '#10b981' : '#f8fafc', color: isMe ? '#fff' : '#0f172a', padding: '9px 13px', borderRadius: isMe ? '14px 14px 4px 14px' : '4px 14px 14px 14px', fontSize: 13, lineHeight: 1.5 }}>
-                  {msg.content}
-                </div>
+        
+        {!loading && (
+          <>
+            {/* Start of channel banner */}
+            <div style={{ padding: '24px 20px', border: '1.5px dashed #e2e8f0', borderRadius: 16, background: '#fafbfd', marginBottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Hash size={18} color="#0284c7" />
               </div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#0f172a' }}>This is the start of #{channelName}</h3>
+              <p style={{ margin: 0, fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>Send a message to start collaborating with your team in this channel.</p>
+              {members.length <= 1 && (
+                <button onClick={onInvite} style={{ marginTop: 4, background: '#10b981', border: 'none', borderRadius: 100, padding: '6px 14px', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  + Invite teammates
+                </button>
+              )}
             </div>
-          );
-        })}
+
+            {messages.map((msg, i) => {
+              const prev = messages[i - 1];
+              const name = msg.profiles?.display_name || msg.profiles?.username || 'Unknown';
+              const sameUser = prev?.sender_id === msg.sender_id;
+              const isMe = msg.sender_id === user?.id;
+              return (
+                <div key={msg.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', marginTop: sameUser ? -8 : 0 }}>
+                  {!sameUser && (
+                    <div style={{ width: 32, height: 32, borderRadius: 10, background: avatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                      {initials(name)}
+                    </div>
+                  )}
+                  {sameUser && <div style={{ width: 32, flexShrink: 0 }} />}
+                  <div style={{ maxWidth: '72%' }}>
+                    {!sameUser && (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3, flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{name}</span>
+                        <span style={{ fontSize: 10, color: '#94a3b8' }}>{fmtTime(msg.created_at)}</span>
+                      </div>
+                    )}
+                    <div style={{ background: isMe ? '#10b981' : '#f8fafc', color: isMe ? '#fff' : '#0f172a', padding: '9px 13px', borderRadius: isMe ? '14px 14px 4px 14px' : '4px 14px 14px 14px', fontSize: 13, lineHeight: 1.5 }}>
+                      {msg.content}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       {/* Input */}
