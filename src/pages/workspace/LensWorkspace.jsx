@@ -1303,13 +1303,6 @@ export default function LensWorkspace() {
                 placeholder="Name this analysis — e.g. Ruiru plot 3 (optional)"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                style={{
-                  background: 'rgba(30, 41, 59, 0.45)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: '#f8fafc',
-                  borderRadius: 10,
-                  padding: '11px 14px',
-                }}
               />
             </div>
             
