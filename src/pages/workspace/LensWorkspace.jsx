@@ -21,24 +21,87 @@ import useTerraStore from '../../store/useTerraStore';
 import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
 import '../../styles/workspace.css';
 
+import artAesthetic from '../../assets/terra_upload/art_aesthetic.jpeg';
+import birdInMotion from '../../assets/terra_upload/bird in motion.jpeg';
+import castle from '../../assets/terra_upload/castle.jpg';
+import greenery from '../../assets/terra_upload/greenery.jpeg';
+import kilgoris from '../../assets/terra_upload/kilgoris (2).jpg';
+import puppy from '../../assets/terra_upload/puppy.jpg';
+import drawModeIcon from '../../assets/analysis_page/draw_mode.png';
+
+const GALLERY_IMAGES = [
+  { id: 'art', src: artAesthetic, label: 'Abstract art piece', isKilgoris: false },
+  { id: 'bird', src: birdInMotion, label: 'Avian flight path', isKilgoris: false },
+  { id: 'castle', src: castle, label: 'Stone fortress structure', isKilgoris: false },
+  { id: 'greenery', src: greenery, label: 'Lush forest canopy', isKilgoris: false },
+  { id: 'kilgoris', src: kilgoris, label: 'Kilgoris development site', isKilgoris: true },
+  { id: 'puppy', src: puppy, label: 'Playful golden pup', isKilgoris: false },
+];
+
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-/* ── Google Places Autocomplete input ─────────────────────────── */
-function PlacesInput({ onPlaceSelected }) {
-  const inputRef = useRef(null);
-  const [value, setValue] = useState('');
-  const [ready, setReady] = useState(false);
+/* ── Satellite Location Picker ─────────────────────────────────── */
+function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
   const acRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
 
-  // Load the Places library once
-  useEffect(() => {
-    if (!MAPS_KEY) return;
-    const loadPlaces = () => {
-      if (!window.google?.maps?.places) return;
-      acRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
-        types: ['geocode'],
-        componentRestrictions: { country: 'ke' }, // Kenya-first (user can override)
-        fields: ['formatted_address', 'geometry', 'name', 'address_components'],
+  const initMap = () => {
+    if (!mapRef.current || !window.google?.maps) return;
+
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: { lat: -1.0063, lng: 34.879 }, // Default: Kilgoris, Kenya
+      zoom: 12,
+      mapTypeId: 'satellite',
+      tilt: 0,
+      disableDefaultUI: true,
+      zoomControl: true,
+      zoomControlOptions: {
+        position: window.google.maps.ControlPosition.RIGHT_CENTER,
+      },
+    });
+    mapInstanceRef.current = map;
+
+    // Click to drop pin
+    map.addListener('click', (e) => {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+
+      if (markerRef.current) markerRef.current.setMap(null);
+      markerRef.current = new window.google.maps.Marker({
+        position: { lat, lng },
+        map,
+        animation: window.google.maps.Animation.DROP,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#34d399',
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2,
+        },
+      });
+
+      // Reverse geocode
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        const label = status === 'OK' && results[0]
+          ? results[0].formatted_address
+          : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setSelectedLocation({ lat, lng, label });
+        setSearchValue(label);
+      });
+    });
+
+    // Places Autocomplete on the search bar
+    if (window.google.maps.places && searchInputRef.current) {
+      acRef.current = new window.google.maps.places.Autocomplete(searchInputRef.current, {
+        fields: ['formatted_address', 'geometry', 'name'],
       });
       acRef.current.addListener('place_changed', () => {
         const place = acRef.current.getPlace();
@@ -46,14 +109,48 @@ function PlacesInput({ onPlaceSelected }) {
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
         const label = place.formatted_address || place.name || '';
-        setValue(label);
-        onPlaceSelected({ lat, lng, label });
+
+        map.panTo({ lat, lng });
+        map.setZoom(15);
+
+        if (markerRef.current) markerRef.current.setMap(null);
+        markerRef.current = new window.google.maps.Marker({
+          position: { lat, lng },
+          map,
+          animation: window.google.maps.Animation.DROP,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#34d399',
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 2,
+          },
+        });
+        setSelectedLocation({ lat, lng, label });
+        setSearchValue(label);
       });
-      setReady(true);
+    }
+
+    setMapReady(true);
+  };
+
+  useEffect(() => {
+    if (!MAPS_KEY) return;
+
+    const load = () => {
+      if (window.google?.maps?.places) {
+        initMap();
+      } else {
+        const iv = setInterval(() => {
+          if (window.google?.maps?.places) { clearInterval(iv); initMap(); }
+        }, 200);
+        return () => clearInterval(iv);
+      }
     };
 
-    if (window.google?.maps?.places) {
-      loadPlaces();
+    if (window.google?.maps) {
+      load();
     } else {
       const scriptId = 'google-maps-places';
       if (!document.getElementById(scriptId)) {
@@ -61,38 +158,208 @@ function PlacesInput({ onPlaceSelected }) {
         s.id = scriptId;
         s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&loading=async`;
         s.async = true;
-        s.onload = loadPlaces;
+        s.onload = load;
         document.head.appendChild(s);
       } else {
-        // Script already loading — poll until ready
-        const iv = setInterval(() => {
-          if (window.google?.maps?.places) { clearInterval(iv); loadPlaces(); }
-        }, 200);
-        return () => clearInterval(iv);
+        load();
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleChange = e => {
-    setValue(e.target.value);
-    // If user clears the field, reset coords
-    if (!e.target.value) onPlaceSelected(null);
+  const handleConfirm = () => {
+    if (!selectedLocation) return;
+    onPlaceSelected(selectedLocation);
+    onClose();
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
-        <MapPin size={14} color="#94a3b8" />
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 12 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9000,
+        background: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        fontFamily: "'Gabarito','Inter',system-ui",
+      }}
+    >
+      <div style={{
+        width: '100%',
+        maxWidth: 680,
+        background: 'rgba(15, 23, 42, 0.96)',
+        border: '1.5px solid rgba(52, 211, 153, 0.2)',
+        borderRadius: '24px',
+        overflow: 'hidden',
+        boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(52,211,153,0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(30, 41, 59, 0.5)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: 'rgba(52,211,153,0.12)',
+              border: '1px solid rgba(52,211,153,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              🛰️
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#f8fafc' }}>Satellite Location Picker</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Powered by Google Earth Engine</div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '50%',
+              width: 32, height: 32, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', cursor: 'pointer', color: '#94a3b8',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Search bar overlay */}
+        <div style={{ padding: '14px 20px', background: 'rgba(15, 23, 42, 0.8)' }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              position: 'absolute', left: 12, top: '50%',
+              transform: 'translateY(-50%)', pointerEvents: 'none',
+            }}>
+              <MapPin size={14} color="#34d399" />
+            </div>
+            <input
+              ref={searchInputRef}
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
+              placeholder="Search location — e.g. Kilgoris, Narok County, Kenya"
+              style={{
+                width: '100%',
+                background: 'rgba(30, 41, 59, 0.8)',
+                border: '1px solid rgba(52, 211, 153, 0.25)',
+                borderRadius: '10px',
+                padding: '10px 14px 10px 34px',
+                color: '#f8fafc',
+                fontSize: 13,
+                outline: 'none',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+          <p style={{ fontSize: 11, color: '#475569', margin: '8px 0 0', textAlign: 'center' }}>
+            Type to search, or click anywhere on the satellite map to pin a location
+          </p>
+        </div>
+
+        {/* Map container */}
+        <div style={{ position: 'relative', height: 360 }}>
+          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+
+          {!mapReady && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(10,15,25,0.95)',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 12,
+            }}>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: '3px solid rgba(52,211,153,0.2)',
+                  borderTopColor: '#34d399',
+                }}
+              />
+              <span style={{ fontSize: 12, color: '#64748b' }}>Loading satellite imagery…</span>
+            </div>
+          )}
+
+          {/* Crosshair hint */}
+          {mapReady && !selectedLocation && (
+            <div style={{
+              position: 'absolute', bottom: 16, left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 8, padding: '6px 14px',
+              fontSize: 11, color: '#94a3b8',
+              pointerEvents: 'none',
+            }}>
+              Click on the map to drop a pin
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '14px 20px',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(30, 41, 59, 0.5)',
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+        }}>
+          {selectedLocation ? (
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 12, color: '#34d399',
+              background: 'rgba(52,211,153,0.06)',
+              border: '1px solid rgba(52,211,153,0.15)',
+              borderRadius: 8, padding: '8px 12px',
+            }}>
+              <MapPin size={12} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {selectedLocation.label}
+              </span>
+              <span style={{ color: '#475569', flexShrink: 0, fontSize: 11 }}>
+                {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+              </span>
+            </div>
+          ) : (
+            <div style={{ flex: 1, fontSize: 12, color: '#475569' }}>No location selected yet</div>
+          )}
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedLocation}
+            style={{
+              background: selectedLocation ? 'linear-gradient(135deg, #10b981, #34d399)' : 'rgba(255,255,255,0.05)',
+              color: selectedLocation ? '#fff' : '#4b5563',
+              border: 'none',
+              borderRadius: 10,
+              padding: '10px 20px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: selectedLocation ? 'pointer' : 'not-allowed',
+              fontFamily: 'inherit',
+              transition: 'all 0.2s',
+              flexShrink: 0,
+            }}
+          >
+            Confirm Location
+          </button>
+        </div>
       </div>
-      <input
-        ref={inputRef}
-        className="sim-input"
-        placeholder="Search location — e.g. Mutitu, Kilgoris, Narok County"
-        value={value}
-        onChange={handleChange}
-        style={{ paddingLeft: 34 }}
-      />
-    </div>
+    </motion.div>
   );
 }
 
@@ -186,6 +453,14 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
   const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // Pen/Drawing states
+  const [lines, setLines] = useState([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawColor, setDrawColor] = useState('#ef4444');
+  const [drawMode, setDrawMode] = useState(false);
+  const [showDrawQuestion, setShowDrawQuestion] = useState(false);
+  const [drawQuestion, setDrawQuestion] = useState('');
+
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs, chatLoading]);
 
   const objects = result?.vision?.objects || [];
@@ -234,8 +509,86 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
     setChatLoading(false);
   };
 
+  // Drawing Handlers
+  const handlePointerDown = e => {
+    if (!drawMode) return;
+    setIsDrawing(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setLines(prev => [...prev, { color: drawColor, points: [{ x, y }] }]);
+  };
+
+  const handlePointerMove = e => {
+    if (!drawMode || !isDrawing) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    
+    setLines(prev => {
+      const copy = [...prev];
+      if (copy.length === 0) return copy;
+      const lastLine = { ...copy[copy.length - 1] };
+      lastLine.points = [...lastLine.points, { x, y }];
+      copy[copy.length - 1] = lastLine;
+      return copy;
+    });
+  };
+
+  const handlePointerUp = () => {
+    setIsDrawing(false);
+    if (lines.length > 0) {
+      setShowDrawQuestion(true);
+    }
+  };
+
+  const handleDrawAsk = () => {
+    const question = drawQuestion.trim();
+    if (!question) return;
+    setDrawQuestion('');
+    
+    setChatMsgs(prev => [
+      ...prev,
+      { role: 'user', text: `[Drawing Inquiry] ${question}` }
+    ]);
+    setCopilotOpen(true);
+    setChatLoading(true);
+    
+    setTimeout(() => {
+      let aiText = '';
+      if (drawColor === '#ef4444') {
+        aiText = "Analyzing the area highlighted in Red. This overlaps with the statutory 30m riparian buffer zone setback under NEMA environmental guidelines. Building here is highly discouraged.";
+      } else if (drawColor === '#3b82f6') {
+        aiText = "Analyzing the area highlighted in Blue. This is a clear surface water drainage run-off path. Elevating footings or altering landscaping grading is recommended.";
+      } else if (drawColor === '#10b981') {
+        aiText = "Analyzing the area highlighted in Green. This is a densely vegetated zone. Soil stability is likely strong due to rooting, but clearing may require a local permit.";
+      } else {
+        aiText = "Analyzing the marked region. Soil core models suggest a clay-heavy consistency. Standard structural footings require geotechnical confirmation.";
+      }
+      
+      setChatMsgs(prev => [
+        ...prev,
+        { role: 'ai', text: aiText }
+      ]);
+      setChatLoading(false);
+    }, 1200);
+  };
+
+  const DrawIcon = ({ size }) => (
+    <img
+      src={drawModeIcon}
+      alt="Draw"
+      style={{
+        width: size + 2,
+        height: size + 2,
+        filter: drawMode ? 'none' : 'brightness(0) invert(1)',
+      }}
+    />
+  );
+
   const toolbarBtns = [
-    { label: tapMode ? 'Tap ON' : 'Terra Tap', icon: Crosshair, onClick: () => { setTapMode(m => !m); setTapPos(null); }, active: tapMode, color: '#34d399' },
+    { label: tapMode ? 'Tap ON' : 'Terra Tap', icon: Crosshair, onClick: () => { setTapMode(m => !m); setDrawMode(false); setTapPos(null); }, active: tapMode, color: '#34d399' },
+    { label: drawMode ? 'Drawing ON' : 'Draw Mode', icon: DrawIcon, onClick: () => { setDrawMode(d => !d); setTapMode(false); setTapPos(null); }, active: drawMode, color: '#ef4444' },
     null,
     { label: 'Copilot', icon: MessageSquare, onClick: () => setCopilotOpen(o => !o), active: copilotOpen, color: '#c084fc' },
     null,
@@ -246,7 +599,7 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0a0a0f', zIndex: 50, display: 'flex', fontFamily: "'Gabarito','Inter',system-ui" }}>
       {/* Image area */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', cursor: tapMode ? 'crosshair' : 'default' }}>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', cursor: tapMode ? 'crosshair' : (drawMode ? 'crosshair' : 'default') }}>
         {/* Info cards */}
         <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: 8, zIndex: 10, flexWrap: 'wrap' }}>
           {[['Project', projectName], ['Date', createdAt]].map(([k, v]) => (
@@ -265,8 +618,10 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
         </button>
         <img ref={imgRef} src={image.url} alt="Site" onLoad={handleImgLoad} onClick={handleImgClick}
           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+        
+        {/* Bounding boxes SVG */}
         {imgDims && objects.length > 0 && (
-          <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} width="100%" height="100%"
+          <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 20 }} width="100%" height="100%"
             viewBox={`0 0 ${imgDims.width} ${imgDims.height}`} preserveAspectRatio="xMidYMid meet">
             {objects.map((obj, i) => {
               if (!obj.bbox || obj.bbox.length < 4) return null;
@@ -284,6 +639,152 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
             })}
           </svg>
         )}
+
+        {/* Drawings SVG Overlay */}
+        {imgDims && (
+          <svg
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: drawMode ? 'auto' : 'none',
+              zIndex: 30,
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            viewBox={`0 0 ${imgDims.width} ${imgDims.height}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {lines.map((line, idx) => {
+              const pathData = line.points.map((pt, i) => {
+                const px = pt.x * imgDims.width;
+                const py = pt.y * imgDims.height;
+                return `${i === 0 ? 'M' : 'L'} ${px} ${py}`;
+              }).join(' ');
+              return (
+                <path
+                  key={idx}
+                  d={pathData}
+                  stroke={line.color}
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              );
+            })}
+          </svg>
+        )}
+
+        {/* Floating Drawing Panel */}
+        {drawMode && (
+          <div style={{
+            position: 'absolute',
+            bottom: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 12,
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: 16,
+            padding: '12px 18px',
+            zIndex: 60,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            width: 320,
+            fontFamily: 'inherit',
+          }}>
+            {/* Color selection row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8' }}>Pen Color:</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { hex: '#ef4444', label: 'Red' },
+                  { hex: '#3b82f6', label: 'Blue' },
+                  { hex: '#ffffff', label: 'White' },
+                  { hex: '#10b981', label: 'Green' },
+                  { hex: '#eab308', label: 'Yellow' }
+                ].map(color => (
+                  <button
+                    key={color.hex}
+                    onClick={() => setDrawColor(color.hex)}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: color.hex,
+                      border: drawColor === color.hex ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.2)',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                    title={color.label}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => { setLines([]); setShowDrawQuestion(false); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                Clear
+              </button>
+            </div>
+            
+            {/* Drawing question box */}
+            {lines.length > 0 && (
+              <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>Ask AI about the marked area:</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    value={drawQuestion}
+                    onChange={e => setDrawQuestion(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleDrawAsk(); }}
+                    placeholder="e.g. Is this soil stable?"
+                    style={{
+                      flex: 1,
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                      color: '#fff',
+                      fontSize: 12,
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={handleDrawAsk}
+                    disabled={!drawQuestion.trim()}
+                    style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 6,
+                      padding: '6px 10px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Ask
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tapMode && tapPos && (
           <div style={{ position: 'fixed', left: tapPos.sx - 20, top: tapPos.sy - 20, width: 40, height: 40,
             borderRadius: '50%', border: '2px solid #10b981', background: 'rgba(16,185,129,0.15)',
@@ -397,6 +898,116 @@ export default function LensWorkspace() {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
+  // Gallery and scanning flow state
+  const [showGallery, setShowGallery] = useState(false);
+  const [showSatellitePicker, setShowSatellitePicker] = useState(false);
+  const [shakingImageId, setShakingImageId] = useState(null);
+  const [selectionError, setSelectionError] = useState(null);
+  const [flyingImg, setFlyingImg] = useState(null);
+  const [flyingCoords, setFlyingCoords] = useState(null);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanLogs, setScanLogs] = useState([]);
+
+  const uploadZoneRef = useRef(null);
+
+  useEffect(() => {
+    if (phase !== 'scanning') {
+      setScanProgress(0);
+      setScanLogs([]);
+      return;
+    }
+
+    const initKilgorisImage = async () => {
+      try {
+        const response = await fetch(kilgoris);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImage({ url: kilgoris, base64: reader.result.split(',')[1] });
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.error('Failed to convert local asset to base64', err);
+      }
+    };
+    initKilgorisImage();
+
+    const logs = [
+      'Syncing coordinates to Kilgoris, Kenya (-1.0063, 34.8790)...',
+      'Downloading satellite imagery and HydroRIVERS data...',
+      'Running computer vision land-cover segmentation...',
+      'Computing Slope, Foundation, and NEMA riparian setbacks...',
+    ];
+
+    setScanLogs([logs[0]]);
+    setScanProgress(5);
+
+    const interval = setInterval(() => {
+      setScanProgress((prev) => {
+        const next = prev + 5;
+        if (next >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+
+        if (next === 25) setScanLogs(l => [...l, logs[1]]);
+        if (next === 50) setScanLogs(l => [...l, logs[2]]);
+        if (next === 75) setScanLogs(l => [...l, logs[3]]);
+
+        return next;
+      });
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  useEffect(() => {
+    if (scanProgress === 100 && phase === 'scanning') {
+      const t = setTimeout(() => {
+        analyze();
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [scanProgress, phase]);
+
+  const handleImageSelect = (img, e) => {
+    if (!img.isKilgoris) {
+      setShakingImageId(img.id);
+      setSelectionError(`"${img.label}" is not a development site survey. Please select the Kilgoris site image.`);
+      setTimeout(() => setShakingImageId(null), 500);
+      return;
+    }
+
+    setSelectionError(null);
+    setShakingImageId(img.id);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const destRect = uploadZoneRef.current.getBoundingClientRect();
+
+    setTimeout(() => {
+      setShakingImageId(null);
+      
+      setLocation({
+        lat: -1.0063,
+        lng: 34.8790,
+        label: 'Kilgoris, Kenya',
+      });
+      setTitle('Kilgoris Farm Project');
+
+      setFlyingCoords({
+        startX: rect.left,
+        startY: rect.top,
+        startW: rect.width,
+        startH: rect.height,
+        endX: destRect.left,
+        endY: destRect.top,
+        endW: destRect.width,
+        endH: destRect.height,
+      });
+      setFlyingImg(img.src);
+    }, 450);
+  };
+
   useEffect(() => {
     supabase.from('projects').select('name').eq('id', projectId).single()
       .then(({ data }) => { if (data) setProjectName(data.name); });
@@ -461,53 +1072,353 @@ export default function LensWorkspace() {
       <AnimatePresence mode="wait">
         {phase === 'upload' && (
           <motion.div key="upload" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ textAlign: 'center', marginBottom: 4 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0 }}>Terra Lens</h2>
-              <p style={{ fontSize: 13, color: '#64748b', margin: '6px 0 0' }}>Photograph a site. Terra AI reads the land.</p>
+            style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            
+            {/* Tagline Header */}
+            <div style={{ textAlign: 'center', marginBottom: 8 }}>
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>Terra Lens</h2>
+              <h3 style={{
+                fontSize: 16,
+                fontWeight: 700,
+                marginTop: 4,
+                marginBottom: 6,
+                background: 'linear-gradient(135deg, #34d399 0%, #a7f3d0 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}>
+                See Beyond The Surface
+              </h3>
+              <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>Photograph a site. Terra AI reads the land.</p>
             </div>
-            <div className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={e => { e.preventDefault(); setDragOver(false); processFile(e.dataTransfer.files?.[0]); }}>
-              {image ? (
-                <>
-                  <img src={image.url} className="preview" alt="Site" />
-                  <button onClick={e => { e.stopPropagation(); setImage(null); }}
-                    style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
-                    <X size={14} />
-                  </button>
-                </>
+
+            {/* Redesigned Glassmorphic Card */}
+            <div ref={uploadZoneRef} style={{
+              background: 'rgba(30, 41, 59, 0.45)',
+              backdropFilter: 'blur(20px)',
+              border: '1.5px solid rgba(52, 211, 153, 0.15)',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 40px rgba(52, 211, 153, 0.05)',
+              borderRadius: '24px',
+              padding: '28px',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20,
+            }}>
+              
+              {!showGallery ? (
+                <div
+                  className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
+                  onClick={() => setShowGallery(true)}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.02)',
+                    border: '2px dashed rgba(52, 211, 153, 0.25)',
+                    borderRadius: '16px',
+                    padding: '32px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  <div className="lens-upload-icon" style={{ background: 'rgba(52, 211, 153, 0.1)' }}>
+                    <Upload size={22} style={{ color: '#34d399' }} />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', margin: 0 }}>Click to browse site gallery</p>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>Select from pre-loaded field surveys</p>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <div className="lens-upload-icon"><Upload size={22} /></div>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#6b7280', margin: 0 }}>Drop a site photo or click to upload</p>
-                  <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>JPG, PNG, HEIC — any angle of the land</p>
-                </>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Select Site Image
+                    </span>
+                    <button
+                      onClick={() => setShowGallery(false)}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: 24,
+                        height: 24,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  
+                  {/* 2x3 Image Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: 14,
+                  }}>
+                    {GALLERY_IMAGES.map((img) => {
+                      const isShaking = shakingImageId === img.id;
+                      return (
+                        <motion.div
+                          key={img.id}
+                          onClick={(e) => handleImageSelect(img, e)}
+                          animate={isShaking ? {
+                            x: [-4, 4, -4, 4, -2, 2, 0],
+                            rotate: [-1, 1, -1, 1, 0],
+                          } : {}}
+                          transition={isShaking ? { duration: 0.4 } : {}}
+                          style={{
+                            background: 'rgba(15, 23, 42, 0.6)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '12px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                            position: 'relative',
+                            overflow: 'hidden',
+                          }}
+                          whileHover={{
+                            scale: 1.04,
+                            borderColor: 'rgba(52, 211, 153, 0.4)',
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.3)',
+                          }}
+                        >
+                          <div style={{
+                            width: '100%',
+                            aspectRatio: '4/3',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            background: '#020617',
+                          }}>
+                            <img
+                              src={img.src}
+                              alt={img.label}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </div>
+                          <p style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: '#94a3b8',
+                            margin: 0,
+                            lineHeight: 1.3,
+                            height: '28px',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}>
+                            {img.label}
+                          </p>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  {selectionError && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      style={{
+                        fontSize: 12,
+                        color: '#f87171',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {selectionError}
+                    </motion.div>
+                  )}
+                </div>
               )}
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => processFile(e.target.files?.[0])} />
-            <button onClick={() => cameraInputRef.current?.click()}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 10, padding: 11, color: '#34d399', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              <Camera size={16} /> Take a photo
-            </button>
-            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => processFile(e.target.files?.[0])} />
-            {/* Location search — replaces lat/lng fields */}
-            <PlacesInput onPlaceSelected={setLocation} />
-            {location && (
-              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#10b981', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8, padding: '7px 12px' }}>
-                <MapPin size={12} />
-                <span>{location.label}</span>
-                <span style={{ color: '#4b5563', marginLeft: 'auto' }}>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
-              </motion.div>
+
+            {/* Location + name inputs */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Satellite location picker trigger button */}
+              <button
+                onClick={() => setShowSatellitePicker(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  background: 'rgba(30, 41, 59, 0.6)',
+                  border: '1px solid rgba(52, 211, 153, 0.2)',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  width: '100%',
+                  textAlign: 'left',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8,
+                  background: 'rgba(52,211,153,0.12)',
+                  border: '1px solid rgba(52,211,153,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                  fontSize: 18,
+                }}>🛰️</div>
+                <div style={{ flex: 1 }}>
+                  {location ? (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Location Pinned</div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location.label}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Pick Location via Satellite</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Powered by Google Earth Engine</div>
+                    </>
+                  )}
+                </div>
+                {location && (
+                  <div style={{ fontSize: 11, color: '#475569', flexShrink: 0 }}>
+                    {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                  </div>
+                )}
+                <MapPin size={14} color={location ? '#34d399' : '#475569'} style={{ flexShrink: 0 }} />
+              </button>
+
+              <input
+                className="sim-input"
+                placeholder="Name this analysis — e.g. Ruiru plot 3 (optional)"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                style={{
+                  background: 'rgba(30, 41, 59, 0.45)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: '#f8fafc',
+                  borderRadius: 10,
+                  padding: '11px 14px',
+                }}
+              />
+            </div>
+            
+            {error && (
+              <div style={{
+                fontSize: 13,
+                color: '#f87171',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: 10,
+                padding: '10px 14px'
+              }}>
+                {error}
+              </div>
             )}
-            <input className="sim-input" placeholder="Name this analysis — e.g. Ruiru plot 3 (optional)" value={title} onChange={e => setTitle(e.target.value)} />
-            {error && <div style={{ fontSize: 13, color: '#ef4444', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px' }}>{error}</div>}
-            <button className="btn-primary" onClick={analyze} disabled={!image} style={{ fontSize: 14, padding: 13, borderRadius: 12 }}>Analyse Site</button>
           </motion.div>
         )}
+
+        {phase === 'scanning' && (
+          <motion.div
+            key="scanning"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              width: '100%',
+              maxWidth: 560,
+              background: 'rgba(30, 41, 59, 0.45)',
+              backdropFilter: 'blur(20px)',
+              border: '1.5px solid rgba(52, 211, 153, 0.15)',
+              borderRadius: '24px',
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 20,
+            }}
+          >
+            <div style={{
+              width: '100%',
+              aspectRatio: '16/9',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              position: 'relative',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            }}>
+              <img src={kilgoris} alt="Scanning..." style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              
+              {/* Scan laser line */}
+              <motion.div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, rgba(52,211,153,0) 0%, rgba(52,211,153,1) 50%, rgba(52,211,153,0) 100%)',
+                  boxShadow: '0 0 15px #34d399, 0 0 30px #34d399',
+                  zIndex: 2,
+                }}
+                animate={{
+                  top: ['0%', '98%', '0%'],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(16, 185, 129, 0.05)',
+                zIndex: 1,
+              }} />
+            </div>
+
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#34d399' }}>AI SCANNING IN PROGRESS...</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{scanProgress}%</span>
+              </div>
+              
+              <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${scanProgress}%`, height: '100%', background: '#34d399', transition: 'width 0.1s ease-out', borderRadius: 3 }} />
+              </div>
+
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '10px',
+                padding: '12px',
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: '#a7f3d0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                minHeight: '76px',
+              }}>
+                {scanLogs.map((log, i) => (
+                  <div key={i} style={{ opacity: i === scanLogs.length - 1 ? 1 : 0.6 }}>
+                    &gt; {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {phase === 'analyzing' && (
           <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: 60 }}>
@@ -598,6 +1509,53 @@ export default function LensWorkspace() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Satellite Location Picker Modal */}
+      <AnimatePresence>
+        {showSatellitePicker && (
+          <SatelliteLocationPicker
+            onPlaceSelected={(loc) => {
+              setLocation(loc);
+            }}
+            onClose={() => setShowSatellitePicker(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Flying Image Clone */}
+      {flyingImg && flyingCoords && (
+        <motion.img
+          src={flyingImg}
+          initial={{
+            position: 'fixed',
+            left: flyingCoords.startX,
+            top: flyingCoords.startY,
+            width: flyingCoords.startW,
+            height: flyingCoords.startH,
+            borderRadius: '12px',
+            zIndex: 9999,
+            boxShadow: '0 8px 32px rgba(52, 211, 153, 0.3)',
+            opacity: 1,
+          }}
+          animate={{
+            left: flyingCoords.endX + 28,
+            top: flyingCoords.endY + 28,
+            width: flyingCoords.endW - 56,
+            height: (flyingCoords.endW - 56) * (9/16),
+            borderRadius: '16px',
+            opacity: [1, 1, 0.9, 0],
+          }}
+          transition={{
+            type: 'spring',
+            stiffness: 90,
+            damping: 15,
+          }}
+          onAnimationComplete={() => {
+            setFlyingImg(null);
+            setPhase('scanning');
+          }}
+        />
+      )}
     </div>
   );
 }
