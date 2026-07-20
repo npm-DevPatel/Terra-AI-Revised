@@ -59,9 +59,10 @@ def _load_hydro_rivers(lat: float, lng: float) -> list[LineString]:
     around the requested coordinates. This uses pyogrio's spatial index to load
     in < 50ms without consuming heavy RAM, scaling to all of Kenya.
     """
-    if not os.path.exists(_HYDRO_SHP):
+    # Check if file exists and is not a Git LFS pointer (LFS pointers are text files < 1KB)
+    if not os.path.exists(_HYDRO_SHP) or os.path.getsize(_HYDRO_SHP) < 10240:
         print(
-            f"[Terra AI] HydroSHEDS shapefile not found at {_HYDRO_SHP}. "
+            f"[Terra AI] HydroSHEDS shapefile not found or is an LFS pointer at {_HYDRO_SHP}. "
             "Riparian check will fall back to OSM waterways."
         )
         return []
