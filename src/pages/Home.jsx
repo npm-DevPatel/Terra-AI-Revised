@@ -115,7 +115,7 @@ export default function Home() {
   return (
     <MarketingLayout>
       {/* ── HERO ──────────────────────────────────────────────── */}
-      <section className="relative min-h-[92vh] hero-gradient flex flex-col items-center justify-center overflow-hidden px-4 pb-0">
+      <section className="relative min-h-[92vh] hero-gradient flex flex-col items-center justify-center overflow-hidden px-4 pb-[38vh]">
         {/* background blobs */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl -z-10" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-teal-200/20 rounded-full blur-3xl -z-10" />
@@ -126,12 +126,6 @@ export default function Home() {
           transition={{ duration: 0.7 }}
           className="text-center max-w-4xl mx-auto"
         >
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold px-4 py-1.5 rounded-full mb-8 float-badge">
-            <Zap className="w-3.5 h-3.5" />
-            Kenya's AI-Native Land Intelligence Platform
-          </div>
-
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-black text-slate-900 leading-[1.05] tracking-tight mb-6">
             Know the land.
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">
@@ -188,31 +182,68 @@ export default function Home() {
           </div>
         </motion.div>
 
-        {/* Hero image */}
+        {/* Hero image — full-bleed, blends into page */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.3 }}
-          className="mt-16 w-full max-w-5xl mx-auto px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.1, delay: 0.4 }}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '38vh',
+            pointerEvents: 'none',
+          }}
         >
-          <div className="relative rounded-3xl overflow-hidden border border-slate-200 shadow-2xl shadow-slate-300/40">
+          <div style={{
+            width: '100%',
+            height: '100%',
+            borderRadius: '50% 50% 0 0 / 50px 50px 0 0',
+            overflow: 'hidden',
+          }}>
             <img
               src={heroSectionImg}
               alt="Terra AI land analysis"
-              className="w-full h-64 sm:h-96 object-cover"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center 60%',
+                display: 'block',
+              }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
-            {/* Floating score badge */}
-            <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-xl border border-slate-200/80">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Land Score</p>
-              <p className="text-2xl font-black text-emerald-600">82 / 100</p>
-              <p className="text-xs font-semibold text-emerald-600">SAFE — Clear for Due Diligence</p>
-            </div>
-            <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-xl border border-slate-200/80">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Analysis Time</p>
-              <p className="text-2xl font-black text-slate-900">47s</p>
-              <p className="text-xs font-medium text-slate-500">15 risk vectors checked</p>
-            </div>
+          </div>
+          {/* Fade top edge into hero bg */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to bottom, #f0fdf4 0%, rgba(240,253,244,0.6) 18%, transparent 55%, rgba(15,23,42,0.25) 100%)',
+          }} />
+          {/* Fade left & right edges */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to right, #f0fdf4 0%, transparent 12%, transparent 88%, #f0fdf4 100%)',
+          }} />
+          {/* Floating badges */}
+          <div style={{
+            position: 'absolute', bottom: 20, left: 20, pointerEvents: 'auto',
+            background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
+            borderRadius: 16, padding: '10px 16px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
+            border: '1px solid rgba(226,232,240,0.8)',
+          }}>
+            <p style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 2 }}>Land Score</p>
+            <p style={{ fontSize: 22, fontWeight: 900, color: '#059669', lineHeight: 1 }}>82 / 100</p>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#059669', marginTop: 2 }}>SAFE — Clear for Due Diligence</p>
+          </div>
+          <div style={{
+            position: 'absolute', bottom: 20, right: 20, pointerEvents: 'auto',
+            background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
+            borderRadius: 16, padding: '10px 16px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
+            border: '1px solid rgba(226,232,240,0.8)',
+          }}>
+            <p style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 2 }}>Analysis Time</p>
+            <p style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>47s</p>
+            <p style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginTop: 2 }}>15 risk vectors checked</p>
           </div>
         </motion.div>
       </section>
