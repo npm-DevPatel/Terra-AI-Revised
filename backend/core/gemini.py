@@ -1,5 +1,5 @@
 """
-core/gemini.py — All Gemini AI interactions for Terra AI.
+core/gemini.py — All AI interactions for Terra AI (powered by Groq / llama-3.1-8b-instant).
 
 Functions:
   1. synthesize_lens_report()     — land analysis from geospatial + vision data
@@ -16,20 +16,16 @@ Functions:
 import json
 import logging
 import os
-import warnings
+
+from groq import Groq
 
 logger = logging.getLogger(__name__)
 
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=FutureWarning)
-    import google.generativeai as genai
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+_groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
-_FLASH = "gemini-2.5-flash"
-_PRO   = "gemini-2.5-flash"  # use Flash for both to stay on free tier; swap to pro later
+_FLASH = "llama-3.1-8b-instant"
+_PRO   = "llama-3.1-8b-instant"
 
 KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a trusted, objective land intelligence advisor for Kenya, specialising in sustainable construction and real estate development.
 
@@ -337,58 +333,47 @@ Generate the full professional report now. All cost figures in KES. Reference Ke
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _require_key():
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY not set.")
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not set.")
 
 
 def _call_gemini(model_name: str, system_prompt: str, user_message: str, json_mode: bool = True) -> dict | str:
     """
-    Call Gemini with the given system prompt and user message.
-    Falls back to gemini-2.0-flash if the primary model fails.
+    Call Groq (llama-3.1-8b-instant) with the given system prompt and user message.
+    Signature kept as _call_gemini so all callers remain unchanged.
     """
-    models_to_try = [model_name]
-    if model_name != "gemini-2.0-flash":
-        models_to_try.append("gemini-2.0-flash")
+    import re
 
-    last_exc = None
-    for name in models_to_try:
-        try:
-            config = genai.GenerationConfig(
-                temperature=0.2,
-                max_output_tokens=8192,
-            )
-            if json_mode:
-                config = genai.GenerationConfig(
-                    response_mime_type="application/json",
-                    temperature=0.2,
-                    max_output_tokens=8192,
-                )
-            model = genai.GenerativeModel(
-                model_name=name,
-                generation_config=config,
-                system_instruction=system_prompt,
-            )
-            response = model.generate_content(user_message)
-            raw = response.text
+    if not _groq_client:
+        err = "GROQ_API_KEY not set."
+        logger.error(err)
+        if json_mode:
+            return {"error": err, "gemini_failed": True}
+        return f"Terra AI is temporarily unavailable: {err}"
 
-            if not json_mode:
-                return raw
+    try:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ]
+        kwargs = {"model": model_name, "messages": messages, "temperature": 0.2, "max_tokens": 8192}
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
 
-            # Parse JSON
-            import re
-            clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
-            import json as _json
-            return _json.loads(clean)
+        response = _groq_client.chat.completions.create(**kwargs)
+        raw = response.choices[0].message.content
 
-        except Exception as exc:
-            last_exc = exc
-            logger.warning(f"[Gemini] {name} failed: {exc}")
-            continue
+        if not json_mode:
+            return raw
 
-    logger.error(f"[Gemini] All models failed. Last error: {last_exc}")
-    if json_mode:
-        return {"error": f"Gemini unavailable: {str(last_exc)}", "gemini_failed": True}
-    return f"Terra Copilot is temporarily unavailable: {str(last_exc)}"
+        clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
+        return json.loads(clean)
+
+    except Exception as exc:
+        logger.error(f"[Groq] {model_name} failed: {exc}")
+        if json_mode:
+            return {"error": f"Groq unavailable: {str(exc)}", "gemini_failed": True}
+        return f"Terra AI is temporarily unavailable: {str(exc)}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
