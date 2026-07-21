@@ -464,8 +464,7 @@
   padding: 40px 24px 60px;
   gap: 28px;
   overflow-y: auto;
-  background: radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.08) 0%, transparent 60%),
-              linear-gradient(180deg, #050c18 0%, #080f1f 50%, #050c18 100%);
+  background: #f8fafc;
   font-family: 'Gabarito', 'Inter', system-ui;
 }
 
@@ -612,14 +611,14 @@
 
 /* ── Lens dark-screen input overrides ───────────────────────────────────────*/
 .lens-screen .sim-input {
-  background: rgba(30, 41, 59, 0.55);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #f8fafc;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  color: #0f172a;
   border-radius: 10px;
   padding: 11px 14px;
 }
-.lens-screen .sim-input::placeholder { color: #475569; }
-.lens-screen .sim-input:focus { border-color: rgba(52,211,153,0.4); }
+.lens-screen .sim-input::placeholder { color: #94a3b8; }
+.lens-screen .sim-input:focus { border-color: #10b981; }
 
 .lens-screen .btn-primary {
   background: linear-gradient(135deg, #10b981 0%, #34d399 100%);

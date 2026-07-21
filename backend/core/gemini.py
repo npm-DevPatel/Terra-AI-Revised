@@ -167,16 +167,8 @@ Never make up data. If something isn't in the project context, say so honestly a
 def answer_copilot(message: str, project_contexts: list[dict]) -> str:
     """
     Answer a Terra Copilot question with full project data as context.
-
-    Args:
-        message: The user's question.
-        project_contexts: List of project data dicts from Supabase.
-                          Each contains: project name, analyses[], sim_plans[], flow_reports[]
-
-    Returns:
-        Plain text answer from Gemini.
     """
-    _require_key()
+
 
     context_blocks = []
     for proj in project_contexts:

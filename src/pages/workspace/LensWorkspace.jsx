@@ -872,41 +872,23 @@ export default function LensWorkspace() {
   }, [scanProgress, phase]);
 
   const handleImageSelect = (img, e) => {
-    if (!img.isKilgoris) {
-      setShakingImageId(img.id);
-      setSelectionError(`"${img.label}" is not a development site survey. Please select the Kilgoris site image.`);
-      setTimeout(() => setShakingImageId(null), 500);
-      return;
-    }
-
     setSelectionError(null);
-    setShakingImageId(img.id);
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const destRect = uploadZoneRef.current.getBoundingClientRect();
-
-    setTimeout(() => {
-      setShakingImageId(null);
-      
-      setLocation({
-        lat: -1.0063,
-        lng: 34.8790,
-        label: 'Kilgoris, Kenya',
+    // Convert image to base64 if needed, or set image URL
+    fetch(img.src)
+      .then(res => res.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(',')[1];
+          setImage({ url: img.src, base64 });
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(() => {
+        setImage({ url: img.src, base64: '' });
       });
-      setTitle('Kilgoris Farm Project');
 
-      setFlyingCoords({
-        startX: rect.left,
-        startY: rect.top,
-        startW: rect.width,
-        startH: rect.height,
-        endX: destRect.left,
-        endY: destRect.top,
-        endW: destRect.width,
-        endH: destRect.height,
-      });
-      setFlyingImg(img.src);
-    }, 450);
+    setShowGallery(false);
   };
 
   useEffect(() => {
@@ -980,8 +962,8 @@ export default function LensWorkspace() {
 
               {/* Header */}
               <div style={{ textAlign: 'center', marginBottom: 4 }}>
-                <h2 style={{ fontSize: 26, fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>Terra Lens</h2>
-                <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>Photograph a site. Terra AI reads the land.</p>
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Terra Lens</h2>
+                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>Photograph a site. Terra AI reads the land.</p>
               </div>
 
               {/* Upload / image preview card */}
@@ -993,13 +975,13 @@ export default function LensWorkspace() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 16,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
               }}>
                 {image ? (
                   /* Image selected preview */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <img src={image.url} alt="Selected site"
-                      style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 200 }} />
+                      style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 220 }} />
                     <button onClick={() => { setImage(null); setShowGallery(true); }}
                       style={{
                         background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10,
@@ -1013,20 +995,19 @@ export default function LensWorkspace() {
                     className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
                     onClick={() => setShowGallery(true)}
                     style={{
-                      border: '2px dashed #d1fae5',
+                      border: '2px dashed #a7f3d0',
                       borderRadius: 14,
-                      padding: '32px 16px',
+                      padding: '36px 16px',
                       display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center', gap: 10,
+                      alignItems: 'center', justifyContent: 'center', gap: 12,
                       cursor: 'pointer', background: '#f0fdf4', transition: 'all 0.2s',
                     }}
                   >
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: '#d1fae5',
+                    <div style={{ width: 48, height: 48, borderRadius: 14, background: '#d1fae5',
                       display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Upload size={20} color="#10b981" />
+                      <Upload size={22} color="#10b981" />
                     </div>
                     <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0 }}>Browse site images</p>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Select from pre-loaded field surveys</p>
                   </div>
                 )}
               </div>
@@ -1118,7 +1099,7 @@ export default function LensWorkspace() {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>Select a Site Image</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Select a Site Image</span>
                     <button onClick={() => setShowGallery(false)}
                       style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 28, height: 28,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -1134,7 +1115,7 @@ export default function LensWorkspace() {
                   )}
 
                   {/* Full-size image list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
                     {GALLERY_IMAGES.map((img) => {
                       const isShaking = shakingImageId === img.id;
                       return (
@@ -1143,34 +1124,28 @@ export default function LensWorkspace() {
                           onClick={(e) => handleImageSelect(img, e)}
                           animate={isShaking ? { x: [-4, 4, -4, 4, 0], rotate: [-1, 1, -1, 1, 0] } : {}}
                           transition={isShaking ? { duration: 0.4 } : {}}
-                          whileHover={{ scale: 1.01, boxShadow: '0 4px 16px rgba(16,185,129,0.15)' }}
+                          whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(16,185,129,0.18)' }}
                           style={{
                             borderRadius: 14,
                             overflow: 'hidden',
                             border: '1.5px solid #e2e8f0',
                             cursor: 'pointer',
                             position: 'relative',
+                            background: '#f8fafc',
                           }}
                         >
                           <img
                             src={img.src}
                             alt={img.label}
-                            style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: 220, background: '#f8fafc' }}
+                            style={{ width: '100%', height: 160, display: 'block', objectFit: 'cover' }}
                           />
                           <div style={{
                             position: 'absolute', bottom: 0, left: 0, right: 0,
-                            background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)',
-                            padding: '18px 14px 10px',
+                            background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 100%)',
+                            padding: '24px 12px 10px',
                           }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{img.label}</span>
                           </div>
-                          {img.isKilgoris && (
-                            <div style={{
-                              position: 'absolute', top: 10, right: 10,
-                              background: '#10b981', color: '#fff',
-                              fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 100,
-                            }}>Demo Site</div>
-                          )}
                         </motion.div>
                       );
                     })}
