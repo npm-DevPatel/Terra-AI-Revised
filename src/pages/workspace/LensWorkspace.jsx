@@ -174,190 +174,91 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.96, y: 12 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96, y: 12 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 9000,
-        background: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
         fontFamily: "'Gabarito','Inter',system-ui",
       }}
     >
+      {/* Full-page 100% satellite map */}
+      <div ref={mapRef} style={{ position: 'absolute', inset: 0 }} />
+
+      {/* Loading overlay */}
+      {!mapReady && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: '#0a0f1a',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 14,
+        }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+            style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid rgba(52,211,153,0.2)', borderTopColor: '#34d399' }} />
+          <span style={{ fontSize: 13, color: '#64748b' }}>Loading satellite imagery…</span>
+        </div>
+      )}
+
+      {/* Floating top search bar */}
       <div style={{
-        width: '100%',
-        maxWidth: 680,
-        background: 'rgba(15, 23, 42, 0.96)',
-        border: '1.5px solid rgba(52, 211, 153, 0.2)',
-        borderRadius: '24px',
-        overflow: 'hidden',
-        boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(52,211,153,0.08)',
-        display: 'flex',
-        flexDirection: 'column',
+        position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
+        border: '1px solid #e2e8f0', borderRadius: 16,
+        padding: '10px 16px', boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+        width: 'calc(100% - 40px)', maxWidth: 600, zIndex: 10,
       }}>
-        {/* Header */}
-        <div style={{
-          padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(30, 41, 59, 0.5)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'rgba(52,211,153,0.12)',
-              border: '1px solid rgba(52,211,153,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              🛰️
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#f8fafc' }}>Satellite Location Picker</div>
-              <div style={{ fontSize: 11, color: '#64748b' }}>Powered by Google Earth Engine</div>
+        <MapPin size={16} color="#10b981" style={{ flexShrink: 0 }} />
+        <input
+          ref={searchInputRef}
+          value={searchValue}
+          onChange={e => setSearchValue(e.target.value)}
+          placeholder="Search location — e.g. Kilgoris, Narok County, Kenya"
+          style={{
+            flex: 1, border: 'none', outline: 'none',
+            fontSize: 14, color: '#0f172a', background: 'transparent', fontFamily: 'inherit',
+          }}
+        />
+        <button onClick={onClose}
+          style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 30, height: 30,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <X size={14} color="#64748b" />
+        </button>
+      </div>
+
+      {/* Floating bottom confirm bar */}
+      <div style={{
+        position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', alignItems: 'center', gap: 12,
+        background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
+        border: '1px solid #e2e8f0', borderRadius: 16,
+        padding: '12px 20px', boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
+        zIndex: 10, minWidth: 340,
+      }}>
+        {selectedLocation ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>Location pinned</div>
+              <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedLocation.label}</div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '50%',
-              width: 32, height: 32, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', cursor: 'pointer', color: '#94a3b8',
-            }}
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Search bar overlay */}
-        <div style={{ padding: '14px 20px', background: 'rgba(15, 23, 42, 0.8)' }}>
-          <div style={{ position: 'relative' }}>
-            <div style={{
-              position: 'absolute', left: 12, top: '50%',
-              transform: 'translateY(-50%)', pointerEvents: 'none',
-            }}>
-              <MapPin size={14} color="#34d399" />
-            </div>
-            <input
-              ref={searchInputRef}
-              value={searchValue}
-              onChange={e => setSearchValue(e.target.value)}
-              placeholder="Search location — e.g. Kilgoris, Narok County, Kenya"
-              style={{
-                width: '100%',
-                background: 'rgba(30, 41, 59, 0.8)',
-                border: '1px solid rgba(52, 211, 153, 0.25)',
-                borderRadius: '10px',
-                padding: '10px 14px 10px 34px',
-                color: '#f8fafc',
-                fontSize: 13,
-                outline: 'none',
-                boxSizing: 'border-box',
-                fontFamily: 'inherit',
-              }}
-            />
-          </div>
-          <p style={{ fontSize: 11, color: '#475569', margin: '8px 0 0', textAlign: 'center' }}>
-            Type to search, or click anywhere on the satellite map to pin a location
-          </p>
-        </div>
-
-        {/* Map container */}
-        <div style={{ position: 'relative', height: 360 }}>
-          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
-
-          {!mapReady && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'rgba(10,15,25,0.95)',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 12,
-            }}>
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
-                style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  border: '3px solid rgba(52,211,153,0.2)',
-                  borderTopColor: '#34d399',
-                }}
-              />
-              <span style={{ fontSize: 12, color: '#64748b' }}>Loading satellite imagery…</span>
-            </div>
-          )}
-
-          {/* Crosshair hint */}
-          {mapReady && !selectedLocation && (
-            <div style={{
-              position: 'absolute', bottom: 16, left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8, padding: '6px 14px',
-              fontSize: 11, color: '#94a3b8',
-              pointerEvents: 'none',
-            }}>
-              Click on the map to drop a pin
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          padding: '14px 20px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(30, 41, 59, 0.5)',
-          display: 'flex',
-          gap: 10,
-          alignItems: 'center',
-        }}>
-          {selectedLocation ? (
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 12, color: '#34d399',
-              background: 'rgba(52,211,153,0.06)',
-              border: '1px solid rgba(52,211,153,0.15)',
-              borderRadius: 8, padding: '8px 12px',
-            }}>
-              <MapPin size={12} />
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {selectedLocation.label}
-              </span>
-              <span style={{ color: '#475569', flexShrink: 0, fontSize: 11 }}>
-                {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
-              </span>
-            </div>
-          ) : (
-            <div style={{ flex: 1, fontSize: 12, color: '#475569' }}>No location selected yet</div>
-          )}
-          <button
-            onClick={handleConfirm}
-            disabled={!selectedLocation}
-            style={{
-              background: selectedLocation ? 'linear-gradient(135deg, #10b981, #34d399)' : 'rgba(255,255,255,0.05)',
-              color: selectedLocation ? '#fff' : '#4b5563',
-              border: 'none',
-              borderRadius: 10,
-              padding: '10px 20px',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: selectedLocation ? 'pointer' : 'not-allowed',
-              fontFamily: 'inherit',
-              transition: 'all 0.2s',
-              flexShrink: 0,
-            }}
-          >
-            Confirm Location
-          </button>
-        </div>
+        ) : (
+          <div style={{ flex: 1, fontSize: 12, color: '#94a3b8' }}>Tap anywhere on map to drop a pin</div>
+        )}
+        <button onClick={handleConfirm} disabled={!selectedLocation}
+          style={{
+            background: selectedLocation ? '#10b981' : '#e2e8f0',
+            color: selectedLocation ? '#fff' : '#94a3b8',
+            border: 'none', borderRadius: 10, padding: '10px 22px',
+            fontSize: 13, fontWeight: 700, cursor: selectedLocation ? 'pointer' : 'not-allowed',
+            fontFamily: 'inherit', transition: 'all 0.2s', flexShrink: 0,
+          }}
+        >
+          Confirm Location
+        </button>
       </div>
     </motion.div>
   );
@@ -1072,254 +973,215 @@ export default function LensWorkspace() {
       <AnimatePresence mode="wait">
         {phase === 'upload' && (
           <motion.div key="upload" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 20 }}>
-            
-            {/* Tagline Header */}
-            <div style={{ textAlign: 'center', marginBottom: 8 }}>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>Terra Lens</h2>
-              <h3 style={{
-                fontSize: 16,
-                fontWeight: 700,
-                marginTop: 4,
-                marginBottom: 6,
-                background: 'linear-gradient(135deg, #34d399 0%, #a7f3d0 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}>
-                See Beyond The Surface
-              </h3>
-              <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>Photograph a site. Terra AI reads the land.</p>
-            </div>
+            style={{ width: '100%', maxWidth: showGallery ? 1100 : 520, display: 'flex', gap: 20, alignItems: 'flex-start', transition: 'max-width 0.3s ease' }}>
 
-            {/* Redesigned Glassmorphic Card */}
-            <div ref={uploadZoneRef} style={{
-              background: 'rgba(30, 41, 59, 0.45)',
-              backdropFilter: 'blur(20px)',
-              border: '1.5px solid rgba(52, 211, 153, 0.15)',
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 40px rgba(52, 211, 153, 0.05)',
-              borderRadius: '24px',
-              padding: '28px',
-              position: 'relative',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 20,
-            }}>
-              
-              {!showGallery ? (
-                <div
-                  className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
-                  onClick={() => setShowGallery(true)}
+            {/* LEFT COLUMN — main upload card */}
+            <div style={{ flex: '0 0 480px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>Terra Lens</h2>
+                <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>Photograph a site. Terra AI reads the land.</p>
+              </div>
+
+              {/* Upload / image preview card */}
+              <div ref={uploadZoneRef} style={{
+                background: '#ffffff',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: 20,
+                padding: 24,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+              }}>
+                {image ? (
+                  /* Image selected preview */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <img src={image.url} alt="Selected site"
+                      style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 200 }} />
+                    <button onClick={() => { setImage(null); setShowGallery(true); }}
+                      style={{
+                        background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10,
+                        padding: '8px 14px', fontSize: 12, fontWeight: 700, color: '#64748b',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}>Change image</button>
+                  </div>
+                ) : (
+                  /* Upload zone */
+                  <div
+                    className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
+                    onClick={() => setShowGallery(true)}
+                    style={{
+                      border: '2px dashed #d1fae5',
+                      borderRadius: 14,
+                      padding: '32px 16px',
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center', gap: 10,
+                      cursor: 'pointer', background: '#f0fdf4', transition: 'all 0.2s',
+                    }}
+                  >
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: '#d1fae5',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Upload size={20} color="#10b981" />
+                    </div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0 }}>Browse site images</p>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Select from pre-loaded field surveys</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Location picker button — shown after image selected */}
+              {image && (
+                <div style={{
+                  background: '#ffffff', border: '1.5px solid #e2e8f0',
+                  borderRadius: 16, padding: 16, boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                }}>
+                  <button
+                    onClick={() => setShowSatellitePicker(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      background: location ? '#f0fdf4' : '#ffffff',
+                      border: `1.5px solid ${location ? '#10b981' : '#e2e8f0'}`,
+                      borderRadius: 12, padding: '12px 16px',
+                      cursor: 'pointer', fontFamily: 'inherit', width: '100%', textAlign: 'left',
+                    }}
+                  >
+                    <div style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      background: location ? '#d1fae5' : '#f8fafc',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20,
+                    }}>🛰️</div>
+                    <div style={{ flex: 1 }}>
+                      {location ? (
+                        <>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Location Pinned ✓</div>
+                          <div style={{ fontSize: 12, color: '#475569', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location.label}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Pick Location on Satellite Map</div>
+                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Required before analysis</div>
+                        </>
+                      )}
+                    </div>
+                    <MapPin size={14} color={location ? '#10b981' : '#94a3b8'} style={{ flexShrink: 0 }} />
+                  </button>
+                </div>
+              )}
+
+              {/* Analyse Site button — shown after image + location */}
+              {image && location && (
+                <button
+                  onClick={() => setPhase('scanning')}
                   style={{
-                    background: 'rgba(16, 185, 129, 0.02)',
-                    border: '2px dashed rgba(52, 211, 153, 0.25)',
-                    borderRadius: '16px',
-                    padding: '32px 16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 12,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
+                    width: '100%', padding: '14px', borderRadius: 14,
+                    background: 'linear-gradient(135deg, #10b981, #34d399)',
+                    border: 'none', color: '#fff', fontSize: 15, fontWeight: 800,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    boxShadow: '0 4px 20px rgba(16,185,129,0.35)',
+                    letterSpacing: '-0.01em',
                   }}
                 >
-                  <div className="lens-upload-icon" style={{ background: 'rgba(52, 211, 153, 0.1)' }}>
-                    <Upload size={22} style={{ color: '#34d399' }} />
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', margin: 0 }}>Click to browse site gallery</p>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>Select from pre-loaded field surveys</p>
-                  </div>
+                  Analyse Site →
+                </button>
+              )}
+
+              {error && (
+                <div style={{ fontSize: 13, color: '#ef4444', background: '#fef2f2',
+                  border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px' }}>
+                  {error}
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              )}
+            </div>
+
+            {/* RIGHT COLUMN — gallery panel (slides in when open) */}
+            <AnimatePresence>
+              {showGallery && (
+                <motion.div
+                  key="gallery"
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 24 }}
+                  style={{
+                    flex: 1,
+                    background: '#ffffff',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: 20,
+                    padding: 20,
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 14,
+                    maxHeight: '80vh',
+                    overflowY: 'auto',
+                  }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Select Site Image
-                    </span>
-                    <button
-                      onClick={() => setShowGallery(false)}
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: 24,
-                        height: 24,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <X size={12} />
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>Select a Site Image</span>
+                    <button onClick={() => setShowGallery(false)}
+                      style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 28, height: 28,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <X size={13} color="#64748b" />
                     </button>
                   </div>
-                  
-                  {/* 2x3 Image Grid */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 14,
-                  }}>
+
+                  {selectionError && (
+                    <div style={{ fontSize: 12, color: '#ef4444', background: '#fef2f2',
+                      border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px' }}>
+                      {selectionError}
+                    </div>
+                  )}
+
+                  {/* Full-size image list */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {GALLERY_IMAGES.map((img) => {
                       const isShaking = shakingImageId === img.id;
                       return (
                         <motion.div
                           key={img.id}
                           onClick={(e) => handleImageSelect(img, e)}
-                          animate={isShaking ? {
-                            x: [-4, 4, -4, 4, -2, 2, 0],
-                            rotate: [-1, 1, -1, 1, 0],
-                          } : {}}
+                          animate={isShaking ? { x: [-4, 4, -4, 4, 0], rotate: [-1, 1, -1, 1, 0] } : {}}
                           transition={isShaking ? { duration: 0.4 } : {}}
+                          whileHover={{ scale: 1.01, boxShadow: '0 4px 16px rgba(16,185,129,0.15)' }}
                           style={{
-                            background: 'rgba(15, 23, 42, 0.6)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '12px',
-                            padding: '8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 8,
-                            position: 'relative',
+                            borderRadius: 14,
                             overflow: 'hidden',
-                          }}
-                          whileHover={{
-                            scale: 1.04,
-                            borderColor: 'rgba(52, 211, 153, 0.4)',
-                            boxShadow: '0 8px 20px rgba(0,0,0,0.3)',
+                            border: '1.5px solid #e2e8f0',
+                            cursor: 'pointer',
+                            position: 'relative',
                           }}
                         >
+                          <img
+                            src={img.src}
+                            alt={img.label}
+                            style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: 220, background: '#f8fafc' }}
+                          />
                           <div style={{
-                            width: '100%',
-                            aspectRatio: '4/3',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            position: 'relative',
-                            background: '#020617',
+                            position: 'absolute', bottom: 0, left: 0, right: 0,
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)',
+                            padding: '18px 14px 10px',
                           }}>
-                            <img
-                              src={img.src}
-                              alt={img.label}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{img.label}</span>
                           </div>
-                          <p style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: '#94a3b8',
-                            margin: 0,
-                            lineHeight: 1.3,
-                            height: '28px',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}>
-                            {img.label}
-                          </p>
+                          {img.isKilgoris && (
+                            <div style={{
+                              position: 'absolute', top: 10, right: 10,
+                              background: '#10b981', color: '#fff',
+                              fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 100,
+                            }}>Demo Site</div>
+                          )}
                         </motion.div>
                       );
                     })}
                   </div>
-                  {selectionError && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      style={{
-                        fontSize: 12,
-                        color: '#f87171',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                        textAlign: 'center',
-                      }}
-                    >
-                      {selectionError}
-                    </motion.div>
-                  )}
-                </div>
+                </motion.div>
               )}
-            </div>
-
-            {/* Location + name inputs */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* Satellite location picker trigger button */}
-              <button
-                onClick={() => setShowSatellitePicker(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  background: 'rgba(30, 41, 59, 0.6)',
-                  border: '1px solid rgba(52, 211, 153, 0.2)',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  width: '100%',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <div style={{
-                  width: 36, height: 36, borderRadius: 8,
-                  background: 'rgba(52,211,153,0.12)',
-                  border: '1px solid rgba(52,211,153,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                  fontSize: 18,
-                }}>🛰️</div>
-                <div style={{ flex: 1 }}>
-                  {location ? (
-                    <>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Location Pinned</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location.label}</div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Pick Location via Satellite</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Powered by Google Earth Engine</div>
-                    </>
-                  )}
-                </div>
-                {location && (
-                  <div style={{ fontSize: 11, color: '#475569', flexShrink: 0 }}>
-                    {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-                  </div>
-                )}
-                <MapPin size={14} color={location ? '#34d399' : '#475569'} style={{ flexShrink: 0 }} />
-              </button>
-
-              <input
-                className="sim-input"
-                placeholder="Name this analysis — e.g. Ruiru plot 3 (optional)"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-              />
-            </div>
-            
-            {error && (
-              <div style={{
-                fontSize: 13,
-                color: '#f87171',
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                borderRadius: 10,
-                padding: '10px 14px'
-              }}>
-                {error}
-              </div>
-            )}
+            </AnimatePresence>
           </motion.div>
         )}
+            
+
 
         {phase === 'scanning' && (
           <motion.div
