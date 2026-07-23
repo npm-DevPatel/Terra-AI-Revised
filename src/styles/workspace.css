@@ -456,14 +456,14 @@
 /* ── Lens screen ─────────────────────────────────────────────────────────────*/
 .lens-screen {
   height: 100%;
-  min-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 40px 24px 60px;
-  gap: 28px;
-  overflow-y: auto;
+  justify-content: center;
+  padding: clamp(14px, 3vh, 28px) 24px;
+  gap: 0;
+  overflow: hidden;
   background: #eef3f1;
   font-family: 'Gabarito', 'Inter', system-ui;
 }
@@ -473,9 +473,10 @@
   max-width: 560px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 22px;
+  gap: 18px;
   align-items: start;
   transition: max-width 0.28s ease;
+  max-height: 100%;
 }
 
 .lens-upload-flow.with-gallery {
@@ -486,12 +487,13 @@
 .lens-upload-primary {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: clamp(10px, 1.7vh, 16px);
+  min-height: 0;
 }
 
 .lens-upload-heading {
   text-align: center;
-  padding: 4px 10px 2px;
+  padding: 0 10px;
 }
 
 .lens-upload-heading > span,
@@ -509,7 +511,7 @@
 .lens-upload-heading h2 {
   margin: 6px 0 4px;
   color: #0f172a;
-  font-size: clamp(30px, 4vw, 44px);
+  font-size: clamp(28px, 4vw, 40px);
   line-height: 0.98;
   font-weight: 900;
 }
@@ -532,12 +534,13 @@
 }
 
 .lens-upload-card {
-  padding: 20px;
+  padding: clamp(14px, 2vh, 20px);
+  min-height: 0;
 }
 
 .lens-upload-zone {
   width: 100%;
-  min-height: 290px;
+  min-height: clamp(220px, 38vh, 290px);
   border-radius: 14px;
   border: 2px dashed rgba(52,211,153,0.25);
   background:
@@ -552,7 +555,7 @@
   transition: border-color 0.2s, background 0.2s;
   position: relative;
   overflow: hidden;
-  padding: 32px 16px;
+  padding: clamp(20px, 4vh, 32px) 16px;
 }
 
 .lens-upload-zone:hover,
@@ -571,8 +574,8 @@
 }
 
 .lens-upload-icon {
-  width: 58px;
-  height: 58px;
+  width: clamp(46px, 7vh, 58px);
+  height: clamp(46px, 7vh, 58px);
   border-radius: 18px;
   background: rgba(52,211,153,0.1);
   border: 1px solid rgba(52,211,153,0.2);
@@ -630,12 +633,13 @@
 .lens-selected-preview {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  min-height: 0;
 }
 
 .lens-selected-image {
   width: 100%;
-  max-height: min(54vh, 520px);
+  height: clamp(220px, 39vh, 420px);
   border-radius: 14px;
   object-fit: contain;
   background: #f8fafc;
@@ -683,7 +687,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 0.72fr);
   gap: 12px;
-  padding: 16px;
+  padding: clamp(12px, 2vh, 16px);
   align-items: center;
 }
 
@@ -779,10 +783,11 @@
 .lens-gallery-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: 84vh;
-  overflow-y: auto;
-  padding: 20px;
+  gap: 12px;
+  height: min(100%, 86vh);
+  overflow: hidden;
+  padding: clamp(14px, 2vh, 20px);
+  min-height: 0;
 }
 
 .lens-gallery-header {
@@ -815,8 +820,10 @@
 
 .lens-gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .lens-gallery-item {
@@ -830,7 +837,7 @@
 
 .lens-gallery-item img {
   width: 100%;
-  height: clamp(260px, 38vh, 460px);
+  height: clamp(126px, 25vh, 230px);
   max-height: none;
   object-fit: contain;
   background: #f1f5f9;
@@ -1046,12 +1053,27 @@
 
 @media (max-width: 900px) {
   .lens-screen {
-    padding: 28px 16px 44px;
+    justify-content: flex-start;
+    padding: 16px;
   }
 
   .lens-upload-flow.with-gallery {
     max-width: 560px;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lens-gallery-panel {
+    height: auto;
+    max-height: none;
+  }
+
+  .lens-gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+  }
+
+  .lens-gallery-item img {
+    height: clamp(112px, 19vh, 160px);
   }
 
   .lens-location-step {

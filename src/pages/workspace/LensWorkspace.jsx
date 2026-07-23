@@ -35,7 +35,7 @@ const GALLERY_IMAGES = [
   { id: 'bird', src: birdInMotion, label: 'Avian flight path', isKilgoris: false },
   { id: 'castle', src: castle, label: 'Stone fortress structure', isKilgoris: false },
   { id: 'greenery', src: greenery, label: 'Lush forest canopy', isKilgoris: false },
-  { id: 'kilgoris', src: kilgoris, label: 'Kilgoris development site', isKilgoris: true },
+  { id: 'kilgoris', src: kilgoris, label: 'Highlands of Limuru', isKilgoris: true },
   { id: 'puppy', src: puppy, label: 'Playful golden pup', isKilgoris: false },
 ];
 
@@ -1094,7 +1094,7 @@ export default function LensWorkspace() {
                       <ImageIcon size={24} />
                     </div>
                     <p>Pictures in your Device...</p>
-                    <small>Upload from your camera roll or choose a demo site image</small>
+                    <small>Upload from your camera roll or choose a site image</small>
                     <div className="lens-upload-actions">
                       <button
                         type="button"
@@ -1104,9 +1104,8 @@ export default function LensWorkspace() {
                         }}
                       >
                         <Upload size={14} />
-                        Upload
+                        Upload Image
                       </button>
-                      <button type="button">Demo images</button>
                     </div>
                   </div>
                 )}

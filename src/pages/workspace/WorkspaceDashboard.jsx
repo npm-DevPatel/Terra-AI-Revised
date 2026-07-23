@@ -4,6 +4,9 @@ import { Plus, ScanSearch, LayoutDashboard, FileText, Layers, ArrowRight, LogOut
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 import useTerraStore from '../../store/useTerraStore';
+import libraryProject from '../../assets/made_projects/library_project.jpeg';
+import momsHome from '../../assets/made_projects/moms_home.jpeg';
+import urbanPark from '../../assets/made_projects/urban_park.jpeg';
 
 const PRODUCT_META = {
   lens:  { label: 'Terra Lens',  color: '#10b981', bg: '#f0fdf4', Icon: ScanSearch },
@@ -28,10 +31,19 @@ function coverGradient(str) {
   return COVER_GRADIENTS[Math.abs(h) % COVER_GRADIENTS.length];
 }
 
+function projectCoverImage(project) {
+  const text = `${project.name || ''} ${project.description || ''}`.toLowerCase();
+  if (text.includes('kilimani') || text.includes('residence') || text.includes('home')) return momsHome;
+  if (text.includes('patel') || text.includes('apartment') || text.includes('library')) return libraryProject;
+  if (text.includes('park') || text.includes('urban')) return urbanPark;
+  return null;
+}
+
 function ProjectCard({ project, onClick }) {
   const meta = PRODUCT_META[project.product] || PRODUCT_META.full;
   const { Icon, color, bg, label } = meta;
   const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const coverImage = projectCoverImage(project);
 
   return (
     <motion.div
@@ -40,8 +52,14 @@ function ProjectCard({ project, onClick }) {
       style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 20, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', transition: 'box-shadow 0.2s' }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Cover gradient */}
-      <div style={{ height: 130, background: coverGradient(project.name), display: 'flex', alignItems: 'flex-end', padding: '14px 16px' }}>
+      {/* Cover */}
+      <div style={{
+        height: 130,
+        background: coverImage ? `linear-gradient(180deg, rgba(15,23,42,0.05), rgba(15,23,42,0.42)), url(${coverImage}) center/cover` : coverGradient(project.name),
+        display: 'flex',
+        alignItems: 'flex-end',
+        padding: '14px 16px',
+      }}>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.92)', color, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 5 }}>
           <Icon size={11} />{label}
         </span>
