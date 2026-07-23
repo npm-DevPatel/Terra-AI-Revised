@@ -171,29 +171,31 @@ export default function Navbar() {
           scrolled ? 'bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm' : 'bg-transparent'
         )}
       >
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
             <img src={terraLogo} alt="Terra AI" className="h-8 w-auto" />
           </Link>
 
-          {/* Center capsule nav — desktop */}
-          <div className="hidden md:flex items-center gap-0.5 bg-white/80 border border-slate-200 rounded-full px-2 py-1.5 shadow-sm backdrop-blur-sm">
-            {Object.entries(NAV_ITEMS).map(([label, data]) => (
-              <DropdownMenu key={label} label={label} data={data} />
-            ))}
-            <Link
-              to="/pricing"
-              className={clsx(
-                'px-3.5 py-1.5 text-sm font-semibold rounded-full transition-all duration-150',
-                location.pathname === '/pricing'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              )}
-            >
-              Pricing
-            </Link>
+          {/* Center capsule nav — desktop, truly centered */}
+          <div className="hidden md:flex justify-center">
+            <div className="flex items-center gap-0.5 bg-white/80 border border-slate-200 rounded-full px-2 py-1.5 shadow-sm backdrop-blur-sm">
+              {Object.entries(NAV_ITEMS).map(([label, data]) => (
+                <DropdownMenu key={label} label={label} data={data} />
+              ))}
+              <Link
+                to="/pricing"
+                className={clsx(
+                  'px-3.5 py-1.5 text-sm font-semibold rounded-full transition-all duration-150',
+                  location.pathname === '/pricing'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                )}
+              >
+                Pricing
+              </Link>
+            </div>
           </div>
 
           {/* Right auth */}

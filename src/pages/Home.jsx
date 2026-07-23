@@ -147,16 +147,6 @@ export default function Home() {
 
           {/* Product picker */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <motion.button
-              type="button"
-              onClick={handleCreateProject}
-              whileHover={{ scale: 1.03, y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              className="home-create-project-btn"
-            >
-              Create Project
-              <ArrowRight className="w-5 h-5" />
-            </motion.button>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
               Pick a product to try free
             </p>
