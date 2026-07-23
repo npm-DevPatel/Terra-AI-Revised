@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ScanSearch, LayoutDashboard, FileText, Layers, ArrowRight, LogOut, Calendar, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,55 +31,83 @@ function coverGradient(str) {
   return COVER_GRADIENTS[Math.abs(h) % COVER_GRADIENTS.length];
 }
 
-function projectCoverImage(project) {
-  const text = `${project.name || ''} ${project.description || ''}`.toLowerCase();
-  if (text.includes('kilimani') || text.includes('residence') || text.includes('home')) return momsHome;
-  if (text.includes('patel') || text.includes('apartment') || text.includes('library')) return libraryProject;
-  if (text.includes('park') || text.includes('urban')) return urbanPark;
-  return null;
-}
+const SHOWCASE_PROJECTS = [
+  {
+    id: 'showcase-urban-park',
+    name: 'Verdant Civic Park',
+    description: 'A climate-conscious public realm concept with shaded promenades, water-sensitive planting, and flexible gathering lawns for a growing urban district.',
+    product: 'full',
+    coverImage: urbanPark,
+    created_at: '2026-07-18T09:00:00.000Z',
+    owner_name: 'Terra Studio',
+    isShowcase: true,
+  },
+  {
+    id: 'showcase-library',
+    name: 'Mediatheque Library',
+    description: 'A refined cultural anchor blending quiet study terraces, luminous reading halls, and civic-grade circulation planning for daily community use.',
+    product: 'full',
+    coverImage: libraryProject,
+    created_at: '2026-07-16T09:00:00.000Z',
+    owner_name: 'Terra Studio',
+    isShowcase: true,
+  },
+  {
+    id: 'showcase-moms-home',
+    name: "Mom's Courtyard Home",
+    description: 'A warm residential retreat shaped around garden views, soft daylight, and practical family living with a premium site-to-home design narrative.',
+    product: 'full',
+    coverImage: momsHome,
+    created_at: '2026-07-14T09:00:00.000Z',
+    owner_name: 'Terra Studio',
+    isShowcase: true,
+  },
+];
 
 function ProjectCard({ project, onClick }) {
   const meta = PRODUCT_META[project.product] || PRODUCT_META.full;
   const { Icon, color, bg, label } = meta;
   const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const coverImage = projectCoverImage(project);
+  const coverImage = project.coverImage || null;
+  const interactive = typeof onClick === 'function';
 
   return (
     <motion.div
-      whileHover={{ y: -4, boxShadow: '0 20px 40px rgba(0,0,0,0.10)' }}
+      whileHover={interactive ? { y: -4, boxShadow: '0 24px 48px rgba(0,0,0,0.12)' } : {}}
       onClick={onClick}
-      style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 20, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', transition: 'box-shadow 0.2s' }}
-      whileTap={{ scale: 0.98 }}
+      style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 22, overflow: 'hidden', cursor: interactive ? 'pointer' : 'default', boxShadow: '0 10px 30px rgba(15,23,42,0.08)', transition: 'box-shadow 0.2s' }}
+      whileTap={interactive ? { scale: 0.98 } : {}}
     >
       {/* Cover */}
       <div style={{
-        height: 130,
+        height: 185,
         background: coverImage ? `linear-gradient(180deg, rgba(15,23,42,0.05), rgba(15,23,42,0.42)), url(${coverImage}) center/cover` : coverGradient(project.name),
         display: 'flex',
         alignItems: 'flex-end',
-        padding: '14px 16px',
+        padding: '18px 20px',
       }}>
-        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(255,255,255,0.92)', color, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 5 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 100, background: 'rgba(255,255,255,0.94)', color, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon size={11} />{label}
         </span>
       </div>
       {/* Content */}
-      <div style={{ padding: '16px 18px 18px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 4, lineHeight: 1.3 }}>{project.name}</div>
+      <div style={{ padding: '20px 22px 22px' }}>
+        <div style={{ fontSize: 19, fontWeight: 800, color: '#0f172a', marginBottom: 7, lineHeight: 1.25 }}>{project.name}</div>
         {project.description && (
-          <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5, marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <div style={{ fontSize: 14, color: '#64748b', lineHeight: 1.55, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {project.description}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#94a3b8' }}><Calendar size={11} />{fmt(project.created_at)}</div>
-            {project.owner_name && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#94a3b8' }}><User size={11} />{project.owner_name}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}><Calendar size={12} />{fmt(project.created_at)}</div>
+            {project.owner_name && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}><User size={12} />{project.owner_name}</div>}
           </div>
-          <div style={{ width: 28, height: 28, borderRadius: 100, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ArrowRight size={13} color={color} />
-          </div>
+          {interactive && (
+            <div style={{ width: 34, height: 34, borderRadius: 100, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowRight size={15} color={color} />
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -242,11 +270,7 @@ export default function WorkspaceDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [profile, setProfile] = useState(null);
 
-  useEffect(() => {
-    if (user) { loadProjects(); loadProfile(); }
-  }, [user]);
-
-  async function loadProjects() {
+  const loadProjects = useCallback(async () => {
     setLoading(true);
     if (!user) { setProjects([]); setLoading(false); return; }
     try {
@@ -267,16 +291,26 @@ export default function WorkspaceDashboard() {
       setProjects(enriched);
     } catch { setProjects([]); }
     setLoading(false);
-  }
+  }, [user]);
 
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').eq('id', user?.id).single();
     setProfile(data);
-  }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    const timer = window.setTimeout(() => {
+      loadProjects();
+      loadProfile();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [user, loadProjects, loadProfile]);
 
   const needsProfileSetup = profile && !profile.display_name;
 
   const initials = (name) => name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const displayProjects = [...SHOWCASE_PROJECTS, ...projects];
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Gabarito', 'Inter', system-ui" }}>
@@ -342,7 +376,7 @@ export default function WorkspaceDashboard() {
       </AnimatePresence>
 
       {/* Main content */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 32px' }}>
+      <div style={{ maxWidth: 1420, margin: '0 auto', padding: '48px 32px 72px' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36 }}>
           <div>
@@ -370,62 +404,26 @@ export default function WorkspaceDashboard() {
         </div>
 
         {/* Grid */}
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-            <div className="terra-spinner" />
-          </div>
-        ) : projects.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: 16, padding: '100px 0', textAlign: 'center',
-            }}
-          >
-            <div style={{
-              width: 64, height: 64, borderRadius: 20,
-              background: '#f0fdf4',
-              border: '2px dashed #bbf7d0',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Layers size={28} color="#10b981" />
-            </div>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-              No projects yet
-            </h3>
-            <p style={{ fontSize: 13, color: '#64748b', maxWidth: 340 }}>
-              Create your first project to start analysing land, planning layouts, and generating reports — all in one workspace.
-            </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: '#10b981', color: '#fff',
-                border: 'none', borderRadius: 100, padding: '11px 24px',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-              }}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 22 }}>
+          {displayProjects.map((p, i) => (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
             >
-              <Plus size={15} /> Create your first project
-            </button>
-          </motion.div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {projects.map((p, i) => (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <ProjectCard
-                  project={p}
-                  onClick={() => navigate(`/workspace/${p.id}/lens`)}
-                />
-              </motion.div>
-            ))}
-          </div>
-        )}
+              <ProjectCard
+                project={p}
+                onClick={p.isShowcase ? undefined : () => navigate(`/workspace/${p.id}/lens`)}
+              />
+            </motion.div>
+          ))}
+          {loading && (
+            <div style={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="terra-spinner" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Create modal */}
