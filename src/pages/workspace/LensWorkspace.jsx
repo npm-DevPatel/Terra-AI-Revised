@@ -45,6 +45,12 @@ const TIGONI_LOCATION = {
   lng: 36.6789,
   label: 'Tigoni, Limuru, Kiambu County, Kenya',
 };
+const DEMO_LOCATION_SUGGESTIONS = [
+  { place_id: 'demo-tigoni', description: 'Tigoni, Limuru, Kiambu County, Kenya', label: TIGONI_LOCATION.label, lat: TIGONI_LOCATION.lat, lng: TIGONI_LOCATION.lng },
+  { place_id: 'demo-limuru', description: 'Limuru, Kiambu County, Kenya', label: 'Limuru, Kiambu County, Kenya', lat: -1.1071, lng: 36.6427 },
+  { place_id: 'demo-brackenhurst', description: 'Brackenhurst, Tigoni, Limuru, Kenya', label: 'Brackenhurst, Tigoni, Limuru, Kenya', lat: -1.1291, lng: 36.6819 },
+  { place_id: 'demo-kiambu', description: 'Kiambu County, Kenya', label: 'Kiambu County, Kenya', lat: -1.0314, lng: 36.8681 },
+];
 const LOADING_WORDS = ['synthesizing', 'pondering', 'crafting', 'composing'];
 
 function FadedActionWord({ word }) {
@@ -65,7 +71,6 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
-  const acRef = useRef(null);
   const polygonRef = useRef(null);
   const placesServiceRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -74,6 +79,14 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
   const [searchValue, setSearchValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+
+  const demoSuggestionsFor = (value = '') => {
+    const needle = value.trim().toLowerCase();
+    if (!needle) return DEMO_LOCATION_SUGGESTIONS.slice(0, 3);
+    return DEMO_LOCATION_SUGGESTIONS
+      .filter((place) => place.description.toLowerCase().includes(needle))
+      .slice(0, 4);
+  };
 
   const buildBoundary = (lat, lng) => ([
     { lat: lat + 0.0031, lng: lng - 0.0038 },
@@ -91,11 +104,13 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
     const boundary = buildBoundary(loc.lat, loc.lng);
     polygonRef.current = new window.google.maps.Polygon({
       paths: boundary,
-      strokeColor: '#f59e0b',
+      strokeColor: '#10b981',
       strokeOpacity: 1,
-      strokeWeight: 3,
-      fillColor: '#fbbf24',
-      fillOpacity: 0.28,
+      strokeWeight: 4,
+      fillColor: '#22c55e',
+      fillOpacity: 0.3,
+      geodesic: true,
+      clickable: false,
       map,
     });
 
@@ -112,6 +127,10 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
         strokeWeight: 3,
       },
     });
+
+    const bounds = new window.google.maps.LatLngBounds();
+    boundary.forEach((point) => bounds.extend(point));
+    map.fitBounds(bounds, 72);
   };
 
   const selectLocation = (loc, zoom = 16) => {
@@ -157,25 +176,9 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
       });
     });
 
-    // Places Autocomplete on the search bar
-    if (window.google.maps.places && searchInputRef.current) {
-      acRef.current = new window.google.maps.places.Autocomplete(searchInputRef.current, {
-        fields: ['formatted_address', 'geometry', 'name'],
-        componentRestrictions: { country: 'ke' },
-      });
-      acRef.current.addListener('place_changed', () => {
-        const place = acRef.current.getPlace();
-        if (!place.geometry?.location) return;
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        const label = place.formatted_address || place.name || '';
-
-        selectLocation({ lat, lng, label }, 16);
-      });
-    }
-
     setMapReady(true);
     selectLocation(TIGONI_LOCATION, 15);
+    setSuggestions(demoSuggestionsFor(''));
   };
 
   useEffect(() => {
@@ -219,9 +222,17 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
     const value = e.target.value;
     setSearchValue(value);
 
-    if (!placesServiceRef.current || value.trim().length < 2) {
-      setSuggestions([]);
-      setSuggestionsOpen(false);
+    const fallbackSuggestions = demoSuggestionsFor(value);
+
+    if (value.trim().length < 2) {
+      setSuggestions(fallbackSuggestions);
+      setSuggestionsOpen(fallbackSuggestions.length > 0);
+      return;
+    }
+
+    if (!placesServiceRef.current) {
+      setSuggestions(fallbackSuggestions);
+      setSuggestionsOpen(fallbackSuggestions.length > 0);
       return;
     }
 
@@ -234,16 +245,31 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
       },
     }, (predictions, status) => {
       if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions?.length) {
-        setSuggestions([]);
-        setSuggestionsOpen(false);
+        setSuggestions(fallbackSuggestions);
+        setSuggestionsOpen(fallbackSuggestions.length > 0);
         return;
       }
-      setSuggestions(predictions.slice(0, 5));
+      const merged = [
+        ...fallbackSuggestions,
+        ...predictions.slice(0, 5),
+      ].filter((item, index, all) => (
+        all.findIndex((candidate) => candidate.description === item.description) === index
+      )).slice(0, 6);
+      setSuggestions(merged);
       setSuggestionsOpen(true);
     });
   };
 
   const handleSuggestionSelect = (suggestion) => {
+    if (Number.isFinite(suggestion.lat) && Number.isFinite(suggestion.lng)) {
+      selectLocation({
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        label: suggestion.label || suggestion.description,
+      }, 16);
+      return;
+    }
+
     const service = new window.google.maps.places.PlacesService(mapInstanceRef.current);
     service.getDetails({
       placeId: suggestion.place_id,
@@ -295,7 +321,11 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
             ref={searchInputRef}
             value={searchValue}
             onChange={handleSearchChange}
-            onFocus={() => suggestions.length && setSuggestionsOpen(true)}
+            onFocus={() => {
+              const nextSuggestions = suggestions.length ? suggestions : demoSuggestionsFor(searchValue);
+              setSuggestions(nextSuggestions);
+              setSuggestionsOpen(nextSuggestions.length > 0);
+            }}
             placeholder="Search Tigoni, Limuru, Kiambu..."
           />
           <button onClick={onClose} className="lens-icon-button" aria-label="Close location picker">
@@ -316,7 +346,7 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
 
       <div className="lens-boundary-note">
         <Layers3 size={14} />
-        Selected land is shaded for demo clarity
+        Selected land boundary is shaded
       </div>
 
       {/* Floating bottom confirm bar */}
@@ -968,6 +998,7 @@ export default function LensWorkspace() {
       if (!res.ok) throw new Error(data.error || 'Analysis failed.');
       data.vision.objects = data.vision_objects_full || data.vision?.objects || [];
       setResult(data); setAnalysisId(data.analysis_id);
+      setFullscreen(true);
       setPhase('result'); subscribeToGemini(data.analysis_id);
     } catch (err) { setError(err.message); setPhase('upload'); }
   }, [image, location, projectId, session, subscribeToGemini, title]);
@@ -1091,7 +1122,7 @@ export default function LensWorkspace() {
                   <div className="lens-step-copy">
                     <span>Step 2</span>
                     <strong>Pick the land on satellite imagery</strong>
-                    <p>For the demo, Terra naturally starts near Tigoni, Limuru, Kenya.</p>
+                    <p>Start near Tigoni, Limuru, Kenya, or search another Kenyan location.</p>
                   </div>
                   <button
                     onClick={openLocationPicker}
@@ -1142,7 +1173,7 @@ export default function LensWorkspace() {
                     letterSpacing: '-0.01em',
                   }}
                 >
-                  Analyse Site →
+                  Analyze Site →
                 </button>
               )}
 
@@ -1184,6 +1215,14 @@ export default function LensWorkspace() {
                         {selectionError}
                       </div>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="lens-device-image-button"
+                    >
+                      <Upload size={14} />
+                      Pictures in your Device...
+                    </button>
 
                     {/* Full-size image list */}
                     <div className="lens-gallery-grid">
