@@ -80,12 +80,44 @@ function ProjectCard({ project, onClick, onDelete, deleting }) {
     >
       {/* Cover */}
       <div style={{
+        position: 'relative',
         height: 185,
         background: coverImage ? `linear-gradient(180deg, rgba(15,23,42,0.05), rgba(15,23,42,0.42)), url(${coverImage}) center/cover` : coverGradient(project.name),
         display: 'flex',
         alignItems: 'flex-end',
         padding: '18px 20px',
       }}>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(project);
+            }}
+            disabled={deleting}
+            aria-label={`Delete ${project.name}`}
+            title="Delete project"
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 14,
+              width: 34,
+              height: 34,
+              borderRadius: 100,
+              border: '1px solid rgba(255,255,255,0.5)',
+              background: deleting ? 'rgba(255,255,255,0.82)' : 'rgba(15,23,42,0.42)',
+              color: deleting ? '#64748b' : '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: deleting ? 'wait' : 'pointer',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 10px 24px rgba(15,23,42,0.18)',
+            }}
+          >
+            {deleting ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
+          </button>
+        )}
         <span style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 100, background: 'rgba(255,255,255,0.94)', color, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon size={11} />{label}
         </span>
@@ -103,39 +135,11 @@ function ProjectCard({ project, onClick, onDelete, deleting }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}><Calendar size={12} />{fmt(project.created_at)}</div>
             {project.owner_name && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}><User size={12} />{project.owner_name}</div>}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {onDelete && (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDelete(project);
-                }}
-                disabled={deleting}
-                aria-label={`Delete ${project.name}`}
-                title="Delete project"
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 100,
-                  border: '1px solid #fee2e2',
-                  background: deleting ? '#f8fafc' : '#fff1f2',
-                  color: deleting ? '#94a3b8' : '#e11d48',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: deleting ? 'wait' : 'pointer',
-                }}
-              >
-                {deleting ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
-              </button>
-            )}
-            {interactive && (
-              <div style={{ width: 34, height: 34, borderRadius: 100, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ArrowRight size={15} color={color} />
-              </div>
-            )}
-          </div>
+          {interactive && (
+            <div style={{ width: 34, height: 34, borderRadius: 100, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowRight size={15} color={color} />
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -351,6 +355,14 @@ export default function WorkspaceDashboard() {
     setDeletingProjectId(project.id);
 
     try {
+      const { error: archiveError } = await supabase
+        .from('projects')
+        .update({ archived: true })
+        .eq('id', project.id);
+      if (archiveError) throw archiveError;
+
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+
       const { data: channelsData, error: channelsFetchError } = await supabase
         .from('channels')
         .select('id')
@@ -371,7 +383,6 @@ export default function WorkspaceDashboard() {
         'sim_plans',
         'analyses',
         'project_invites',
-        'project_members',
         'channels',
       ];
 
@@ -387,7 +398,12 @@ export default function WorkspaceDashboard() {
         .from('projects')
         .delete()
         .eq('id', project.id);
-      if (projectDeleteError) throw projectDeleteError;
+      if (!projectDeleteError) {
+        await supabase
+          .from('project_members')
+          .delete()
+          .eq('project_id', project.id);
+      }
 
       setProjects((current) => current.filter((item) => item.id !== project.id));
     } catch (err) {
