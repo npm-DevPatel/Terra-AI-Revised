@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, ScanSearch, LayoutDashboard, FileText, Layers, ArrowRight, LogOut, Calendar, User, Trash2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
@@ -296,6 +296,7 @@ function CreateProjectModal({ onClose, onCreated }) {
 
 export default function WorkspaceDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useTerraStore();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -340,6 +341,16 @@ export default function WorkspaceDashboard() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [user, loadProjects, loadProfile]);
+
+  // Auto-open create modal when arriving via ?create=true (e.g. from Navbar CTA)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('create') === 'true') {
+      setShowCreate(true);
+      // Clean up the query param without triggering a re-render loop
+      navigate('/workspace', { replace: true });
+    }
+  }, [location.search, navigate]);
 
   const needsProfileSetup = profile && !profile.display_name;
 

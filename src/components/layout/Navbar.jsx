@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Sparkles, ArrowRight, ScanLine, LayoutTemplate, FileText, Menu, X } from 'lucide-react';
+import { ChevronDown, Sparkles, ArrowRight, ScanLine, LayoutTemplate, FileText, Menu, X, FolderPlus } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
@@ -221,14 +221,21 @@ export default function Navbar() {
                 >
                   Sign In
                 </button>
-                <button
-                  onClick={() => openAuthModal({ tab: 'signup' })}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-full transition-all duration-150 shadow-sm shadow-emerald-200"
-                >
-                  Get Started <ArrowRight className="w-3.5 h-3.5" />
-                </button>
               </>
             )}
+            {/* Create Project — always visible, prominent green CTA */}
+            <button
+              id="navbar-create-project-btn"
+              onClick={() =>
+                user
+                  ? navigate('/workspace?create=true')
+                  : openAuthModal({ tab: 'signup', redirectTo: '/workspace?create=true' })
+              }
+              className="navbar-create-project-btn flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-full transition-all duration-200"
+            >
+              <FolderPlus className="w-4 h-4" />
+              Create Project
+            </button>
           </div>
 
           {/* Mobile hamburger */}
@@ -271,18 +278,22 @@ export default function Navbar() {
                 <Link to="/pricing" className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
                   Pricing
                 </Link>
-                {user ? (
+                {user && (
                   <button onClick={() => navigate('/workspace')} className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
                     Dashboard
                   </button>
-                ) : (
-                  <button
-                    onClick={() => openAuthModal({ tab: 'signup' })}
-                    className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-full transition-colors"
-                  >
-                    Get Started <ArrowRight className="w-4 h-4" />
-                  </button>
                 )}
+                <button
+                  onClick={() =>
+                    user
+                      ? navigate('/workspace?create=true')
+                      : openAuthModal({ tab: 'signup', redirectTo: '/workspace?create=true' })
+                  }
+                  className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-full transition-colors shadow-lg shadow-emerald-200"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                  Create Project
+                </button>
               </div>
             </div>
           </motion.div>

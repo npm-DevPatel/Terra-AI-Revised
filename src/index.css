@@ -364,3 +364,24 @@
          border border-terra-border text-sm font-semibold text-terra-heading
          hover:bg-slate-100 transition-colors;
 }
+
+/* ── Navbar Create Project CTA ───────────────────────────────────────────── */
+.navbar-create-project-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45), 0 0 0 0 rgba(16, 185, 129, 0.3);
+  animation: navbarCreateProjectPulse 2.8s ease-in-out infinite;
+  letter-spacing: 0.01em;
+}
+.navbar-create-project-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.55);
+  transform: translateY(-1px) scale(1.02);
+  animation: none;
+}
+.navbar-create-project-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+@keyframes navbarCreateProjectPulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45), 0 0 0 0 rgba(16, 185, 129, 0.3); }
+  50%       { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.55), 0 0 0 8px rgba(16, 185, 129, 0); }
+}

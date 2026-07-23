@@ -14,9 +14,9 @@ import deepScan from '../assets/analysis_page/deep_scan.jpeg';
 import '../styles/home.css';
 
 const STATS = [
-  { value: '98%',  label: 'Risk Detection Accuracy' },
+  { value: '98%', label: 'Risk Detection Accuracy' },
   { value: '<60s', label: 'Full Analysis Time' },
-  { value: '15+',  label: 'Risk Vectors Checked' },
+  { value: '15+', label: 'Risk Vectors Checked' },
   { value: '100%', label: 'Kenya Coverage' },
 ];
 
@@ -112,6 +112,14 @@ export default function Home() {
     }
   };
 
+  const handleCreateProject = () => {
+    if (user) {
+      navigate('/workspace');
+    } else {
+      openAuthModal({ tab: 'signup', redirectTo: '/workspace' });
+    }
+  };
+
   return (
     <MarketingLayout>
       {/* ── HERO ──────────────────────────────────────────────── */}
@@ -139,6 +147,16 @@ export default function Home() {
 
           {/* Product picker */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <motion.button
+              type="button"
+              onClick={handleCreateProject}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="home-create-project-btn"
+            >
+              Create Project
+              <ArrowRight className="w-5 h-5" />
+            </motion.button>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
               Pick a product to try free
             </p>
@@ -224,27 +242,6 @@ export default function Home() {
             position: 'absolute', inset: 0,
             background: 'linear-gradient(to right, #f0fdf4 0%, transparent 12%, transparent 88%, #f0fdf4 100%)',
           }} />
-          {/* Floating badges */}
-          <div style={{
-            position: 'absolute', bottom: 20, left: 20, pointerEvents: 'auto',
-            background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
-            borderRadius: 16, padding: '10px 16px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
-            border: '1px solid rgba(226,232,240,0.8)',
-          }}>
-            <p style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 2 }}>Land Score</p>
-            <p style={{ fontSize: 22, fontWeight: 900, color: '#059669', lineHeight: 1 }}>82 / 100</p>
-            <p style={{ fontSize: 11, fontWeight: 600, color: '#059669', marginTop: 2 }}>SAFE — Clear for Due Diligence</p>
-          </div>
-          <div style={{
-            position: 'absolute', bottom: 20, right: 20, pointerEvents: 'auto',
-            background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
-            borderRadius: 16, padding: '10px 16px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
-            border: '1px solid rgba(226,232,240,0.8)',
-          }}>
-            <p style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 2 }}>Analysis Time</p>
-            <p style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>47s</p>
-            <p style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginTop: 2 }}>15 risk vectors checked</p>
-          </div>
         </motion.div>
       </section>
 
@@ -325,7 +322,7 @@ export default function Home() {
               Drop a site photo or satellite image and Terra Lens instantly detects vegetation cover, drainage patterns, terrain features, and potential legal flag zones. No GIS expertise needed.
             </p>
             <ul className="space-y-3 mb-8">
-              {['Google Vision AI — labels, objects, text, colors','JRC flood history + CHIRPS rainfall overlay','NEMA riparian buffer enforcement (30m)','Slope & sinkhole risk from SRTM data'].map((f) => (
+              {['Google Vision AI — labels, objects, text, colors', 'JRC flood history + CHIRPS rainfall overlay', 'NEMA riparian buffer enforcement (30m)', 'Slope & sinkhole risk from SRTM data'].map((f) => (
                 <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
                   {f}
@@ -377,7 +374,7 @@ export default function Home() {
               Terra Sim is the AI planning assistant that recommends optimal building placement, setbacks, sun orientation, and layout before your architect picks up a pencil.
             </p>
             <ul className="space-y-3 mb-8">
-              {['Building placement & orientation optimisation','FAR estimates & setback recommendations','Parking, circulation & green space planning','Constraint maps & heatmap exports'].map((f) => (
+              {['Building placement & orientation optimisation', 'FAR estimates & setback recommendations', 'Parking, circulation & green space planning', 'Constraint maps & heatmap exports'].map((f) => (
                 <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
                   {f}
@@ -411,7 +408,7 @@ export default function Home() {
               Terra Flow generates professional land intelligence reports, monitors construction milestones, and delivers client dashboards — all from a single analysis.
             </p>
             <ul className="space-y-3 mb-8">
-              {['AI-generated PDF & DOCX risk reports','Construction progress monitoring','Timeline comparisons & compliance docs','Client dashboards with live updates'].map((f) => (
+              {['AI-generated PDF & DOCX risk reports', 'Construction progress monitoring', 'Timeline comparisons & compliance docs', 'Client dashboards with live updates'].map((f) => (
                 <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                   {f}
@@ -522,4 +519,3 @@ export default function Home() {
     </MarketingLayout>
   );
 }
-
