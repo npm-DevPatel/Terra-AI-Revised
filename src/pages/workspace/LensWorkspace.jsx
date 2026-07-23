@@ -11,9 +11,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Camera, Upload, X, AlertTriangle, CheckCircle,
+  Upload, X, AlertTriangle, CheckCircle,
   Maximize2, Minimize2, Crosshair, MessageSquare,
   LayoutDashboard, FileText, Sparkles, Send, Loader2, MapPin,
+  Image as ImageIcon, Search, Navigation, Layers3, Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
@@ -39,6 +40,25 @@ const GALLERY_IMAGES = [
 ];
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const TIGONI_LOCATION = {
+  lat: -1.1398,
+  lng: 36.6789,
+  label: 'Tigoni, Limuru, Kiambu County, Kenya',
+};
+const LOADING_WORDS = ['synthesizing', 'pondering', 'crafting', 'composing'];
+
+function FadedActionWord({ word }) {
+  const first = word.slice(0, 2);
+  const middle = word.slice(2, -3);
+  const last = word.slice(-3);
+  return (
+    <span className="lens-faded-word" aria-label={word}>
+      <strong>{first}</strong>
+      <span>{middle}</span>
+      <strong>{last}</strong>
+    </span>
+  );
+}
 
 /* ── Satellite Location Picker ─────────────────────────────────── */
 function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
@@ -46,17 +66,71 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
   const acRef = useRef(null);
+  const polygonRef = useRef(null);
+  const placesServiceRef = useRef(null);
   const searchInputRef = useRef(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+
+  const buildBoundary = (lat, lng) => ([
+    { lat: lat + 0.0031, lng: lng - 0.0038 },
+    { lat: lat + 0.0042, lng: lng + 0.0015 },
+    { lat: lat + 0.0011, lng: lng + 0.0044 },
+    { lat: lat - 0.0034, lng: lng + 0.0028 },
+    { lat: lat - 0.0028, lng: lng - 0.0027 },
+  ]);
+
+  const paintSelectedLand = (map, loc) => {
+    if (!window.google?.maps || !map) return;
+    if (markerRef.current) markerRef.current.setMap(null);
+    if (polygonRef.current) polygonRef.current.setMap(null);
+
+    const boundary = buildBoundary(loc.lat, loc.lng);
+    polygonRef.current = new window.google.maps.Polygon({
+      paths: boundary,
+      strokeColor: '#f59e0b',
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      fillColor: '#fbbf24',
+      fillOpacity: 0.28,
+      map,
+    });
+
+    markerRef.current = new window.google.maps.Marker({
+      position: { lat: loc.lat, lng: loc.lng },
+      map,
+      animation: window.google.maps.Animation.DROP,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 9,
+        fillColor: '#10b981',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 3,
+      },
+    });
+  };
+
+  const selectLocation = (loc, zoom = 16) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    map.panTo({ lat: loc.lat, lng: loc.lng });
+    map.setZoom(zoom);
+    paintSelectedLand(map, loc);
+    setSelectedLocation(loc);
+    setSearchValue(loc.label);
+    setSuggestionsOpen(false);
+  };
 
   const initMap = () => {
     if (!mapRef.current || !window.google?.maps) return;
 
     const map = new window.google.maps.Map(mapRef.current, {
-      center: { lat: -1.0063, lng: 34.879 }, // Default: Kilgoris, Kenya
-      zoom: 12,
+      center: { lat: TIGONI_LOCATION.lat, lng: TIGONI_LOCATION.lng },
+      zoom: 15,
       mapTypeId: 'satellite',
       tilt: 0,
       disableDefaultUI: true,
@@ -66,26 +140,12 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
       },
     });
     mapInstanceRef.current = map;
+    placesServiceRef.current = new window.google.maps.places.AutocompleteService();
 
     // Click to drop pin
     map.addListener('click', (e) => {
       const lat = e.latLng.lat();
       const lng = e.latLng.lng();
-
-      if (markerRef.current) markerRef.current.setMap(null);
-      markerRef.current = new window.google.maps.Marker({
-        position: { lat, lng },
-        map,
-        animation: window.google.maps.Animation.DROP,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#34d399',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2,
-        },
-      });
 
       // Reverse geocode
       const geocoder = new window.google.maps.Geocoder();
@@ -93,8 +153,7 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
         const label = status === 'OK' && results[0]
           ? results[0].formatted_address
           : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        setSelectedLocation({ lat, lng, label });
-        setSearchValue(label);
+        selectLocation({ lat, lng, label }, 16);
       });
     });
 
@@ -102,6 +161,7 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
     if (window.google.maps.places && searchInputRef.current) {
       acRef.current = new window.google.maps.places.Autocomplete(searchInputRef.current, {
         fields: ['formatted_address', 'geometry', 'name'],
+        componentRestrictions: { country: 'ke' },
       });
       acRef.current.addListener('place_changed', () => {
         const place = acRef.current.getPlace();
@@ -110,29 +170,12 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
         const lng = place.geometry.location.lng();
         const label = place.formatted_address || place.name || '';
 
-        map.panTo({ lat, lng });
-        map.setZoom(15);
-
-        if (markerRef.current) markerRef.current.setMap(null);
-        markerRef.current = new window.google.maps.Marker({
-          position: { lat, lng },
-          map,
-          animation: window.google.maps.Animation.DROP,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#34d399',
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 2,
-          },
-        });
-        setSelectedLocation({ lat, lng, label });
-        setSearchValue(label);
+        selectLocation({ lat, lng, label }, 16);
       });
     }
 
     setMapReady(true);
+    selectLocation(TIGONI_LOCATION, 15);
   };
 
   useEffect(() => {
@@ -172,6 +215,49 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
     onClose();
   };
 
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchValue(value);
+
+    if (!placesServiceRef.current || value.trim().length < 2) {
+      setSuggestions([]);
+      setSuggestionsOpen(false);
+      return;
+    }
+
+    placesServiceRef.current.getPlacePredictions({
+      input: value,
+      componentRestrictions: { country: 'ke' },
+      locationBias: {
+        center: { lat: TIGONI_LOCATION.lat, lng: TIGONI_LOCATION.lng },
+        radius: 80000,
+      },
+    }, (predictions, status) => {
+      if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions?.length) {
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+        return;
+      }
+      setSuggestions(predictions.slice(0, 5));
+      setSuggestionsOpen(true);
+    });
+  };
+
+  const handleSuggestionSelect = (suggestion) => {
+    const service = new window.google.maps.places.PlacesService(mapInstanceRef.current);
+    service.getDetails({
+      placeId: suggestion.place_id,
+      fields: ['formatted_address', 'geometry', 'name'],
+    }, (place, status) => {
+      if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place?.geometry?.location) return;
+      selectLocation({
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+        label: place.formatted_address || place.name || suggestion.description,
+      }, 16);
+    });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -202,30 +288,35 @@ function SatelliteLocationPicker({ onPlaceSelected, onClose }) {
       )}
 
       {/* Floating top search bar */}
-      <div style={{
-        position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', alignItems: 'center', gap: 10,
-        background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
-        border: '1px solid #e2e8f0', borderRadius: 16,
-        padding: '10px 16px', boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-        width: 'calc(100% - 40px)', maxWidth: 600, zIndex: 10,
-      }}>
-        <MapPin size={16} color="#10b981" style={{ flexShrink: 0 }} />
-        <input
-          ref={searchInputRef}
-          value={searchValue}
-          onChange={e => setSearchValue(e.target.value)}
-          placeholder="Search location — e.g. Kilgoris, Narok County, Kenya"
-          style={{
-            flex: 1, border: 'none', outline: 'none',
-            fontSize: 14, color: '#0f172a', background: 'transparent', fontFamily: 'inherit',
-          }}
-        />
-        <button onClick={onClose}
-          style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 30, height: 30,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-          <X size={14} color="#64748b" />
-        </button>
+      <div className="lens-map-search">
+        <div className="lens-map-search-row">
+          <Search size={16} color="#10b981" style={{ flexShrink: 0 }} />
+          <input
+            ref={searchInputRef}
+            value={searchValue}
+            onChange={handleSearchChange}
+            onFocus={() => suggestions.length && setSuggestionsOpen(true)}
+            placeholder="Search Tigoni, Limuru, Kiambu..."
+          />
+          <button onClick={onClose} className="lens-icon-button" aria-label="Close location picker">
+            <X size={14} />
+          </button>
+        </div>
+        {suggestionsOpen && suggestions.length > 0 && (
+          <div className="lens-location-suggestions">
+            {suggestions.map((suggestion) => (
+              <button key={suggestion.place_id} onMouseDown={(e) => e.preventDefault()} onClick={() => handleSuggestionSelect(suggestion)}>
+                <MapPin size={14} />
+                <span>{suggestion.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="lens-boundary-note">
+        <Layers3 size={14} />
+        Selected land is shaded for demo clarity
       </div>
 
       {/* Floating bottom confirm bar */}
@@ -339,7 +430,7 @@ function TapModal({ pos, onAsk, onClose, loading, answer }) {
   );
 }
 
-function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, analysisId, onClose }) {
+function AnnotatedViewer({ image, result, projectName, projectId, analysisId, onClose }) {
   const navigate = useNavigate();
   const { session } = useTerraStore();
   const imgRef = useRef(null);
@@ -359,7 +450,6 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawColor, setDrawColor] = useState('#ef4444');
   const [drawMode, setDrawMode] = useState(false);
-  const [showDrawQuestion, setShowDrawQuestion] = useState(false);
   const [drawQuestion, setDrawQuestion] = useState('');
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs, chatLoading]);
@@ -438,9 +528,6 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
 
   const handlePointerUp = () => {
     setIsDrawing(false);
-    if (lines.length > 0) {
-      setShowDrawQuestion(true);
-    }
   };
 
   const handleDrawAsk = () => {
@@ -628,7 +715,7 @@ function AnnotatedViewer({ image, result, geminiReport, projectName, projectId, 
                 ))}
               </div>
               <button
-                onClick={() => { setLines([]); setShowDrawQuestion(false); }}
+                onClick={() => { setLines([]); }}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -797,81 +884,17 @@ export default function LensWorkspace() {
   const [fullscreen, setFullscreen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
 
   // Gallery and scanning flow state
   const [showGallery, setShowGallery] = useState(false);
   const [showSatellitePicker, setShowSatellitePicker] = useState(false);
-  const [shakingImageId, setShakingImageId] = useState(null);
   const [selectionError, setSelectionError] = useState(null);
-  const [flyingImg, setFlyingImg] = useState(null);
-  const [flyingCoords, setFlyingCoords] = useState(null);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanLogs, setScanLogs] = useState([]);
+  const [mapLoadingCard, setMapLoadingCard] = useState(false);
+  const [loaderWordIndex, setLoaderWordIndex] = useState(0);
 
   const uploadZoneRef = useRef(null);
 
-  useEffect(() => {
-    if (phase !== 'scanning') {
-      setScanProgress(0);
-      setScanLogs([]);
-      return;
-    }
-
-    const initKilgorisImage = async () => {
-      try {
-        const response = await fetch(kilgoris);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImage({ url: kilgoris, base64: reader.result.split(',')[1] });
-        };
-        reader.readAsDataURL(blob);
-      } catch (err) {
-        console.error('Failed to convert local asset to base64', err);
-      }
-    };
-    initKilgorisImage();
-
-    const logs = [
-      'Syncing coordinates to Kilgoris, Kenya (-1.0063, 34.8790)...',
-      'Downloading satellite imagery and HydroRIVERS data...',
-      'Running computer vision land-cover segmentation...',
-      'Computing Slope, Foundation, and NEMA riparian setbacks...',
-    ];
-
-    setScanLogs([logs[0]]);
-    setScanProgress(5);
-
-    const interval = setInterval(() => {
-      setScanProgress((prev) => {
-        const next = prev + 5;
-        if (next >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-
-        if (next === 25) setScanLogs(l => [...l, logs[1]]);
-        if (next === 50) setScanLogs(l => [...l, logs[2]]);
-        if (next === 75) setScanLogs(l => [...l, logs[3]]);
-
-        return next;
-      });
-    }, 150);
-
-    return () => clearInterval(interval);
-  }, [phase]);
-
-  useEffect(() => {
-    if (scanProgress === 100 && phase === 'scanning') {
-      const t = setTimeout(() => {
-        analyze();
-      }, 500);
-      return () => clearTimeout(t);
-    }
-  }, [scanProgress, phase]);
-
-  const handleImageSelect = (img, e) => {
+  const handleImageSelect = (img) => {
     setSelectionError(null);
     // Convert image to base64 if needed, or set image URL
     fetch(img.src)
@@ -889,6 +912,14 @@ export default function LensWorkspace() {
       });
 
     setShowGallery(false);
+  };
+
+  const openLocationPicker = () => {
+    setMapLoadingCard(true);
+    window.setTimeout(() => {
+      setMapLoadingCard(false);
+      setShowSatellitePicker(true);
+    }, 2000);
   };
 
   useEffect(() => {
@@ -913,13 +944,15 @@ export default function LensWorkspace() {
     reader.onload = e => {
       const dataUrl = e.target.result;
       setImage({ url: dataUrl, base64: dataUrl.split(',')[1] });
+      setShowGallery(false);
     };
     reader.readAsDataURL(file);
   };
 
-  const analyze = async () => {
+  const analyze = useCallback(async ({ keepVisualLoader = false } = {}) => {
     if (!image) return;
-    setPhase('analyzing'); setError('');
+    if (!keepVisualLoader) setPhase('analyzing');
+    setError('');
     try {
       const res = await fetch(`${API_BASE}/api/lens/analyze`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -937,7 +970,26 @@ export default function LensWorkspace() {
       setResult(data); setAnalysisId(data.analysis_id);
       setPhase('result'); subscribeToGemini(data.analysis_id);
     } catch (err) { setError(err.message); setPhase('upload'); }
-  };
+  }, [image, location, projectId, session, subscribeToGemini, title]);
+
+  useEffect(() => {
+    if (phase !== 'scanning') {
+      return;
+    }
+    const resetTimer = setTimeout(() => setLoaderWordIndex(0), 0);
+    const wordInterval = setInterval(() => {
+      setLoaderWordIndex((index) => (index + 1) % LOADING_WORDS.length);
+    }, 1500);
+    const analysisTimer = setTimeout(() => {
+      analyze({ keepVisualLoader: true });
+    }, 6000);
+
+    return () => {
+      clearTimeout(resetTimer);
+      clearInterval(wordInterval);
+      clearTimeout(analysisTimer);
+    };
+  }, [phase, analyze]);
 
   const reset = () => {
     setPhase('upload'); setImage(null); setResult(null); setGeminiReport(null);
@@ -945,7 +997,7 @@ export default function LensWorkspace() {
   };
 
   if (fullscreen && image && result) {
-    return <AnnotatedViewer image={image} result={result} geminiReport={geminiReport}
+    return <AnnotatedViewer image={image} result={result}
       projectName={projectName} projectId={projectId} analysisId={analysisId}
       onClose={() => setFullscreen(false)} />;
   }
@@ -955,100 +1007,126 @@ export default function LensWorkspace() {
       <AnimatePresence mode="wait">
         {phase === 'upload' && (
           <motion.div key="upload" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            style={{ width: '100%', maxWidth: showGallery ? 1100 : 520, display: 'flex', gap: 20, alignItems: 'flex-start', transition: 'max-width 0.3s ease' }}>
+            className={`lens-upload-flow ${showGallery ? 'with-gallery' : ''}`}>
 
             {/* LEFT COLUMN — main upload card */}
-            <div style={{ flex: '0 0 480px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="lens-upload-primary">
 
               {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: 4 }}>
-                <h2 style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Terra Lens</h2>
-                <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0' }}>Photograph a site. Terra AI reads the land.</p>
+              <div className="lens-upload-heading">
+                <span>Terra Lens</span>
+                <h2>Where your Idea begins</h2>
+                <p>Terra Lens has the ability to see and understand what you see</p>
               </div>
 
               {/* Upload / image preview card */}
-              <div ref={uploadZoneRef} style={{
-                background: '#ffffff',
-                border: '1.5px solid #e2e8f0',
-                borderRadius: 20,
-                padding: 24,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 16,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-              }}>
+              <div ref={uploadZoneRef} className="lens-upload-card">
                 {image ? (
                   /* Image selected preview */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div className="lens-selected-preview">
                     <img src={image.url} alt="Selected site"
-                      style={{ width: '100%', borderRadius: 12, objectFit: 'cover', maxHeight: 220 }} />
+                      className="lens-selected-image" />
+                    <div className="lens-selected-meta">
+                      <div>
+                        <span>Step 1 complete</span>
+                        <strong>Picture selected</strong>
+                      </div>
+                      <Check size={18} />
+                    </div>
                     <button onClick={() => { setImage(null); setShowGallery(true); }}
-                      style={{
-                        background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10,
-                        padding: '8px 14px', fontSize: 12, fontWeight: 700, color: '#64748b',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}>Change image</button>
+                      className="lens-soft-button">Change image</button>
                   </div>
                 ) : (
                   /* Upload zone */
                   <div
                     className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
                     onClick={() => setShowGallery(true)}
-                    style={{
-                      border: '2px dashed #a7f3d0',
-                      borderRadius: 14,
-                      padding: '36px 16px',
-                      display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center', gap: 12,
-                      cursor: 'pointer', background: '#f0fdf4', transition: 'all 0.2s',
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDragOver(true);
+                    }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setDragOver(false);
+                      processFile(event.dataTransfer.files?.[0]);
                     }}
                   >
-                    <div style={{ width: 48, height: 48, borderRadius: 14, background: '#d1fae5',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Upload size={22} color="#10b981" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => processFile(event.target.files?.[0])}
+                      style={{ display: 'none' }}
+                    />
+                    <div className="lens-upload-icon">
+                      <ImageIcon size={24} />
                     </div>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0 }}>Browse site images</p>
+                    <p>Pictures in your Device...</p>
+                    <small>Upload from your camera roll or choose a demo site image</small>
+                    <div className="lens-upload-actions">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        <Upload size={14} />
+                        Upload
+                      </button>
+                      <button type="button">Demo images</button>
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* Location picker button — shown after image selected */}
               {image && (
-                <div style={{
-                  background: '#ffffff', border: '1.5px solid #e2e8f0',
-                  borderRadius: 16, padding: 16, boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
-                }}>
+                <motion.div
+                  className="lens-location-step"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <div className="lens-step-copy">
+                    <span>Step 2</span>
+                    <strong>Pick the land on satellite imagery</strong>
+                    <p>For the demo, Terra naturally starts near Tigoni, Limuru, Kenya.</p>
+                  </div>
                   <button
-                    onClick={() => setShowSatellitePicker(true)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      background: location ? '#f0fdf4' : '#ffffff',
-                      border: `1.5px solid ${location ? '#10b981' : '#e2e8f0'}`,
-                      borderRadius: 12, padding: '12px 16px',
-                      cursor: 'pointer', fontFamily: 'inherit', width: '100%', textAlign: 'left',
-                    }}
+                    onClick={openLocationPicker}
+                    className={`lens-location-button ${location ? 'is-picked' : ''}`}
                   >
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: location ? '#d1fae5' : '#f8fafc',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20,
-                    }}>🛰️</div>
-                    <div style={{ flex: 1 }}>
+                    <div className="lens-location-button-icon">
+                      {location ? <Check size={18} /> : <Navigation size={18} />}
+                    </div>
+                    <div>
                       {location ? (
                         <>
-                          <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Location Pinned ✓</div>
-                          <div style={{ fontSize: 12, color: '#475569', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location.label}</div>
+                          <span>Location pinned</span>
+                          <strong>{location.label}</strong>
                         </>
                       ) : (
                         <>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>Pick Location on Satellite Map</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Required before analysis</div>
+                          <span>Required before analysis</span>
+                          <strong>Pick Location</strong>
                         </>
                       )}
                     </div>
-                    <MapPin size={14} color={location ? '#10b981' : '#94a3b8'} style={{ flexShrink: 0 }} />
                   </button>
-                </div>
+                  <AnimatePresence>
+                    {mapLoadingCard && (
+                      <motion.div
+                        className="lens-map-loading-card"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                      >
+                        Your Land by Design, Loading Satellite Imagery...
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               )}
 
               {/* Analyse Site button — shown after image + location */}
@@ -1060,7 +1138,7 @@ export default function LensWorkspace() {
                     background: 'linear-gradient(135deg, #10b981, #34d399)',
                     border: 'none', color: '#fff', fontSize: 15, fontWeight: 800,
                     cursor: 'pointer', fontFamily: 'inherit',
-                    boxShadow: '0 4px 20px rgba(16,185,129,0.35)',
+                    boxShadow: '0 14px 34px rgba(16,185,129,0.28)',
                     letterSpacing: '-0.01em',
                   }}
                 >
@@ -1086,69 +1164,47 @@ export default function LensWorkspace() {
                   exit={{ opacity: 0, x: 24 }}
                   style={{
                     flex: 1,
-                    background: '#ffffff',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: 20,
-                    padding: 20,
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 14,
-                    maxHeight: '80vh',
-                    overflowY: 'auto',
+                    minWidth: 0,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Select a Site Image</span>
-                    <button onClick={() => setShowGallery(false)}
-                      style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 28, height: 28,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                      <X size={13} color="#64748b" />
-                    </button>
-                  </div>
-
-                  {selectionError && (
-                    <div style={{ fontSize: 12, color: '#ef4444', background: '#fef2f2',
-                      border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px' }}>
-                      {selectionError}
+                  <div className="lens-gallery-panel">
+                    <div className="lens-gallery-header">
+                      <div>
+                        <span>Image library</span>
+                        <strong>Choose the view Terra should read</strong>
+                      </div>
+                      <button onClick={() => setShowGallery(false)} className="lens-icon-button" aria-label="Close gallery">
+                        <X size={13} />
+                      </button>
                     </div>
-                  )}
 
-                  {/* Full-size image list */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-                    {GALLERY_IMAGES.map((img) => {
-                      const isShaking = shakingImageId === img.id;
-                      return (
+                    {selectionError && (
+                      <div style={{ fontSize: 12, color: '#ef4444', background: '#fef2f2',
+                        border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px' }}>
+                        {selectionError}
+                      </div>
+                    )}
+
+                    {/* Full-size image list */}
+                    <div className="lens-gallery-grid">
+                      {GALLERY_IMAGES.map((img) => (
                         <motion.div
                           key={img.id}
-                          onClick={(e) => handleImageSelect(img, e)}
-                          animate={isShaking ? { x: [-4, 4, -4, 4, 0], rotate: [-1, 1, -1, 1, 0] } : {}}
-                          transition={isShaking ? { duration: 0.4 } : {}}
-                          whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(16,185,129,0.18)' }}
-                          style={{
-                            borderRadius: 14,
-                            overflow: 'hidden',
-                            border: '1.5px solid #e2e8f0',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            background: '#f8fafc',
-                          }}
+                          onClick={() => handleImageSelect(img)}
+                          whileHover={{ y: -3 }}
+                          className="lens-gallery-item"
                         >
                           <img
                             src={img.src}
                             alt={img.label}
-                            style={{ width: '100%', height: 160, display: 'block', objectFit: 'cover' }}
+                            style={{ width: '100%', display: 'block' }}
                           />
-                          <div style={{
-                            position: 'absolute', bottom: 0, left: 0, right: 0,
-                            background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 100%)',
-                            padding: '24px 12px 10px',
-                          }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{img.label}</span>
+                          <div>
+                            <span>{img.label}</span>
                           </div>
                         </motion.div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -1164,87 +1220,24 @@ export default function LensWorkspace() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{
-              width: '100%',
-              maxWidth: 560,
-              background: 'rgba(30, 41, 59, 0.45)',
-              backdropFilter: 'blur(20px)',
-              border: '1.5px solid rgba(52, 211, 153, 0.15)',
-              borderRadius: '24px',
-              padding: '28px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 20,
-            }}
+            className="lens-fullscreen-loader"
           >
-            <div style={{
-              width: '100%',
-              aspectRatio: '16/9',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              position: 'relative',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            }}>
-              <img src={kilgoris} alt="Scanning..." style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              
-              {/* Scan laser line */}
-              <motion.div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  height: '4px',
-                  background: 'linear-gradient(90deg, rgba(52,211,153,0) 0%, rgba(52,211,153,1) 50%, rgba(52,211,153,0) 100%)',
-                  boxShadow: '0 0 15px #34d399, 0 0 30px #34d399',
-                  zIndex: 2,
-                }}
-                animate={{
-                  top: ['0%', '98%', '0%'],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(16, 185, 129, 0.05)',
-                zIndex: 1,
-              }} />
-            </div>
-
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#34d399' }}>AI SCANNING IN PROGRESS...</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{scanProgress}%</span>
-              </div>
-              
-              <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${scanProgress}%`, height: '100%', background: '#34d399', transition: 'width 0.1s ease-out', borderRadius: 3 }} />
-              </div>
-
-              <div style={{
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '10px',
-                padding: '12px',
-                fontFamily: 'monospace',
-                fontSize: 11,
-                color: '#a7f3d0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                minHeight: '76px',
-              }}>
-                {scanLogs.map((log, i) => (
-                  <div key={i} style={{ opacity: i === scanLogs.length - 1 ? 1 : 0.6 }}>
-                    &gt; {log}
-                  </div>
-                ))}
-              </div>
+            <img src={image?.url} alt="Selected land preview" />
+            <div className="lens-loader-shade" />
+            <div className="lens-loader-card">
+              <span>Terra Lens is</span>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={LOADING_WORDS[loaderWordIndex]}
+                  initial={{ opacity: 0, y: 10, filter: 'blur(8px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -8, filter: 'blur(8px)' }}
+                  transition={{ duration: 0.32 }}
+                >
+                  <FadedActionWord word={LOADING_WORDS[loaderWordIndex]} />
+                </motion.div>
+              </AnimatePresence>
+              <p>the site story from image, location, and satellite context.</p>
             </div>
           </motion.div>
         )}
@@ -1351,41 +1344,6 @@ export default function LensWorkspace() {
           />
         )}
       </AnimatePresence>
-
-      {/* Flying Image Clone */}
-      {flyingImg && flyingCoords && (
-        <motion.img
-          src={flyingImg}
-          initial={{
-            position: 'fixed',
-            left: flyingCoords.startX,
-            top: flyingCoords.startY,
-            width: flyingCoords.startW,
-            height: flyingCoords.startH,
-            borderRadius: '12px',
-            zIndex: 9999,
-            boxShadow: '0 8px 32px rgba(52, 211, 153, 0.3)',
-            opacity: 1,
-          }}
-          animate={{
-            left: flyingCoords.endX + 28,
-            top: flyingCoords.endY + 28,
-            width: flyingCoords.endW - 56,
-            height: (flyingCoords.endW - 56) * (9/16),
-            borderRadius: '16px',
-            opacity: [1, 1, 0.9, 0],
-          }}
-          transition={{
-            type: 'spring',
-            stiffness: 90,
-            damping: 15,
-          }}
-          onAnimationComplete={() => {
-            setFlyingImg(null);
-            setPhase('scanning');
-          }}
-        />
-      )}
     </div>
   );
 }

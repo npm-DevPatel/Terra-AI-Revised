@@ -16,13 +16,17 @@ Functions:
 import json
 import logging
 import os
+from typing import Any, Literal, overload
 
-from groq import Groq
+try:
+    from groq import Groq
+except ImportError:  # Keep the backend importable even when AI deps are absent locally.
+    Groq = None
 
 logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-_groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+_groq_client = Groq(api_key=GROQ_API_KEY) if Groq and GROQ_API_KEY else None
 
 _FLASH = "llama-3.1-8b-instant"
 _PRO   = "llama-3.1-8b-instant"
@@ -73,7 +77,7 @@ LENS_SCHEMA = """{
 }"""
 
 
-def synthesize_lens_report(payload: dict) -> dict:
+def synthesize_lens_report(payload: dict) -> dict[str, Any]:
     """
     Generate a full Terra Lens land intelligence report.
     Combines geospatial data + Google Vision photo analysis.
@@ -142,7 +146,7 @@ DETERMINISTIC SCORE (COPY VERBATIM — DO NOT MODIFY):
   land_feasibility_score = {payload.get('_deterministic_score', 0)}
   land_feasibility_label = "{payload.get('_deterministic_label','UNKNOWN')}"
 
-Full context: {json.dumps(payload, ensure_ascii=False)[:8000]}
+Full context summary: {json.dumps({k: v for k, v in payload.items() if k not in ('vision_analysis', '_raw')}, ensure_ascii=False)[:2500]}
 
 Output the JSON report now. Include a sustainability section with passive cooling, water harvesting, and green building recommendations relevant to this specific site."""
 
@@ -227,7 +231,7 @@ SIM_SCHEMA = """{
 }"""
 
 
-def recommend_sim_layout(analysis_data: dict, user_inputs: dict) -> dict:
+def recommend_sim_layout(analysis_data: dict, user_inputs: dict) -> dict[str, Any]:
     """
     Generate three site layout scenarios for Terra Sim.
 
@@ -287,7 +291,7 @@ _REPORT_TYPE_SECTIONS = {
 }
 
 
-def generate_flow_report(analysis_data: dict, sim_data: dict, report_type: str, audience: str) -> dict:
+def generate_flow_report(analysis_data: dict, sim_data: dict, report_type: str, audience: str) -> dict[str, Any]:
     """
     Generate a professional Terra Flow report.
 
@@ -326,7 +330,35 @@ def _require_key():
         raise RuntimeError("GROQ_API_KEY not set.")
 
 
-def _call_gemini(model_name: str, system_prompt: str, user_message: str, json_mode: bool = True) -> dict | str:
+@overload
+def _call_gemini(
+    model_name: str,
+    system_prompt: str,
+    user_message: str,
+    json_mode: Literal[True] = True,
+    max_tokens: int = 2048,
+) -> dict[str, Any]:
+    ...
+
+
+@overload
+def _call_gemini(
+    model_name: str,
+    system_prompt: str,
+    user_message: str,
+    json_mode: Literal[False],
+    max_tokens: int = 2048,
+) -> str:
+    ...
+
+
+def _call_gemini(
+    model_name: str,
+    system_prompt: str,
+    user_message: str,
+    json_mode: bool = True,
+    max_tokens: int = 2048,
+) -> dict[str, Any] | str:
     """
     Call Groq (llama-3.1-8b-instant) with the given system prompt and user message.
     Signature kept as _call_gemini so all callers remain unchanged.
@@ -345,7 +377,7 @@ def _call_gemini(model_name: str, system_prompt: str, user_message: str, json_mo
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_message},
         ]
-        kwargs = {"model": model_name, "messages": messages, "temperature": 0.2, "max_tokens": 8192}
+        kwargs = {"model": model_name, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens}
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
@@ -468,7 +500,7 @@ _PLANNER_SCHEMA = """{
 }"""
 
 
-def generate_planner_roadmap(project_info: dict, analysis_data: dict) -> dict:
+def generate_planner_roadmap(project_info: dict, analysis_data: dict) -> dict[str, Any]:
     """
     Generate a full 6-phase AI project roadmap for Terra Planner.
 
@@ -528,7 +560,7 @@ Why is this task in the plan and why at this stage? Answer in 2-4 plain sentence
     )
 
 
-def get_planner_priorities(phases: list, analysis_data: dict) -> dict:
+def get_planner_priorities(phases: list, analysis_data: dict) -> dict[str, Any]:
     """
     Surface the 3 most critical actions to take right now.
     Returns {"priorities": [{"rank": 1, "task_name": str, "phase": str, "reason": str}]}
@@ -553,7 +585,7 @@ Return JSON: {{"priorities": [{{"rank": 1, "task_name": "str", "phase": "str", "
     return _call_gemini(_FLASH, _PLANNER_SYSTEM, user_msg)
 
 
-def update_planner_from_event(phases: list, event_type: str, event_data: dict, analysis_data: dict) -> dict:
+def update_planner_from_event(phases: list, event_type: str, event_data: dict, analysis_data: dict) -> dict[str, Any]:
     """
     React to a new event (e.g. soil report uploaded) and update the plan.
     Returns {"changes": [...], "updated_phases": [...same as roadmap phases...]}
