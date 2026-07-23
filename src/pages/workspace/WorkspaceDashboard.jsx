@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ScanSearch, LayoutDashboard, FileText, Layers, ArrowRight, LogOut, Calendar, User } from 'lucide-react';
+import { Plus, ScanSearch, LayoutDashboard, FileText, Layers, ArrowRight, LogOut, Calendar, User, Trash2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 import useTerraStore from '../../store/useTerraStore';
@@ -64,7 +64,7 @@ const SHOWCASE_PROJECTS = [
   },
 ];
 
-function ProjectCard({ project, onClick }) {
+function ProjectCard({ project, onClick, onDelete, deleting }) {
   const meta = PRODUCT_META[project.product] || PRODUCT_META.full;
   const { Icon, color, bg, label } = meta;
   const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -103,11 +103,39 @@ function ProjectCard({ project, onClick }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}><Calendar size={12} />{fmt(project.created_at)}</div>
             {project.owner_name && <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}><User size={12} />{project.owner_name}</div>}
           </div>
-          {interactive && (
-            <div style={{ width: 34, height: 34, borderRadius: 100, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowRight size={15} color={color} />
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(project);
+                }}
+                disabled={deleting}
+                aria-label={`Delete ${project.name}`}
+                title="Delete project"
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 100,
+                  border: '1px solid #fee2e2',
+                  background: deleting ? '#f8fafc' : '#fff1f2',
+                  color: deleting ? '#94a3b8' : '#e11d48',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: deleting ? 'wait' : 'pointer',
+                }}
+              >
+                {deleting ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
+              </button>
+            )}
+            {interactive && (
+              <div style={{ width: 34, height: 34, borderRadius: 100, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ArrowRight size={15} color={color} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -269,6 +297,8 @@ export default function WorkspaceDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -311,6 +341,61 @@ export default function WorkspaceDashboard() {
 
   const initials = (name) => name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
   const displayProjects = [...SHOWCASE_PROJECTS, ...projects];
+
+  const deleteProjectData = async (project) => {
+    if (!project?.id || project.isShowcase || deletingProjectId) return;
+    const confirmed = window.confirm(`Delete "${project.name}" and all its Terra data from Supabase? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeleteError('');
+    setDeletingProjectId(project.id);
+
+    try {
+      const { data: channelsData, error: channelsFetchError } = await supabase
+        .from('channels')
+        .select('id')
+        .eq('project_id', project.id);
+      if (channelsFetchError) throw channelsFetchError;
+
+      const channelIds = channelsData?.map((channel) => channel.id).filter(Boolean) || [];
+      if (channelIds.length > 0) {
+        const { error: messagesError } = await supabase
+          .from('messages')
+          .delete()
+          .in('channel_id', channelIds);
+        if (messagesError) throw messagesError;
+      }
+
+      const projectTables = [
+        'flow_reports',
+        'sim_plans',
+        'analyses',
+        'project_invites',
+        'project_members',
+        'channels',
+      ];
+
+      for (const table of projectTables) {
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .eq('project_id', project.id);
+        if (error) throw error;
+      }
+
+      const { error: projectDeleteError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', project.id);
+      if (projectDeleteError) throw projectDeleteError;
+
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+    } catch (err) {
+      setDeleteError(err?.message || 'Could not delete this project.');
+    } finally {
+      setDeletingProjectId(null);
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Gabarito', 'Inter', system-ui" }}>
@@ -404,6 +489,11 @@ export default function WorkspaceDashboard() {
         </div>
 
         {/* Grid */}
+        {deleteError && (
+          <div style={{ marginBottom: 16, border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c', borderRadius: 12, padding: '10px 14px', fontSize: 13, fontWeight: 700 }}>
+            {deleteError}
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 22 }}>
           {displayProjects.map((p, i) => (
             <motion.div
@@ -415,6 +505,8 @@ export default function WorkspaceDashboard() {
               <ProjectCard
                 project={p}
                 onClick={p.isShowcase ? undefined : () => navigate(`/workspace/${p.id}/lens`)}
+                onDelete={p.isShowcase ? undefined : deleteProjectData}
+                deleting={deletingProjectId === p.id}
               />
             </motion.div>
           ))}
