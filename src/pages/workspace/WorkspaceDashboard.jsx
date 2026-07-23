@@ -34,7 +34,7 @@ function coverGradient(str) {
 const SHOWCASE_PROJECTS = [
   {
     id: 'showcase-urban-park',
-    name: 'Verdant Civic Park',
+    name: 'The Urban Park - Westlands',
     description: 'A climate-conscious public realm concept with shaded promenades, water-sensitive planting, and flexible gathering lawns for a growing urban district.',
     product: 'full',
     coverImage: urbanPark,
@@ -44,7 +44,7 @@ const SHOWCASE_PROJECTS = [
   },
   {
     id: 'showcase-library',
-    name: 'Mediatheque Library',
+    name: 'The Observatory Library - Nairobi',
     description: 'A refined cultural anchor blending quiet study terraces, luminous reading halls, and civic-grade circulation planning for daily community use.',
     product: 'full',
     coverImage: libraryProject,
@@ -54,7 +54,7 @@ const SHOWCASE_PROJECTS = [
   },
   {
     id: 'showcase-moms-home',
-    name: "Mom's Courtyard Home",
+    name: "Mom's Courtyard Home - Timau",
     description: 'A warm residential retreat shaped around garden views, soft daylight, and practical family living with a premium site-to-home design narrative.',
     product: 'full',
     coverImage: momsHome,
