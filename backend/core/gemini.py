@@ -353,6 +353,8 @@ def _call_gemini(
     ...
 
 
+FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+
 def _call_gemini(
     model_name: str,
     system_prompt: str,
@@ -362,6 +364,7 @@ def _call_gemini(
 ) -> dict[str, Any] | str:
     """
     Call Google Gemini with the given system prompt and user message.
+    Automatically falls back to alternate models if quota or 404 occurs.
     """
     import re
 
@@ -372,33 +375,41 @@ def _call_gemini(
             return {"error": err, "gemini_failed": True}
         return f"Terra AI is temporarily unavailable: {err}"
 
-    try:
-        generation_config = genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=max_tokens,
-            response_mime_type="application/json" if json_mode else "text/plain",
-        )
+    # Build model candidate list (requested model first, followed by fallbacks)
+    candidates = [model_name] + [m for m in FALLBACK_MODELS if m != model_name]
+    last_exc = None
 
-        model = genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=system_prompt,
-            generation_config=generation_config,
-        )
+    for m_name in candidates:
+        try:
+            generation_config = genai.types.GenerationConfig(
+                temperature=0.2,
+                max_output_tokens=max_tokens,
+                response_mime_type="application/json" if json_mode else "text/plain",
+            )
 
-        response = model.generate_content(user_message)
-        raw = response.text
+            model = genai.GenerativeModel(
+                model_name=m_name,
+                system_instruction=system_prompt,
+                generation_config=generation_config,
+            )
 
-        if not json_mode:
-            return raw
+            response = model.generate_content(user_message)
+            raw = response.text
 
-        clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
-        return json.loads(clean)
+            if not json_mode:
+                return raw
 
-    except Exception as exc:
-        logger.error(f"[Gemini] {model_name} failed: {exc}")
-        if json_mode:
-            return {"error": f"Gemini unavailable: {str(exc)}", "gemini_failed": True}
-        return f"Terra AI is temporarily unavailable: {str(exc)}"
+            clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
+            return json.loads(clean)
+
+        except Exception as exc:
+            last_exc = exc
+            logger.warning(f"[Gemini] Candidate {m_name} failed: {exc}. Trying next candidate...")
+
+    logger.error(f"[Gemini] All candidates failed. Last error: {last_exc}")
+    if json_mode:
+        return {"error": f"Gemini unavailable: {str(last_exc)}", "gemini_failed": True}
+    return f"Terra AI is temporarily unavailable: {str(last_exc)}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
