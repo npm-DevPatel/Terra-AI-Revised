@@ -61,4 +61,4 @@ def chat():
         return jsonify({"answer": answer})
     except Exception as exc:
         print(f"[Copilot Error] {exc}")
-        return jsonify({"answer": f"I had trouble analyzing that request right now ({str(exc)}). Please check your backend GEMINI_API_KEY environment variable."})
+        return jsonify({"answer": f"I had trouble analyzing that request right now ({str(exc)}). Please check your backend LLAMA_API_KEY environment variable."})

@@ -1,5 +1,5 @@
 """
-core/gemini.py — All AI interactions for Terra AI (powered by Google Gemini).
+core/gemini.py — All AI interactions for Terra AI (powered by Llama API).
 
 Functions:
   1. synthesize_lens_report()     — land analysis from geospatial + vision data
@@ -16,21 +16,15 @@ Functions:
 import json
 import logging
 import os
+import requests
 from typing import Any, Literal, overload
-
-try:
-    import google.generativeai as genai
-except ImportError:  # Keep the backend importable even when AI deps are absent locally.
-    genai = None
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-if genai and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY, transport="rest")
+LLAMA_API_KEY = (os.getenv("LLAMA_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
 
-_FLASH = "gemini-3.5-flash"
-_PRO   = "gemini-3.5-flash"
+_FLASH = "llama3.1-8b"
+_PRO   = "llama3.1-70b"
 
 KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a knowledgeable, honest guide helping people make smart land decisions in Kenya.
 
@@ -327,8 +321,8 @@ Generate the full professional report now. All cost figures in KES. Reference Ke
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _require_key():
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY not set.")
+    if not LLAMA_API_KEY:
+        raise RuntimeError("LLAMA_API_KEY not set.")
 
 
 @overload
@@ -353,7 +347,7 @@ def _call_gemini(
     ...
 
 
-FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"]
+LLAMA_FALLBACK_MODELS = ["llama3.1-70b", "llama3.1-8b", "llama3.3-70b"]
 
 def _call_gemini(
     model_name: str,
@@ -363,38 +357,49 @@ def _call_gemini(
     max_tokens: int = 2048,
 ) -> dict[str, Any] | str:
     """
-    Call Google Gemini with the given system prompt and user message.
-    Automatically falls back to alternate models if quota or 404 occurs.
+    Call Llama API (api.llama-api.com) with system prompt and user message.
     """
     import re
 
-    if not genai or not GEMINI_API_KEY:
-        err = "GEMINI_API_KEY not set."
+    if not LLAMA_API_KEY:
+        err = "LLAMA_API_KEY not set."
         logger.error(err)
         if json_mode:
             return {"error": err, "gemini_failed": True}
         return f"Terra AI is temporarily unavailable: {err}"
 
-    # Build model candidate list (requested model first, followed by fallbacks)
-    candidates = [model_name] + [m for m in FALLBACK_MODELS if m != model_name]
+    headers = {
+        "Authorization": f"Bearer {LLAMA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    candidates = [model_name] + [m for m in LLAMA_FALLBACK_MODELS if m != model_name]
     last_exc = None
 
     for m_name in candidates:
         try:
-            generation_config = genai.types.GenerationConfig(
-                temperature=0.2,
-                max_output_tokens=max_tokens,
-                response_mime_type="application/json" if json_mode else "text/plain",
-            )
+            payload = {
+                "model": m_name,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                "temperature": 0.2,
+                "max_tokens": max_tokens,
+            }
+            if json_mode:
+                payload["response_format"] = {"type": "json_object"}
 
-            model = genai.GenerativeModel(
-                model_name=m_name,
-                system_instruction=system_prompt,
-                generation_config=generation_config,
+            resp = requests.post(
+                "https://api.llama-api.com/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60,
             )
+            resp.raise_for_status()
 
-            response = model.generate_content(user_message)
-            raw = response.text
+            data = resp.json()
+            raw = data["choices"][0]["message"]["content"]
 
             if not json_mode:
                 return raw
@@ -404,11 +409,11 @@ def _call_gemini(
 
         except Exception as exc:
             last_exc = exc
-            logger.warning(f"[Gemini] Candidate {m_name} failed: {exc}. Trying next candidate...")
+            logger.warning(f"[Llama API] Model {m_name} failed: {exc}. Trying next candidate...")
 
-    logger.error(f"[Gemini] All candidates failed. Last error: {last_exc}")
+    logger.error(f"[Llama API] All candidate models failed. Last error: {last_exc}")
     if json_mode:
-        return {"error": f"Gemini unavailable: {str(last_exc)}", "gemini_failed": True}
+        return {"error": f"Llama API unavailable: {str(last_exc)}", "gemini_failed": True}
     return f"Terra AI is temporarily unavailable: {str(last_exc)}"
 
 
