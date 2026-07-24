@@ -29,8 +29,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 if genai and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
-_FLASH = "gemini-1.5-flash"
-_PRO   = "gemini-1.5-pro"
+_FLASH = "gemini-2.0-flash"
+_PRO   = "gemini-2.0-flash"
 
 KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a knowledgeable, honest guide helping people make smart land decisions in Kenya.
 
