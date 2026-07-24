@@ -25,7 +25,7 @@ except ImportError:  # Keep the backend importable even when AI deps are absent 
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 if genai and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
