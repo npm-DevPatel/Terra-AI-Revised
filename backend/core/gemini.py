@@ -29,8 +29,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 if genai and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
-_FLASH = "gemini-2.0-flash"
-_PRO   = "gemini-2.0-flash"
+_FLASH = "gemini-3.5-flash"
+_PRO   = "gemini-3.5-flash"
 
 KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a knowledgeable, honest guide helping people make smart land decisions in Kenya.
 
@@ -353,7 +353,7 @@ def _call_gemini(
     ...
 
 
-FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"]
+FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"]
 
 def _call_gemini(
     model_name: str,
