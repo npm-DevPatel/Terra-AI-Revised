@@ -1,5 +1,5 @@
 """
-core/gemini.py — All AI interactions for Terra AI (powered by Groq / llama-3.1-8b-instant).
+core/gemini.py — All AI interactions for Terra AI (powered by Google Gemini).
 
 Functions:
   1. synthesize_lens_report()     — land analysis from geospatial + vision data
@@ -19,17 +19,18 @@ import os
 from typing import Any, Literal, overload
 
 try:
-    from groq import Groq
+    import google.generativeai as genai
 except ImportError:  # Keep the backend importable even when AI deps are absent locally.
-    Groq = None
+    genai = None
 
 logger = logging.getLogger(__name__)
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-_groq_client = Groq(api_key=GROQ_API_KEY) if Groq and GROQ_API_KEY else None
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+if genai and GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
-_FLASH = "llama-3.1-8b-instant"
-_PRO   = "llama-3.1-8b-instant"
+_FLASH = "gemini-1.5-flash"
+_PRO   = "gemini-1.5-pro"
 
 KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a knowledgeable, honest guide helping people make smart land decisions in Kenya.
 
@@ -326,8 +327,8 @@ Generate the full professional report now. All cost figures in KES. Reference Ke
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _require_key():
-    if not GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY not set.")
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY not set.")
 
 
 @overload
@@ -360,29 +361,32 @@ def _call_gemini(
     max_tokens: int = 2048,
 ) -> dict[str, Any] | str:
     """
-    Call Groq (llama-3.1-8b-instant) with the given system prompt and user message.
-    Signature kept as _call_gemini so all callers remain unchanged.
+    Call Google Gemini with the given system prompt and user message.
     """
     import re
 
-    if not _groq_client:
-        err = "GROQ_API_KEY not set."
+    if not genai or not GEMINI_API_KEY:
+        err = "GEMINI_API_KEY not set."
         logger.error(err)
         if json_mode:
             return {"error": err, "gemini_failed": True}
         return f"Terra AI is temporarily unavailable: {err}"
 
     try:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_message},
-        ]
-        kwargs = {"model": model_name, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens}
-        if json_mode:
-            kwargs["response_format"] = {"type": "json_object"}
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.2,
+            max_output_tokens=max_tokens,
+            response_mime_type="application/json" if json_mode else "text/plain",
+        )
 
-        response = _groq_client.chat.completions.create(**kwargs)
-        raw = response.choices[0].message.content
+        model = genai.GenerativeModel(
+            model_name=model_name,
+            system_instruction=system_prompt,
+            generation_config=generation_config,
+        )
+
+        response = model.generate_content(user_message)
+        raw = response.text
 
         if not json_mode:
             return raw
@@ -391,9 +395,9 @@ def _call_gemini(
         return json.loads(clean)
 
     except Exception as exc:
-        logger.error(f"[Groq] {model_name} failed: {exc}")
+        logger.error(f"[Gemini] {model_name} failed: {exc}")
         if json_mode:
-            return {"error": f"Groq unavailable: {str(exc)}", "gemini_failed": True}
+            return {"error": f"Gemini unavailable: {str(exc)}", "gemini_failed": True}
         return f"Terra AI is temporarily unavailable: {str(exc)}"
 
 
