@@ -29,6 +29,8 @@ import greenery from '../../assets/terra_upload/greenery.jpeg';
 import kilgoris from '../../assets/terra_upload/kilgoris (2).jpg';
 import puppy from '../../assets/terra_upload/puppy.jpg';
 import drawModeIcon from '../../assets/analysis_page/draw_mode.png';
+import demoAnnotations from '../../../presentation_mode/annotations.json';
+import { lensDemoResponses, plannerGeneration } from '../../../presentation_mode/demoContent';
 
 const GALLERY_IMAGES = [
   { id: 'art', src: artAesthetic, label: 'Abstract art piece', isKilgoris: false },
@@ -460,6 +462,20 @@ function TapModal({ pos, onAsk, onClose, loading, answer }) {
   );
 }
 
+function pointInPolygon(point, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+    const intersects = ((yi > point.y) !== (yj > point.y))
+      && (point.x < ((xj - xi) * (point.y - yi)) / ((yj - yi) || 1) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
 function AnnotatedViewer({ image, result, projectName, projectId, analysisId, onClose }) {
   const navigate = useNavigate();
   const { session } = useTerraStore();
@@ -473,6 +489,7 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
   const [chatInput, setChatInput] = useState('');
   const [chatMsgs, setChatMsgs] = useState([{ role: 'ai', text: 'Hi! Ask me anything about this site. I have the full analysis context.' }]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatLoadingText, setChatLoadingText] = useState('');
   const messagesEndRef = useRef(null);
 
   // Pen/Drawing states
@@ -488,6 +505,8 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
   const score = result?.score || 0;
   const scoreColor = score >= 80 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
   const createdAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const isKilgorisDemo = image?.url?.includes('kilgoris');
+  const annotationRegions = isKilgorisDemo ? demoAnnotations.regions : [];
 
   const handleImgLoad = () => {
     if (!imgRef.current) return;
@@ -504,6 +523,16 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
 
   const handleTapAsk = async q => {
     setTapLoading(true);
+    const matchingRegion = annotationRegions.find((region) => (
+      pointInPolygon({ x: tapPos.xPct, y: tapPos.yPct }, region.polygon)
+    ));
+    if (matchingRegion?.response_key) {
+      window.setTimeout(() => {
+        setTapAnswer(lensDemoResponses[matchingRegion.response_key]);
+        setTapLoading(false);
+      }, 850);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/api/lens/tap`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -520,14 +549,26 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
     setChatInput('');
     setChatMsgs(p => [...p, { role: 'user', text: msg }]);
     setChatLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/copilot/chat`, { method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ message: msg, resolved_refs: [{ type: 'project', id: projectId }] }) });
-      const data = await res.json();
-      setChatMsgs(p => [...p, { role: 'ai', text: data.answer || 'No response.' }]);
-    } catch { setChatMsgs(p => [...p, { role: 'ai', text: 'Copilot temporarily unavailable.' }]); }
-    setChatLoading(false);
+    let phraseIndex = 0;
+    setChatLoadingText(plannerGeneration.phrases[phraseIndex]);
+    const phraseTimer = window.setInterval(() => {
+      phraseIndex = (phraseIndex + 1) % plannerGeneration.phrases.length;
+      setChatLoadingText(plannerGeneration.phrases[phraseIndex]);
+    }, 900);
+
+    window.setTimeout(() => {
+      window.clearInterval(phraseTimer);
+      setChatMsgs(p => [
+        ...p,
+        {
+          role: 'ai',
+          text: plannerGeneration.readyMessage,
+          action: { label: 'Open Terra Planner', path: `/workspace/${projectId}/planner` },
+        },
+      ]);
+      setChatLoadingText('');
+      setChatLoading(false);
+    }, 3200);
   };
 
   // Drawing Handlers
@@ -573,16 +614,12 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
     setChatLoading(true);
     
     setTimeout(() => {
-      let aiText = '';
-      if (drawColor === '#ef4444') {
-        aiText = "Analyzing the area highlighted in Red. This overlaps with the statutory 30m riparian buffer zone setback under NEMA environmental guidelines. Building here is highly discouraged.";
-      } else if (drawColor === '#3b82f6') {
-        aiText = "Analyzing the area highlighted in Blue. This is a clear surface water drainage run-off path. Elevating footings or altering landscaping grading is recommended.";
-      } else if (drawColor === '#10b981') {
-        aiText = "Analyzing the area highlighted in Green. This is a densely vegetated zone. Soil stability is likely strong due to rooting, but clearing may require a local permit.";
-      } else {
-        aiText = "Analyzing the marked region. Soil core models suggest a clay-heavy consistency. Standard structural footings require geotechnical confirmation.";
-      }
+      const colorKey = {
+        '#ffffff': 'land',
+        '#ef4444': 'hillside',
+        '#10b981': 'sky',
+      }[drawColor];
+      const aiText = lensDemoResponses[colorKey] || lensDemoResponses.land;
       
       setChatMsgs(prev => [
         ...prev,
@@ -675,6 +712,21 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
             viewBox={`0 0 ${imgDims.width} ${imgDims.height}`}
             preserveAspectRatio="xMidYMid meet"
           >
+            {annotationRegions.map((region) => {
+              const points = region.polygon.map((point) => `${point.x * imgDims.width},${point.y * imgDims.height}`).join(' ');
+              return (
+                <g key={region.id}>
+                  <polygon
+                    points={points}
+                    fill={region.color === '#ffffff' ? 'rgba(255,255,255,0.08)' : `${region.color}18`}
+                    stroke={region.color}
+                    strokeWidth="2"
+                    strokeDasharray="8 6"
+                    opacity="0.75"
+                  />
+                </g>
+              );
+            })}
             {lines.map((line, idx) => {
               const pathData = line.points.map((pt, i) => {
                 const px = pt.x * imgDims.width;
@@ -859,15 +911,37 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                     borderBottomRightRadius: m.role === 'user' ? 4 : 12,
                     borderBottomLeftRadius: m.role === 'ai' ? 4 : 12 }}>
                     {m.text}
+                    {m.action && (
+                      <button
+                        onClick={() => navigate(m.action.path)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          width: '100%',
+                          marginTop: 10,
+                          border: 'none',
+                          borderRadius: 8,
+                          background: '#10b981',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          padding: '8px 10px',
+                        }}
+                      >
+                        <LayoutDashboard size={13} /> {m.action.label}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
               {chatLoading && (
-                <div style={{ display: 'flex', gap: 4, padding: '4px 2px' }}>
-                  {[0,1,2].map(i => (
-                    <motion.div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#4b5563' }}
-                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }} />
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 2px', color: '#94a3b8', fontSize: 13, fontWeight: 700 }}>
+                  <Loader2 size={15} className="spin" color="#10b981" />
+                  {chatLoadingText || 'Terra is thinking...'}
                 </div>
               )}
               <div ref={messagesEndRef} />

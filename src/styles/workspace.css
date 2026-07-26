@@ -1379,3 +1379,367 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+/* ── Terra Planner presentation mode ───────────────────────────────────────*/
+.planner-screen {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  background: #eef3f1;
+  color: #0f172a;
+  font-family: 'Gabarito', 'Inter', system-ui;
+  overflow: hidden;
+}
+
+.planner-vertical-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 12px;
+  border-right: 1px solid #dce5e1;
+  background: #f8fbfa;
+}
+
+.planner-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.planner-brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #10b981;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.planner-brand span,
+.planner-section-header span {
+  display: block;
+  color: #0f766e;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.planner-brand strong {
+  display: block;
+  max-width: 86px;
+  margin-top: 3px;
+  color: #0f172a;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.planner-vertical-menu nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planner-nav-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 68px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
+}
+
+.planner-nav-button:hover {
+  border-color: #d1fae5;
+  background: #ecfdf5;
+  color: #047857;
+  transform: translateY(-1px);
+}
+
+.planner-nav-button.active {
+  border-color: #99f6e4;
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.planner-nav-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.planner-main {
+  min-width: 0;
+  overflow-y: auto;
+  padding: clamp(20px, 4vw, 38px);
+}
+
+.planner-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.planner-section-header h2 {
+  margin: 5px 0 6px;
+  color: #0f172a;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1;
+  font-weight: 950;
+}
+
+.planner-section-header p {
+  max-width: 660px;
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.planner-top-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.planner-top-actions button {
+  border: 1px solid #d1fae5;
+  border-radius: 8px;
+  background: #fff;
+  color: #047857;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 10px 14px;
+}
+
+.planner-view,
+.planner-content-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.planner-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.planner-hero-panel,
+.planner-panel,
+.planner-mini-card,
+.planner-collab-strip {
+  border: 1px solid #dce5e1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+}
+
+.planner-hero-panel {
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.planner-hero-panel.compact {
+  padding: 18px 20px;
+}
+
+.planner-ai-label,
+.planner-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.planner-hero-panel p {
+  max-width: 880px;
+  margin: 12px 0 0;
+  color: #1f2937;
+  font-size: clamp(18px, 2.4vw, 27px);
+  font-weight: 850;
+  line-height: 1.22;
+}
+
+.planner-health-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.planner-mini-card {
+  position: relative;
+  min-height: 96px;
+  padding: 16px;
+}
+
+.planner-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-bottom: 12px;
+}
+
+.planner-mini-card span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.planner-mini-card strong {
+  display: block;
+  margin-top: 5px;
+  color: #0f172a;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.planner-panel {
+  padding: 18px;
+}
+
+.planner-list,
+.planner-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.planner-list-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 9px 11px;
+}
+
+.planner-list-item svg {
+  color: #10b981;
+  flex: 0 0 auto;
+}
+
+.planner-progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.planner-progress-row:last-child {
+  border-bottom: none;
+}
+
+.planner-progress-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.planner-progress-row strong {
+  color: #0f766e;
+}
+
+.planner-progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.planner-progress-track div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #10b981, #22c55e);
+}
+
+.planner-collab-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+}
+
+.planner-collab-strip span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+@media (max-width: 980px) {
+  .planner-health-grid,
+  .planner-two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .planner-screen {
+    grid-template-columns: 78px minmax(0, 1fr);
+  }
+
+  .planner-vertical-menu {
+    padding: 12px 8px;
+  }
+
+  .planner-brand strong,
+  .planner-nav-button span {
+    display: none;
+  }
+
+  .planner-nav-button {
+    min-height: 52px;
+  }
+
+  .planner-top {
+    flex-direction: column;
+  }
+
+  .planner-health-grid,
+  .planner-two-col,
+  .planner-collab-strip {
+    grid-template-columns: 1fr;
+  }
+}
