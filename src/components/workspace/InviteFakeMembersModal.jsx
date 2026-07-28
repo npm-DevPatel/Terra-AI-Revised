@@ -1,329 +1,278 @@
-/**
- * InviteFakeMembersModal.jsx — Card-based fake member invite flow
- * Each pending invite renders as a card with avatar, name, status pill,
- * and "+ Add Member" action. Persists to project_mock_members table.
- */
 import { useState, useEffect } from 'react';
-import { X, UserPlus, Loader2, CheckCircle, Plus, SkipForward } from 'lucide-react';
+import { X, Loader2, Plus, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 
-function dicebearUrl(name) {
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'Member')}&backgroundColor=c084fc,818cf8,60a5fa,34d399,f59e0b,f87171&backgroundType=gradientLinear`;
-}
-
-function MemberCard({ member, onRemove }) {
-  const [status, setStatus] = useState('connecting');
+export default function InviteFakeMembersModal({ projectId, onClose, onMembersAdded }) {
+  const [suggestedUsers, setSuggestedUsers] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [addedIds, setAddedIds] = useState(new Set());
+  const [allAdded, setAllAdded] = useState([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setStatus('added'), 1400);
-    return () => clearTimeout(timer);
+    async function fetchUsers() {
+      try {
+        const res = await fetch('https://randomuser.me/api/?results=10');
+        const data = await res.json();
+        setSuggestedUsers(data.results);
+      } catch (err) {
+        console.error('Failed to fetch suggested users', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchUsers();
   }, []);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={{ duration: 0.25 }}
-      style={{
-        background: '#fff',
-        border: '1.5px solid #f1f5f9',
-        borderRadius: 18,
-        padding: 20,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-        <img
-          src={member.avatar_url || dicebearUrl(member.name)}
-          alt=""
-          style={{ width: 48, height: 48, borderRadius: 14, objectFit: 'cover', background: '#f1f5f9' }}
-        />
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{member.name}</p>
-          {member.email && (
-            <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>{member.email}</p>
-          )}
-          {member.role_title && (
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b', fontWeight: 500 }}>{member.role_title}</p>
-          )}
-        </div>
-        <div>
-          {status === 'connecting' ? (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '5px 12px', borderRadius: 100,
-              background: '#fef3c7', color: '#d97706',
-              fontSize: 11, fontWeight: 700,
-            }}>
-              <Loader2 size={12} style={{ animation: 'spin 0.8s linear infinite' }} />
-              Connecting…
-            </span>
-          ) : (
-            <motion.span
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '5px 12px', borderRadius: 100,
-                background: '#f0fdf4', color: '#16a34a',
-                fontSize: 11, fontWeight: 700,
-              }}
-            >
-              <CheckCircle size={12} />
-              Added
-            </motion.span>
-          )}
-        </div>
-      </div>
+  const handleNext = () => setCurrentIndex((prev) => (prev + 1) % suggestedUsers.length);
+  const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + suggestedUsers.length) % suggestedUsers.length);
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, color: '#94a3b8' }}>Added just now</span>
-        <button
-          onClick={() => onRemove(member.id)}
-          style={{
-            background: 'none', border: 'none', color: '#94a3b8',
-            fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Remove
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-export default function InviteFakeMembersModal({ projectId, onClose, onMembersAdded }) {
-  const [members, setMembers] = useState([]); // persisted members shown as cards
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [roleTitle, setRoleTitle] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [existingMembers, setExistingMembers] = useState([]);
-
-  // Load existing mock members on mount
-  useEffect(() => {
-    supabase
-      .from('project_mock_members')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at')
-      .then(({ data }) => {
-        if (data) setExistingMembers(data);
-      });
-  }, [projectId]);
-
-  async function addMember() {
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
+  async function addCurrentMember() {
+    const user = suggestedUsers[currentIndex];
+    if (!user || addedIds.has(user.login.uuid)) return;
+    
     setSaving(true);
+    const fullName = `${user.name.first} ${user.name.last}`;
+    const avatarUrl = user.picture.large;
+    const email = user.email;
 
-    const avatarUrl = dicebearUrl(trimmedName);
     const { data, error } = await supabase
       .from('project_mock_members')
       .insert({
         project_id: projectId,
-        name: trimmedName,
-        email: email.trim() || null,
+        name: fullName,
+        email: email,
         avatar_url: avatarUrl,
-        role_title: roleTitle.trim() || null,
+        role_title: 'Member',
       })
       .select()
       .single();
 
     if (data) {
-      setMembers((prev) => [...prev, data]);
-      setName('');
-      setEmail('');
-      setRoleTitle('');
+      setAddedIds((prev) => new Set([...prev, user.login.uuid]));
+      setAllAdded((prev) => [...prev, data]);
+      setTimeout(() => {
+        handleNext();
+      }, 600); // Wait a bit to show success state before sliding to next
     }
     setSaving(false);
   }
 
-  function removeMember(id) {
-    supabase.from('project_mock_members').delete().eq('id', id).then(() => {
-      setMembers((prev) => prev.filter((m) => m.id !== id));
-      setExistingMembers((prev) => prev.filter((m) => m.id !== id));
-    });
-  }
-
-  function handleDone() {
-    if (onMembersAdded) onMembersAdded([...existingMembers, ...members]);
+  function handleClose() {
+    if (onMembersAdded && allAdded.length > 0) {
+      // Pass the added members back so parent can update immediately
+      onMembersAdded(allAdded);
+    }
     onClose();
   }
+
+  const currentUser = suggestedUsers[currentIndex];
+  const isAdded = currentUser && addedIds.has(currentUser.login.uuid);
 
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(8px)',
+      background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(12px)',
       zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: "'Inter', system-ui, sans-serif"
     }}>
-      <motion.div
-        initial={{ scale: 0.92, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        style={{
-          background: '#fff', borderRadius: 24, padding: 32,
-          width: 520, maxHeight: '90vh', overflowY: 'auto',
-          boxShadow: '0 40px 80px rgba(0,0,0,0.18)',
-          fontFamily: "'Gabarito','Inter',system-ui",
+      {/* Close button outside */}
+      <button 
+        onClick={handleClose} 
+        style={{ 
+          position: 'absolute', top: 24, right: 24, 
+          background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', 
+          width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', cursor: 'pointer', backdropFilter: 'blur(4px)'
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 12, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserPlus size={18} color="#8b5cf6" />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Add team members</h2>
-              <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>Create demo teammates for your project workspace</p>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', color: '#64748b' }}>
-            <X size={16} />
-          </button>
-        </div>
+        <X size={20} />
+      </button>
 
-        {/* Input form */}
-        <div style={{
-          background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 16,
-          padding: 18, marginBottom: 16,
-        }}>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Full name *"
+      {loading ? (
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, color: '#fff' }}
+        >
+          <Loader2 size={32} className="premium-spinner" style={{ animation: 'spin 1s linear infinite' }} />
+          <div style={{ fontSize: 15, fontWeight: 500, letterSpacing: '0.02em' }}>Finding brilliant teammates...</div>
+        </motion.div>
+      ) : currentUser ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          {/* Left Arrow */}
+          <button onClick={handlePrev} className="nav-arrow" style={arrowStyle}>
+            <ChevronLeft size={24} />
+          </button>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentUser.login.uuid}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -30, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               style={{
-                flex: 2, padding: '10px 14px', borderRadius: 10,
-                border: '1.5px solid #e2e8f0', background: '#fff',
-                color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none',
-              }}
-            />
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email (optional)"
-              style={{
-                flex: 2, padding: '10px 14px', borderRadius: 10,
-                border: '1.5px solid #e2e8f0', background: '#fff',
-                color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <input
-              value={roleTitle}
-              onChange={(e) => setRoleTitle(e.target.value)}
-              placeholder="Role / title (optional)"
-              onKeyDown={(e) => e.key === 'Enter' && addMember()}
-              style={{
-                flex: 1, padding: '10px 14px', borderRadius: 10,
-                border: '1.5px solid #e2e8f0', background: '#fff',
-                color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none',
-              }}
-            />
-            <button
-              onClick={addMember}
-              disabled={!name.trim() || saving}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '0 18px', borderRadius: 10, border: 'none',
-                background: name.trim() ? '#8b5cf6' : '#e2e8f0',
-                color: name.trim() ? '#fff' : '#94a3b8',
-                fontSize: 13, fontWeight: 700, cursor: name.trim() ? 'pointer' : 'default',
-                fontFamily: 'inherit', whiteSpace: 'nowrap',
+                position: 'relative',
+                width: 380,
+                height: 520,
+                borderRadius: 32,
+                overflow: 'hidden',
+                boxShadow: '0 30px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1) inset',
+                background: '#000',
               }}
             >
-              {saving ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={14} />}
-              Add Member
-            </button>
-          </div>
-        </div>
+              {/* Background Image */}
+              <motion.img
+                initial={{ scale: 1.05 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 4, ease: "easeOut" }}
+                src={currentUser.picture.large}
+                alt={`${currentUser.name.first} ${currentUser.name.last}`}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  opacity: 0.85
+                }}
+              />
 
-        {/* Existing members */}
-        {existingMembers.length > 0 && members.length === 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-              Existing members
-            </p>
-            {existingMembers.map((m) => (
-              <div key={m.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 14px', background: '#f8fafc', borderRadius: 12, marginBottom: 6,
+              {/* Top Gradient */}
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: '40%',
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%)',
+                pointerEvents: 'none'
+              }} />
+
+              {/* Header Info */}
+              <div style={{
+                position: 'absolute', top: 40, left: 0, right: 0,
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                textAlign: 'center', zIndex: 2
               }}>
-                <img
-                  src={m.avatar_url || dicebearUrl(m.name)}
-                  alt=""
-                  style={{ width: 32, height: 32, borderRadius: 10, objectFit: 'cover' }}
-                />
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{m.name}</p>
-                  {m.role_title && <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{m.role_title}</p>}
-                </div>
-                <span style={{
-                  padding: '4px 10px', borderRadius: 100,
-                  background: '#f0fdf4', color: '#16a34a',
-                  fontSize: 10, fontWeight: 700,
+                <h2 style={{ 
+                  margin: 0, color: '#fff', fontSize: 32, fontWeight: 700, 
+                  letterSpacing: '-0.02em', textShadow: '0 2px 10px rgba(0,0,0,0.3)'
                 }}>
-                  Member
-                </span>
+                  {currentUser.name.first} {currentUser.name.last}
+                </h2>
+                
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6, marginTop: 8,
+                  background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
+                  padding: '6px 14px', borderRadius: 100, border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  {!isAdded ? (
+                    <>
+                      <Loader2 size={13} color="#fff" style={{ animation: 'spin 1.5s linear infinite' }} />
+                      <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>Connecting</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} color="#4ade80" />
+                      <span style={{ color: '#4ade80', fontSize: 13, fontWeight: 600 }}>Ready to Invite</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Gradient & Glass Panel */}
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                padding: '40px 24px 24px',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
+                display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+                zIndex: 2
+              }}>
+                
+                {/* User Details */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ 
+                    width: 36, height: 36, borderRadius: '50%', overflow: 'hidden',
+                    border: '2px solid rgba(255,255,255,0.2)'
+                  }}>
+                    <img src={currentUser.picture.medium} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div>
+                    <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>@{currentUser.login.username}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>{Math.floor(Math.random() * 59) + 1}m ago</div>
+                  </div>
+                </div>
+
+                {/* Add Button */}
                 <button
-                  onClick={() => removeMember(m.id)}
-                  style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+                  onClick={addCurrentMember}
+                  disabled={isAdded || saving}
+                  className="premium-add-btn"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: isAdded ? '#4ade80' : '#fff',
+                    color: isAdded ? '#000' : '#000',
+                    border: 'none', borderRadius: 100,
+                    padding: '14px 24px', fontSize: 15, fontWeight: 700,
+                    cursor: isAdded || saving ? 'default' : 'pointer',
+                    boxShadow: isAdded ? '0 4px 15px rgba(74,222,128,0.4)' : '0 4px 15px rgba(255,255,255,0.2)',
+                    transition: 'all 0.2s ease',
+                    fontFamily: 'inherit'
+                  }}
                 >
-                  Remove
+                  {saving ? (
+                    <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />
+                  ) : isAdded ? (
+                    <Check size={18} />
+                  ) : (
+                    <Plus size={18} />
+                  )}
+                  {isAdded ? 'Added' : 'Add Member'}
                 </button>
               </div>
-            ))}
-          </div>
-        )}
+            </motion.div>
+          </AnimatePresence>
 
-        {/* Newly added member cards */}
-        <AnimatePresence>
-          {members.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                Just added
-              </p>
-              {members.map((m) => (
-                <MemberCard key={m.id} member={m} onRemove={removeMember} />
-              ))}
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* Footer actions */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              background: '#f1f5f9', border: 'none', borderRadius: 100,
-              padding: '12px 0', color: '#64748b', fontSize: 13, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <SkipForward size={13} /> Skip for now
-          </button>
-          <button
-            onClick={handleDone}
-            style={{
-              flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              background: '#8b5cf6', border: 'none', borderRadius: 100,
-              padding: '12px 0', color: '#fff', fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <CheckCircle size={14} /> Done
+          {/* Right Arrow */}
+          <button onClick={handleNext} className="nav-arrow" style={arrowStyle}>
+            <ChevronRight size={24} />
           </button>
         </div>
-      </motion.div>
+      ) : (
+        <div style={{ color: '#fff' }}>No users found.</div>
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        .nav-arrow {
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.15);
+          color: white;
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          backdrop-filter: blur(8px);
+          transition: all 0.2s ease;
+        }
+        .nav-arrow:hover {
+          background: rgba(255,255,255,0.2);
+          transform: scale(1.05);
+        }
+        .nav-arrow:active {
+          transform: scale(0.95);
+        }
+        .premium-add-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(255,255,255,0.3) !important;
+        }
+        .premium-add-btn:active:not(:disabled) {
+          transform: translateY(1px);
+        }
       `}</style>
     </div>
   );
 }
+
+const arrowStyle = { /* moved to class for hover effects */ };

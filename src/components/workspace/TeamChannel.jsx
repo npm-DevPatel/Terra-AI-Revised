@@ -864,7 +864,7 @@ export default function TeamChannel({ projectId, projectName }) {
             projectId={projectId}
             onClose={() => setShowInviteModal(false)}
             onMembersAdded={(newMembers) => {
-              setMockMembers(newMembers);
+              setMockMembers((prev) => [...prev, ...newMembers]);
               setShowInviteModal(false);
             }}
           />
