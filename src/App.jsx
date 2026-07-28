@@ -9,6 +9,7 @@ import UpdatePassword from './pages/UpdatePassword';
 import TerraLens from './pages/products/TerraLens';
 import TerraSim from './pages/products/TerraSim';
 import TerraFlow from './pages/products/TerraFlow';
+import TerraWorkflow from './pages/products/TerraWorkflow';
 // Solutions
 import LandDueDiligence from './pages/solutions/LandDueDiligence';
 import ResidentialDevelopment from './pages/solutions/ResidentialDevelopment';
@@ -134,6 +135,7 @@ export default function App() {
         <Route path="/products/terra-planner" element={<TerraSim />} />
         <Route path="/products/terra-sim"     element={<TerraSim />} />
         <Route path="/products/terra-flow"    element={<TerraFlow />} />
+        <Route path="/products/terra-workflow" element={<TerraWorkflow />} />
         {/* Solutions */}
         <Route path="/solutions/land-due-diligence"     element={<LandDueDiligence />} />
         <Route path="/solutions/residential-development" element={<ResidentialDevelopment />} />

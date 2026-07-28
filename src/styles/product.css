@@ -9,6 +9,9 @@
 .product-hero-bg-amber {
   background: linear-gradient(135deg, #fffbeb 0%, #ffffff 60%, #fef3c7 100%);
 }
+.product-hero-bg-violet {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 60%, #ede9fe 100%);
+}
 
 .capability-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;

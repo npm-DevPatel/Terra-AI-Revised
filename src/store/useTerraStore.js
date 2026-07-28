@@ -225,6 +225,13 @@ const useTerraStore = create(
         activeChannelId: null,
         copilotOpen: false,
         copilotMessages: [], // [{role: 'user'|'assistant', content: string}]
+        teamChannel: {
+          activeChannelId: null,
+          activeDmMemberId: null,  // null = channel mode, string = DM mode
+          rightPanelOpen: false,
+          rightPanelType: null,    // 'profile' | 'details'
+          rightPanelData: null,
+        },
       },
 
       setActiveProject: (id, name) =>
@@ -235,6 +242,56 @@ const useTerraStore = create(
       setActiveChannel: (channelId) =>
         set((state) => ({
           workspace: { ...state.workspace, activeChannelId: channelId },
+        })),
+
+      setTeamActiveChannel: (channelId) =>
+        set((state) => ({
+          workspace: {
+            ...state.workspace,
+            teamChannel: {
+              ...state.workspace.teamChannel,
+              activeChannelId: channelId,
+              activeDmMemberId: null,
+            },
+          },
+        })),
+
+      setTeamActiveDm: (memberId) =>
+        set((state) => ({
+          workspace: {
+            ...state.workspace,
+            teamChannel: {
+              ...state.workspace.teamChannel,
+              activeDmMemberId: memberId,
+              activeChannelId: null,
+            },
+          },
+        })),
+
+      openTeamRightPanel: (type, data) =>
+        set((state) => ({
+          workspace: {
+            ...state.workspace,
+            teamChannel: {
+              ...state.workspace.teamChannel,
+              rightPanelOpen: true,
+              rightPanelType: type,
+              rightPanelData: data,
+            },
+          },
+        })),
+
+      closeTeamRightPanel: () =>
+        set((state) => ({
+          workspace: {
+            ...state.workspace,
+            teamChannel: {
+              ...state.workspace.teamChannel,
+              rightPanelOpen: false,
+              rightPanelType: null,
+              rightPanelData: null,
+            },
+          },
         })),
 
       toggleCopilot: () =>

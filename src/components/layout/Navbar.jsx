@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Sparkles, ArrowRight, ScanLine, LayoutTemplate, FileText, Menu, X, FolderPlus } from 'lucide-react';
+import { ChevronDown, Sparkles, ArrowRight, ScanLine, LayoutTemplate, FileText, Menu, X, FolderPlus, MessagesSquare } from 'lucide-react';
 import { clsx } from 'clsx';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
@@ -39,6 +39,14 @@ const NAV_ITEMS = {
         icon: FileText,
         color: 'text-amber-600',
         bg: 'bg-amber-50',
+      },
+      {
+        label: 'Terra Workflow',
+        desc: 'Slack-style team workspace for projects',
+        href: '/products/terra-workflow',
+        icon: MessagesSquare,
+        color: 'text-violet-600',
+        bg: 'bg-violet-50',
       },
     ],
   },

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  CircleDollarSign, FileText, MapPinned, Sparkles,
+  CircleDollarSign, FileText, MapPinned, Sparkles, Lock,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import overviewIcon from '../../assets/planner/overview.png';
@@ -22,6 +22,8 @@ import resourcesImage from '../../../presentation_mode/planner_images/resources.
 import resourcesImage2 from '../../../presentation_mode/planner_images/resources_2.jpeg';
 import budgetImage from '../../../presentation_mode/planner_images/budget.jpeg';
 import budgetImage2 from '../../../presentation_mode/planner_images/budget_2.jpeg';
+import TeamChannel from '../../components/workspace/TeamChannel';
+import { supabase } from '../../lib/supabaseClient';
 import '../../styles/workspace.css';
 
 const PROJECT_NAME = 'Highlands of Limuru';
@@ -258,6 +260,30 @@ export default function PlannerWorkspace() {
   const [active, setActive] = useState('overview');
   const [selectionMenu, setSelectionMenu] = useState(null);
   const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === active), [active]);
+  const [hasAnalysis, setHasAnalysis] = useState(null); // null = loading, true/false
+  const [projectName, setProjectName] = useState(PROJECT_NAME);
+
+  // Check if land assessment is complete (at least one analysis exists)
+  useEffect(() => {
+    if (!projectId) return;
+    supabase
+      .from('analyses')
+      .select('id')
+      .eq('project_id', projectId)
+      .limit(1)
+      .then(({ data }) => {
+        setHasAnalysis(data && data.length > 0);
+      });
+    // Also fetch project name for TeamChannel
+    supabase
+      .from('projects')
+      .select('name')
+      .eq('id', projectId)
+      .single()
+      .then(({ data }) => {
+        if (data?.name) setProjectName(data.name);
+      });
+  }, [projectId]);
 
   useEffect(() => {
     const handleSelection = () => {
@@ -290,6 +316,65 @@ export default function PlannerWorkspace() {
     setActive(item.id);
   };
 
+  // Workspace tab — locked state
+  function WorkspaceLocked() {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '80px 40px', textAlign: 'center', maxWidth: 480, margin: '0 auto',
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: 18, background: '#f5f3ff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+        }}>
+          <Lock size={28} color="#8b5cf6" />
+        </div>
+        <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
+          Team Workspace Locked
+        </h3>
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+          Available once your land assessment is complete. Run a Lens analysis on your project site to unlock the collaborative workspace.
+        </p>
+        <button
+          onClick={() => navigate(`/workspace/${projectId}/lens`)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '12px 24px', borderRadius: 100, border: 'none',
+            background: '#8b5cf6', color: '#fff', fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 4px 16px rgba(139,92,246,0.25)',
+          }}
+        >
+          <MapPinned size={16} /> Go to Terra Lens
+        </button>
+      </div>
+    );
+  }
+
+  // Determine what to render for the workspace tab
+  function renderWorkspaceContent() {
+    if (active !== 'workspace') {
+      return <PlannerView active={active} />;
+    }
+
+    // Still checking analysis status
+    if (hasAnalysis === null) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60, color: '#94a3b8', fontSize: 13 }}>
+          Checking project status…
+        </div>
+      );
+    }
+
+    // No analysis yet — show locked state
+    if (!hasAnalysis) {
+      return <WorkspaceLocked />;
+    }
+
+    // Analysis exists — render TeamChannel
+    return <TeamChannel projectId={projectId} projectName={projectName} />;
+  }
+
   return (
     <div className="planner-screen">
       {selectionMenu && (
@@ -314,7 +399,7 @@ export default function PlannerWorkspace() {
           <div className="planner-brand-mark">T</div>
           <div>
             <span>Terra Planner</span>
-            <strong>{PROJECT_NAME}</strong>
+            <strong>{projectName}</strong>
           </div>
         </div>
         <nav>
@@ -333,26 +418,29 @@ export default function PlannerWorkspace() {
       </aside>
 
       <main className="planner-main">
-        <header className="planner-top">
-          <div className="planner-section-header">
-            <span>{PROJECT_TYPE}</span>
-            <h2>{activeItem?.label || 'Overview'}</h2>
-            <p>{activeItem?.question}</p>
-          </div>
-          <div className="planner-top-actions">
-            <button onClick={() => navigate(`/workspace/${projectId}/lens`)}><MapPinned size={14} /> Lens</button>
-            <button onClick={() => navigate(`/workspace/${projectId}/flow`)}><FileText size={14} /> Reports</button>
-          </div>
-        </header>
+        {active !== 'workspace' && (
+          <header className="planner-top">
+            <div className="planner-section-header">
+              <span>{PROJECT_TYPE}</span>
+              <h2>{activeItem?.label || 'Overview'}</h2>
+              <p>{activeItem?.question}</p>
+            </div>
+            <div className="planner-top-actions">
+              <button onClick={() => navigate(`/workspace/${projectId}/lens`)}><MapPinned size={14} /> Lens</button>
+              <button onClick={() => navigate(`/workspace/${projectId}/flow`)}><FileText size={14} /> Reports</button>
+            </div>
+          </header>
+        )}
 
         <motion.div
           key={active}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="planner-view"
+          className={active === 'workspace' ? 'planner-view' : 'planner-view'}
+          style={active === 'workspace' && hasAnalysis ? { height: '100%', overflow: 'hidden' } : {}}
         >
-          <PlannerView active={active} />
+          {renderWorkspaceContent()}
         </motion.div>
       </main>
     </div>
