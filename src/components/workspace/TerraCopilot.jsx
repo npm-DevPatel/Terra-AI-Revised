@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, SendHorizonal, AtSign } from 'lucide-react';
+import { X, AtSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
 import { supabase } from '../../lib/supabaseClient';
 import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
+import aiIcon from '../../assets/ai_chat/ai_icon.png';
+import attachmentIcon from '../../assets/ai_chat/attachment_icon.png';
+import micIcon from '../../assets/ai_chat/mic.png';
+import sendIcon from '../../assets/ai_chat/send.png';
+import thinkingGif from '../../assets/made_projects/4_word_loading.gif';
 import '../../../src/styles/workspace.css';
 
 export default function TerraCopilot({ projectId, projectName }) {
@@ -12,19 +17,40 @@ export default function TerraCopilot({ projectId, projectName }) {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mentionSearch, setMentionSearch] = useState('');
   const [mentionResults, setMentionResults] = useState([]);
   const [showMention, setShowMention] = useState(false);
   const [resolvedRefs, setResolvedRefs] = useState([]);
+  const [profileName, setProfileName] = useState('');
+  const [listening, setListening] = useState(false);
 
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const session = useTerraStore((s) => s.session);
+  const user = useTerraStore((s) => s.user);
+  const displayName = profileName
+    || user?.user_metadata?.full_name
+    || user?.user_metadata?.name
+    || user?.email?.split('@')?.[0]
+    || 'there';
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [copilotMessages]);
+  }, [copilotMessages, loading]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('display_name, username')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        const nextName = data?.display_name || data?.username;
+        if (nextName) setProfileName(nextName);
+      });
+  }, [user?.id]);
 
   // Handle @mention trigger
   const handleInputChange = async (e) => {
@@ -35,7 +61,6 @@ export default function TerraCopilot({ projectId, projectName }) {
     if (atIdx !== -1) {
       const query = val.slice(atIdx + 1).split(' ')[0];
       if (query.length >= 1) {
-        setMentionSearch(query);
         setShowMention(true);
         // Search projects the user has access to
         const { data } = await supabase
@@ -79,6 +104,7 @@ export default function TerraCopilot({ projectId, projectName }) {
     setLoading(true);
 
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
       const res = await fetch(`${API_BASE}/api/copilot/chat`, {
         method: 'POST',
         headers: {
@@ -87,6 +113,8 @@ export default function TerraCopilot({ projectId, projectName }) {
         },
         body: JSON.stringify({
           message: fullMessage,
+          project_id: projectId,
+          project_name: projectName,
           resolved_refs: resolvedRefs,
         }),
       });
@@ -97,6 +125,25 @@ export default function TerraCopilot({ projectId, projectName }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMicClick = () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      setInput((value) => value || 'Voice input is not supported in this browser.');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      if (transcript) setInput((value) => `${value}${value ? ' ' : ''}${transcript}`);
+    };
+    recognition.start();
   };
 
   const handleKeyDown = (e) => {
@@ -118,9 +165,11 @@ export default function TerraCopilot({ projectId, projectName }) {
       {/* Header */}
       <div className="copilot-header">
         <div className="copilot-title">
-          <div className="copilot-dot" />
-          <Sparkles size={14} />
-          Terra Copilot
+          <img src={aiIcon} alt="" className="copilot-ai-icon" />
+          <div>
+            <span>Terra Copilot</span>
+            <p>Hello {displayName}, What do you want to dive in today</p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
@@ -143,14 +192,8 @@ export default function TerraCopilot({ projectId, projectName }) {
         {copilotMessages.length === 0 ? (
           <div className="copilot-empty">
             <div className="copilot-empty-icon">
-              <Sparkles size={20} color="#34d399" />
+              <img src={aiIcon} alt="" />
             </div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>
-              Ask Terra Copilot anything
-            </p>
-            <p style={{ fontSize: 12, color: '#374151', lineHeight: 1.5 }}>
-              Reference a project with @ to bring in its full data.
-            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', marginTop: 8 }}>
               {starterPrompts.map((p) => (
                 <button
@@ -191,15 +234,11 @@ export default function TerraCopilot({ projectId, projectName }) {
             </AnimatePresence>
             {loading && (
               <div className="copilot-message assistant">
-                <div className="msg-bubble" style={{ display: 'flex', gap: 6 }}>
-                  {[0,1,2].map(i => (
-                    <span key={i} style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: '#4b5563',
-                      animation: `bounce 1s ease-in-out ${i * 0.15}s infinite`,
-                      display: 'inline-block',
-                    }} />
-                  ))}
+                <div className="msg-bubble copilot-thinking-bubble">
+                  <img src={thinkingGif} alt="" />
+                  <span className="lens-faded-word thinking-word" aria-label="thinking">
+                    <strong>th</strong><span>inki</span><strong>ng</strong>
+                  </span>
                 </div>
               </div>
             )}
@@ -263,10 +302,27 @@ export default function TerraCopilot({ projectId, projectName }) {
         </AnimatePresence>
 
         <div className="copilot-input-row">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(event) => {
+              const files = Array.from(event.target.files || []).map((file) => file.name);
+              if (files.length) setInput((value) => `${value}${value ? ' ' : ''}${files.map((name) => `Attached ${name}`).join(', ')}`);
+              event.target.value = '';
+            }}
+          />
+          <button className="copilot-tool-btn" type="button" onClick={() => fileInputRef.current?.click()} aria-label="Attach file">
+            <img src={attachmentIcon} alt="" />
+          </button>
+          <button className={`copilot-tool-btn ${listening ? 'active' : ''}`} type="button" onClick={handleMicClick} aria-label="Use voice">
+            <img src={micIcon} alt="" />
+          </button>
           <textarea
             ref={textareaRef}
             className="copilot-textarea"
-            placeholder="Ask anything… type @ to reference a project"
+            placeholder="Message Terra..."
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
@@ -277,7 +333,7 @@ export default function TerraCopilot({ projectId, projectName }) {
             onClick={handleSend}
             disabled={loading || (!input.trim() && resolvedRefs.length === 0)}
           >
-            <SendHorizonal size={14} />
+            <img src={sendIcon} alt="" />
           </button>
         </div>
       </div>

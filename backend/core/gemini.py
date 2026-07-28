@@ -1,5 +1,5 @@
 """
-core/gemini.py — All AI interactions for Terra AI (powered by Llama API).
+core/gemini.py — All AI interactions for Terra AI (powered by Groq / llama-3.1-8b-instant).
 
 Functions:
   1. synthesize_lens_report()     — land analysis from geospatial + vision data
@@ -16,15 +16,16 @@ Functions:
 import json
 import logging
 import os
-import requests
-from typing import Any, Literal, overload
+
+from groq import Groq 
 
 logger = logging.getLogger(__name__)
 
-LLAMA_API_KEY = (os.getenv("LLAMA_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+_groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-_FLASH = "llama3.1-8b"
-_PRO   = "llama3.1-70b"
+_FLASH = "llama-3.1-8b-instant"
+_PRO   = "llama-3.1-8b-instant"
 
 KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a knowledgeable, honest guide helping people make smart land decisions in Kenya.
 
@@ -72,7 +73,7 @@ LENS_SCHEMA = """{
 }"""
 
 
-def synthesize_lens_report(payload: dict) -> dict[str, Any]:
+def synthesize_lens_report(payload: dict) -> dict:
     """
     Generate a full Terra Lens land intelligence report.
     Combines geospatial data + Google Vision photo analysis.
@@ -226,7 +227,7 @@ SIM_SCHEMA = """{
 }"""
 
 
-def recommend_sim_layout(analysis_data: dict, user_inputs: dict) -> dict[str, Any]:
+def recommend_sim_layout(analysis_data: dict, user_inputs: dict) -> dict:
     """
     Generate three site layout scenarios for Terra Sim.
 
@@ -286,7 +287,7 @@ _REPORT_TYPE_SECTIONS = {
 }
 
 
-def generate_flow_report(analysis_data: dict, sim_data: dict, report_type: str, audience: str) -> dict[str, Any]:
+def generate_flow_report(analysis_data: dict, sim_data: dict, report_type: str, audience: str) -> dict:
     """
     Generate a professional Terra Flow report.
 
@@ -321,100 +322,47 @@ Generate the full professional report now. All cost figures in KES. Reference Ke
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _require_key():
-    if not LLAMA_API_KEY:
-        raise RuntimeError("LLAMA_API_KEY not set.")
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not set.")
 
 
-@overload
-def _call_gemini(
-    model_name: str,
-    system_prompt: str,
-    user_message: str,
-    json_mode: Literal[True] = True,
-    max_tokens: int = 2048,
-) -> dict[str, Any]:
-    ...
-
-
-@overload
-def _call_gemini(
-    model_name: str,
-    system_prompt: str,
-    user_message: str,
-    json_mode: Literal[False],
-    max_tokens: int = 2048,
-) -> str:
-    ...
-
-
-LLAMA_FALLBACK_MODELS = ["llama3.1-70b", "llama3.1-8b", "llama3.3-70b"]
-
-def _call_gemini(
-    model_name: str,
-    system_prompt: str,
-    user_message: str,
-    json_mode: bool = True,
-    max_tokens: int = 2048,
-) -> dict[str, Any] | str:
+def _call_gemini(model_name: str, system_prompt: str, user_message: str, json_mode: bool = True, max_tokens: int = 2048) -> dict | str:
     """
-    Call Llama API (api.llama-api.com) with system prompt and user message.
+    Call Groq (llama-3.1-8b-instant) with the given system prompt and user message.
+    Signature kept as _call_gemini so all callers remain unchanged.
     """
     import re
 
-    if not LLAMA_API_KEY:
-        err = "LLAMA_API_KEY not set."
+    if not _groq_client:
+        err = "GROQ_API_KEY not set."
         logger.error(err)
         if json_mode:
             return {"error": err, "gemini_failed": True}
         return f"Terra AI is temporarily unavailable: {err}"
 
-    headers = {
-        "Authorization": f"Bearer {LLAMA_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    try:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ]
+        kwargs = {"model": model_name, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens}
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
 
-    candidates = [model_name] + [m for m in LLAMA_FALLBACK_MODELS if m != model_name]
-    last_exc = None
+        response = _groq_client.chat.completions.create(**kwargs)
+        raw = response.choices[0].message.content
 
-    for m_name in candidates:
-        try:
-            payload = {
-                "model": m_name,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
-                ],
-                "temperature": 0.2,
-                "max_tokens": max_tokens,
-            }
-            if json_mode:
-                payload["response_format"] = {"type": "json_object"}
+        if not json_mode:
+            return raw
 
-            resp = requests.post(
-                "https://api.llama-api.com/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60,
-            )
-            resp.raise_for_status()
+        clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
+        return json.loads(clean)
 
-            data = resp.json()
-            raw = data["choices"][0]["message"]["content"]
-
-            if not json_mode:
-                return raw
-
-            clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
-            return json.loads(clean)
-
-        except Exception as exc:
-            last_exc = exc
-            logger.warning(f"[Llama API] Model {m_name} failed: {exc}. Trying next candidate...")
-
-    logger.error(f"[Llama API] All candidate models failed. Last error: {last_exc}")
-    if json_mode:
-        return {"error": f"Llama API unavailable: {str(last_exc)}", "gemini_failed": True}
-    return f"Terra AI is temporarily unavailable: {str(last_exc)}"
+    except Exception as exc:
+        logger.error(f"[Groq] {model_name} failed: {exc}")
+        if json_mode:
+            return {"error": f"Groq unavailable: {str(exc)}", "gemini_failed": True}
+        return f"Terra AI is temporarily unavailable: {str(exc)}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -520,7 +468,7 @@ _PLANNER_SCHEMA = """{
 }"""
 
 
-def generate_planner_roadmap(project_info: dict, analysis_data: dict) -> dict[str, Any]:
+def generate_planner_roadmap(project_info: dict, analysis_data: dict) -> dict:
     """
     Generate a full 6-phase AI project roadmap for Terra Planner.
 
@@ -579,8 +527,7 @@ Why is this task in the plan and why at this stage? Answer in 2-4 plain sentence
         user_msg, json_mode=False
     )
 
-
-def get_planner_priorities(phases: list, analysis_data: dict) -> dict[str, Any]:
+def get_planner_priorities(phases: list, analysis_data: dict) -> dict:
     """
     Surface the 3 most critical actions to take right now.
     Returns {"priorities": [{"rank": 1, "task_name": str, "phase": str, "reason": str}]}
@@ -605,7 +552,7 @@ Return JSON: {{"priorities": [{{"rank": 1, "task_name": "str", "phase": "str", "
     return _call_gemini(_FLASH, _PLANNER_SYSTEM, user_msg)
 
 
-def update_planner_from_event(phases: list, event_type: str, event_data: dict, analysis_data: dict) -> dict[str, Any]:
+def update_planner_from_event(phases: list, event_type: str, event_data: dict, analysis_data: dict) -> dict:
     """
     React to a new event (e.g. soil report uploaded) and update the plan.
     Returns {"changes": [...], "updated_phases": [...same as roadmap phases...]}

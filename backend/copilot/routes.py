@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request
 from core.auth import require_auth
 from core.gemini import answer_copilot
 from core.supabase import get_service_client
-
+    
 bp = Blueprint("copilot", __name__)
 
 
@@ -38,7 +38,7 @@ def _fetch_project_context(project_id: str) -> dict:
 
 @bp.route("/api/copilot/chat", methods=["POST"])
 def chat():
-    _, _, err = require_auth()
+    user_id, raw_jwt, err = require_auth()
     if err:
         return err
 
@@ -61,4 +61,5 @@ def chat():
         return jsonify({"answer": answer})
     except Exception as exc:
         print(f"[Copilot Error] {exc}")
-        return jsonify({"answer": f"I had trouble analyzing that request right now ({str(exc)}). Please check your backend LLAMA_API_KEY environment variable."})
+        return jsonify({"answer": f"I had trouble analyzing that request right now ({str(exc)}). Please check your backend GROQ_API_KEY environment variable."})
+

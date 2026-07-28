@@ -209,6 +209,23 @@
   gap: 8px;
 }
 
+.copilot-title p {
+  margin: 2px 0 0;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.copilot-ai-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: #f0fdf4;
+  padding: 5px;
+}
+
 .copilot-dot {
   width: 7px;
   height: 7px;
@@ -284,6 +301,12 @@
   margin-bottom: 4px;
 }
 
+.copilot-empty-icon img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
 .copilot-input-area {
   padding: 12px 16px;
   border-top: 1px solid #f1f5f9;
@@ -298,6 +321,30 @@
   border-radius: 12px;
   padding: 10px 12px;
   transition: border-color 0.15s;
+}
+
+.copilot-tool-btn {
+  width: 28px;
+  height: 30px;
+  flex: 0 0 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.copilot-tool-btn.active {
+  background: #dcfce7;
+}
+
+.copilot-tool-btn img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
 .copilot-input-row:focus-within {
@@ -335,9 +382,27 @@
   color: #fff;
 }
 
+.copilot-send-btn img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+
 .copilot-send-btn:hover { background: #059669; }
 .copilot-send-btn:active { transform: scale(0.94); }
 .copilot-send-btn:disabled { background: #e2e8f0; cursor: not-allowed; }
+
+.copilot-thinking-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copilot-thinking-bubble img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
 
 /* @mention chip */
 .mention-chip {
@@ -766,18 +831,29 @@
 }
 
 .lens-map-loading-card {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   border: 1.5px solid #a7f3d0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
   color: #064e3b;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  line-height: 1.35;
-  padding: 13px 15px;
+  line-height: 1.2;
+  padding: 9px 12px;
   box-shadow: 0 12px 30px rgba(16, 185, 129, 0.16);
   animation: lensBlinkBorder 0.64s ease-in-out infinite;
   grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.lens-map-loading-card img {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
 }
 
 .lens-gallery-panel {
@@ -994,7 +1070,8 @@
   position: absolute;
   left: 50%;
   bottom: 34px;
-  width: min(92vw, 520px);
+  width: fit-content;
+  max-width: min(92vw, 720px);
   transform: translateX(-50%);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
@@ -1002,42 +1079,80 @@
   color: #0f172a;
   box-shadow: 0 24px 80px rgba(2, 6, 23, 0.38);
   backdrop-filter: blur(18px);
-  padding: 18px 22px 20px;
-  text-align: center;
+  padding: 12px 16px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  white-space: nowrap;
 }
 
 .lens-loader-card > span {
-  display: block;
+  display: inline-block;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.lens-loader-card > img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .lens-faded-word {
   display: inline-flex;
   align-items: baseline;
   justify-content: center;
-  min-width: 260px;
-  margin-top: 2px;
+  min-width: auto;
+  margin-top: 0;
   color: #0f172a;
-  font-size: clamp(38px, 7vw, 72px);
+  font-size: 26px;
   font-weight: 900;
-  line-height: 0.95;
+  line-height: 1;
+  text-shadow: 0 0 14px rgba(16, 185, 129, 0.32);
 }
 
 .lens-faded-word span {
   color: #94a3b8;
   font-weight: 800;
+  animation: terraWordEnergy 1.6s ease-in-out infinite;
+}
+
+.lens-faded-word strong {
+  animation: terraWordEnergy 1.6s ease-in-out infinite;
 }
 
 .lens-loader-card p {
-  margin: 10px auto 0;
-  max-width: 360px;
+  margin: 0;
+  max-width: none;
   color: #475569;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.thinking-word {
+  font-size: 20px;
+  min-width: 86px;
+}
+
+@keyframes terraWordEnergy {
+  0%, 100% {
+    color: #0f172a;
+    text-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
+  45% {
+    color: #10b981;
+    text-shadow: 0 0 18px rgba(16, 185, 129, 0.72);
+  }
+  70% {
+    color: #64748b;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.28);
+  }
 }
 
 @keyframes lensBlinkBorder {

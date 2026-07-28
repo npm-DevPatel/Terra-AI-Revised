@@ -13,7 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Upload, X, AlertTriangle, CheckCircle,
   Maximize2, Minimize2, Crosshair, MessageSquare,
-  LayoutDashboard, FileText, Sparkles, Send, Loader2, MapPin,
+  LayoutDashboard, FileText, Sparkles, Loader2, MapPin,
   Image as ImageIcon, Search, Navigation, Layers3, Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,6 +31,11 @@ import puppy from '../../assets/terra_upload/puppy.jpg';
 import drawModeIcon from '../../assets/analysis_page/draw_mode.png';
 import demoAnnotations from '../../../presentation_mode/annotations.json';
 import { lensDemoResponses, plannerGeneration } from '../../../presentation_mode/demoContent';
+import aiIcon from '../../assets/ai_chat/ai_icon.png';
+import attachmentIcon from '../../assets/ai_chat/attachment_icon.png';
+import micIcon from '../../assets/ai_chat/mic.png';
+import sendIcon from '../../assets/ai_chat/send.png';
+import thinkingGif from '../../assets/made_projects/4_word_loading.gif';
 
 const GALLERY_IMAGES = [
   { id: 'art', src: artAesthetic, label: 'Abstract art piece', isKilgoris: false },
@@ -66,6 +71,14 @@ function FadedActionWord({ word }) {
       <strong>{last}</strong>
     </span>
   );
+}
+
+function responseForLensQuestion(question, fallbackKey = 'land') {
+  const clean = question.toLowerCase();
+  if (clean.includes('cloud') || clean.includes('rain') || clean.includes('prone')) return lensDemoResponses.sky;
+  if (clean.includes('hill') || clean.includes('design perspective') || clean.includes('facing')) return lensDemoResponses.hillside;
+  if (clean.includes('two') || clean.includes('spaced') || clean.includes('different') || clean.includes('pieces of land')) return lensDemoResponses.comparison;
+  return lensDemoResponses[fallbackKey] || lensDemoResponses.land;
 }
 
 /* ── Satellite Location Picker ─────────────────────────────────── */
@@ -478,8 +491,9 @@ function pointInPolygon(point, polygon) {
 
 function AnnotatedViewer({ image, result, projectName, projectId, analysisId, onClose }) {
   const navigate = useNavigate();
-  const { session } = useTerraStore();
+  const { session, user } = useTerraStore();
   const imgRef = useRef(null);
+  const copilotFileRef = useRef(null);
   const [imgDims, setImgDims] = useState(null);
   const [tapMode, setTapMode] = useState(false);
   const [tapPos, setTapPos] = useState(null);
@@ -490,6 +504,9 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
   const [chatMsgs, setChatMsgs] = useState([{ role: 'ai', text: 'Hi! Ask me anything about this site. I have the full analysis context.' }]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatLoadingText, setChatLoadingText] = useState('');
+  const [chatLoadingMode, setChatLoadingMode] = useState('thinking');
+  const [copilotListening, setCopilotListening] = useState(false);
+  const [profileName, setProfileName] = useState('');
   const messagesEndRef = useRef(null);
 
   // Pen/Drawing states
@@ -507,6 +524,24 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
   const createdAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const isKilgorisDemo = image?.url?.includes('kilgoris');
   const annotationRegions = isKilgorisDemo ? demoAnnotations.regions : [];
+  const displayName = profileName
+    || user?.user_metadata?.full_name
+    || user?.user_metadata?.name
+    || user?.email?.split('@')?.[0]
+    || 'there';
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('display_name, username')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        const nextName = data?.display_name || data?.username;
+        if (nextName) setProfileName(nextName);
+      });
+  }, [user?.id]);
 
   const handleImgLoad = () => {
     if (!imgRef.current) return;
@@ -549,6 +584,19 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
     setChatInput('');
     setChatMsgs(p => [...p, { role: 'user', text: msg }]);
     setChatLoading(true);
+    setChatLoadingMode('thinking');
+
+    const demoText = responseForLensQuestion(msg, 'land');
+    const wantsPlanner = /plan|planner|generate|open terra planner/i.test(msg);
+    if (!wantsPlanner) {
+      window.setTimeout(() => {
+        setChatMsgs(p => [...p, { role: 'ai', text: demoText }]);
+        setChatLoading(false);
+      }, 2000);
+      return;
+    }
+
+    setChatLoadingMode('planner');
     let phraseIndex = 0;
     setChatLoadingText(plannerGeneration.phrases[phraseIndex]);
     const phraseTimer = window.setInterval(() => {
@@ -612,6 +660,7 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
     ]);
     setCopilotOpen(true);
     setChatLoading(true);
+    setChatLoadingMode('thinking');
     
     setTimeout(() => {
       const colorKey = {
@@ -619,14 +668,33 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
         '#ef4444': 'hillside',
         '#10b981': 'sky',
       }[drawColor];
-      const aiText = lensDemoResponses[colorKey] || lensDemoResponses.land;
+      const aiText = responseForLensQuestion(question, colorKey);
       
       setChatMsgs(prev => [
         ...prev,
         { role: 'ai', text: aiText }
       ]);
       setChatLoading(false);
-    }, 1200);
+    }, 2000);
+  };
+
+  const handleCopilotMicClick = () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      setChatInput((value) => value || 'Voice input is not supported in this browser.');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.onstart = () => setCopilotListening(true);
+    recognition.onend = () => setCopilotListening(false);
+    recognition.onerror = () => setCopilotListening(false);
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      if (transcript) setChatInput((value) => `${value}${value ? ' ' : ''}${transcript}`);
+    };
+    recognition.start();
   };
 
   const DrawIcon = ({ size }) => (
@@ -759,19 +827,19 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
             flexDirection: 'column',
             alignItems: 'center',
             gap: 12,
-            background: 'rgba(15, 23, 42, 0.92)',
+            background: 'rgba(255, 255, 255, 0.96)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: 16,
+            border: '1px solid rgba(226, 232, 240, 0.95)',
+            borderRadius: 12,
             padding: '12px 18px',
             zIndex: 60,
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            boxShadow: '0 18px 38px rgba(15,23,42,0.18)',
             width: 320,
             fontFamily: 'inherit',
           }}>
             {/* Color selection row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8' }}>Pen Color:</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>Pen Color:</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[
                   { hex: '#ef4444', label: 'Red' },
@@ -788,9 +856,10 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                       height: 18,
                       borderRadius: '50%',
                       background: color.hex,
-                      border: drawColor === color.hex ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.2)',
+                      border: drawColor === color.hex ? '2px solid #10b981' : '1px solid #cbd5e1',
                       cursor: 'pointer',
                       padding: 0,
+                      boxShadow: color.hex === '#ffffff' ? 'inset 0 0 0 1px #e2e8f0' : 'none',
                     }}
                     title={color.label}
                   />
@@ -799,13 +868,14 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
               <button
                 onClick={() => { setLines([]); }}
                 style={{
-                  background: 'none',
-                  border: 'none',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: 8,
                   color: '#ef4444',
                   fontSize: 11,
                   fontWeight: 700,
                   cursor: 'pointer',
-                  padding: 0,
+                  padding: '5px 8px',
                 }}
               >
                 Clear
@@ -814,8 +884,8 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
             
             {/* Drawing question box */}
             {lines.length > 0 && (
-              <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>Ask AI about the marked area:</span>
+              <div style={{ width: '100%', borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Ask Terra about the marked area:</span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input
                     value={drawQuestion}
@@ -824,11 +894,11 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                     placeholder="e.g. Is this soil stable?"
                     style={{
                       flex: 1,
-                      background: 'rgba(0,0,0,0.3)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 6,
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
                       padding: '6px 10px',
-                      color: '#fff',
+                      color: '#0f172a',
                       fontSize: 12,
                       outline: 'none',
                     }}
@@ -840,7 +910,7 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                       background: '#ef4444',
                       color: '#fff',
                       border: 'none',
-                      borderRadius: 6,
+                      borderRadius: 8,
                       padding: '6px 10px',
                       fontSize: 12,
                       fontWeight: 700,
@@ -866,8 +936,9 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
             onClose={() => { setTapPos(null); setTapAnswer(''); }} />}
         </AnimatePresence>
         <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: 8, background: 'rgba(10,10,20,0.85)', backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 100, padding: '8px 16px', zIndex: 10 }}>
+          display: 'flex', gap: 8, background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)',
+          border: '1px solid #e2e8f0', borderRadius: 100, padding: '8px 16px', zIndex: 10,
+          boxShadow: '0 18px 42px rgba(15,23,42,0.18)' }}>
           {toolbarBtns.map((btn, i) => btn === null ? (
             <div key={i} style={{ width: 1, background: 'rgba(255,255,255,0.1)' }} />
           ) : (
@@ -875,7 +946,7 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
               style={{ display: 'flex', alignItems: 'center', gap: 6,
                 background: btn.active ? btn.color + '20' : 'transparent',
                 border: btn.active ? `1px solid ${btn.color}50` : '1px solid transparent',
-                borderRadius: 100, padding: '6px 14px', color: btn.active ? btn.color : '#9ca3af',
+                borderRadius: 100, padding: '6px 14px', color: btn.active ? btn.color : '#475569',
                 fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
               <btn.icon size={13} />{btn.label}
             </button>
@@ -887,27 +958,28 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
         {copilotOpen && (
           <motion.div key="copilot" initial={{ width: 0, opacity: 0 }} animate={{ width: 340, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-            style={{ background: '#111118', borderLeft: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            style={{ background: '#fff', borderLeft: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '-18px 0 48px rgba(15,23,42,0.16)' }}>
+            <div style={{ padding: '16px 18px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Sparkles size={13} color="#c084fc" />
+                  <div style={{ width: 32, height: 32, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={aiIcon} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f0f0f8' }}>Terra Copilot</div>
-                    <div style={{ fontSize: 11, color: '#4b5563' }}>Site-aware AI assistant</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>Terra Copilot</div>
+                    <div style={{ fontSize: 11, color: '#0f172a', lineHeight: 1.35 }}>Hello {displayName}, What do you want to dive in today</div>
                   </div>
                 </div>
-                <button onClick={() => setCopilotOpen(false)} style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer' }}><X size={15} /></button>
+                <button onClick={() => setCopilotOpen(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={15} /></button>
               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {chatMsgs.map((m, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{ maxWidth: '85%', padding: '9px 12px', borderRadius: 12,
-                    background: m.role === 'user' ? '#10b981' : 'rgba(255,255,255,0.06)',
-                    color: m.role === 'user' ? '#fff' : '#d1d5db', fontSize: 13, lineHeight: 1.5,
+                    background: m.role === 'user' ? '#10b981' : '#f8fafc',
+                    color: m.role === 'user' ? '#fff' : '#334155', fontSize: 13, lineHeight: 1.5,
+                    border: m.role === 'user' ? '1px solid #10b981' : '1px solid #e2e8f0',
                     borderBottomRightRadius: m.role === 'user' ? 4 : 12,
                     borderBottomLeftRadius: m.role === 'ai' ? 4 : 12 }}>
                     {m.text}
@@ -939,26 +1011,47 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                 </div>
               ))}
               {chatLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 2px', color: '#94a3b8', fontSize: 13, fontWeight: 700 }}>
-                  <Loader2 size={15} className="spin" color="#10b981" />
-                  {chatLoadingText || 'Terra is thinking...'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 2px', color: '#64748b', fontSize: 13, fontWeight: 800 }}>
+                  <img src={thinkingGif} alt="" style={{ width: 26, height: 26 }} />
+                  {chatLoadingMode === 'planner' ? (
+                    <span>{chatLoadingText || 'Generating Your Plan'}</span>
+                  ) : (
+                    <span className="lens-faded-word thinking-word" aria-label="thinking"><strong>th</strong><span>inki</span><strong>ng</strong></span>
+                  )}
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '7px 8px' }}>
+                <input
+                  ref={copilotFileRef}
+                  type="file"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files || []).map((file) => file.name);
+                    if (files.length) setChatInput((value) => `${value}${value ? ' ' : ''}${files.map((name) => `Attached ${name}`).join(', ')}`);
+                    event.target.value = '';
+                  }}
+                />
+                <button onClick={() => copilotFileRef.current?.click()} aria-label="Attach file" style={{ width: 28, height: 28, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                  <img src={attachmentIcon} alt="" style={{ width: 19, height: 19 }} />
+                </button>
+                <button onClick={handleCopilotMicClick} aria-label="Use voice" style={{ width: 28, height: 28, border: 'none', borderRadius: 8, background: copilotListening ? '#dcfce7' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                  <img src={micIcon} alt="" style={{ width: 19, height: 19 }} />
+                </button>
                 <input value={chatInput} onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleCopilotSend()}
-                  placeholder="Ask about this site…"
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 8, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                  placeholder="Message Terra..."
+                  style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none',
+                    padding: '7px 4px', color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
                 <button onClick={handleCopilotSend} disabled={!chatInput.trim() || chatLoading}
                   style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                    background: chatInput.trim() ? '#10b981' : '#1f2937', border: 'none',
+                    background: chatInput.trim() ? '#10b981' : '#e2e8f0', border: 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: chatInput.trim() ? 'pointer' : 'default' }}>
-                  <Send size={14} color={chatInput.trim() ? '#fff' : '#374151'} />
+                  <img src={sendIcon} alt="" style={{ width: 18, height: 18, opacity: chatInput.trim() ? 1 : 0.45 }} />
                 </button>
               </div>
             </div>
@@ -1226,7 +1319,8 @@ export default function LensWorkspace() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 8 }}
                       >
-                        Your Land by Design, Loading Satellite Imagery...
+                        <img src={thinkingGif} alt="" />
+                        <span>Your Land by Design, Loading Satellite Imagery...</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1337,6 +1431,7 @@ export default function LensWorkspace() {
             <img src={image?.url} alt="Selected land preview" />
             <div className="lens-loader-shade" />
             <div className="lens-loader-card">
+              <img src={thinkingGif} alt="" />
               <span>Terra Lens is</span>
               <AnimatePresence mode="wait">
                 <motion.div

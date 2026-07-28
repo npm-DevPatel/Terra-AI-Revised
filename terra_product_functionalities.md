@@ -1,327 +1,113 @@
-The following is how I want Terra Lens to function:
+The following are changes I want us to make to the app as of now:
 
-We will have 3 questions to Terra Copilot once ![alt text](kilgoris_annotated.png) this is  basically like the ![ ](<src/assets/terra_upload/kilgoris (2).jpg>)
+(1) The satellite page with the words like "synthesizing", "pondering" etc Those sentences have a line break and the words are too large. The change I need is:
 
-In the former one, I have given you an annotated image with what I want you to focus on.The annotations are of the areas Terra copilot will be asked questions about during the demo. 
+- Make that card smaller ![alt text](src/assets/made_projects/4_word_loading.gif)add this loading gif and make the sentence be one flowing line, in the verb words, could you add a glow animation to make it look like energy is flowing through the word like in ![alt text](image-7.png)
 
-we have 3 colors used in the annotations, white, red,and green. The white is for two chunks of land. The red is for the hilly area in the background while the green is for the sky. 
+(2)  I want us to redesign the sidechat panel with Terra Copilot on the lens page and all the other page. On Lens, it is dark blue, change to white. [text](src/assets/ai_chat) the appropriate icons are in this folder. For each add appropriate functionalities at the back. Use these images for inspiration ![alt text](image-8.png)
 
-It will work in the following way:
+- In the textbox, have the text "Message Terra..." then at the top have the greeting "Hello {name from user table}, What do you want to dive in today" just small beautiful text at the top of the panel in black text over white bg
+- Add the ![alt text](src/assets/made_projects/4_word_loading.gif) when generating the terra plan and make it look like there is thinking happening
 
-- Look at both images and make an "annotations.json" file which will be used to recognize and "remember" the areas of interest in the images please. You could use polygons to mark the areas of interest in the image. 
+- When I ask a question, have like a faded word saying "thinking" like the one in ![alt text](image-7.png) which happens in a 2 second lag then a response occurs.
+- The small draw mode chat boxes are dark blue, make them white and add the functionality at the top, with the design specifications I have mentioned.
 
-The areas of interest will be used to questions Terra Copilot in the following way:
+- On Terra lens, the menu at the bottom for annotations needs to be white background.
 
-(i) User annotates on image
-(ii) Terra Copilot text box appears on the annotated area and despite what the user asks you load the response I will give you. 
-(iii) I do this with the next spot then the third spot, all of which I will give you the responses I want you to load. 
+**Terra Lens Questions & Responses**:
 
-On the sidebar on the right, I will ask you one question which will then lead to Terra Planner where you will have a loading state "generating your plan"
+I want to define the questions I will ask during the demo and the responses I want. 
+**Green  draw on Sky**
 
-In this loading state, it will appear on side chat panel with different phrases like:
+Question by voice using(![alt text](src/assets/ai_chat/mic.png)): "The clouds are dark, is this place prone to rain?" 
 
-- "Ideas Taking Shape", "Building the Physical world" with a spinning loader
+Terra Copilot Response: "Yes, in Tigoni - it gets really cold..."
 
-- Then have a response like "Your Plan is generated, you can open your plan", here the user then navigates to Terra Planner where they can view the plan.
+**Red draw on image:**
 
-Terra Planner on the planner page will have the following features:
-- a vertical menu on the left like ![alt text](image-2.png)for project navigation with the following sections:
-  
-# Terra Planner
-## Product Vision
+Question by voice: "From a design perspective, do you think we should build facing the hills or not..."
 
-**Project:** Kilimani Residences  
-**Type:** 120 Unit Apartment Complex
+Response: "Well, how you build aesthetically depends on both your preferences as person and what exactly you are building, for a tourism estate...and for an ordinary residential home..."
 
-Terra Planner is not a task manager. It is an AI-native construction operating system that guides a project from planning to completion. Every module answers a different question about the project while Terra Copilot provides context-aware recommendations throughout.
+**Two circles made on image:**
 
----
+Question by voice: "These are two spaced pieces of land, what can you see different from each other?"
 
-# Navigation
+Response: (![refer to ](kilgoris_annotated.png)) for a beautiful response
 
-- Overview
-- Site
-- Plan
-- Build
-- Resources
-- Budget
-- Workspace
-- Reports
+Have beautiful aesthetic responses:
 
----
+**TERRA PLANNER DESIGN MODIFICATIONS:**
 
-# Overview
+(1) The sidebar on the left with the different products and channels, make it collapsible since ![alt text](image-9.png) its currently static, have like a "-" that allows a user to remove it fully or minimize it off the page.
 
-The command center for the entire project.
+(2) This ![alt text](image-10.png) vertical bar needs to look exactly like ![alt text](image-11.png) it needs to float with high border radius and have the icons just as they are right now. 
 
-### AI Project Summary
+**Content Modifications**
 
-> Kilimani Residences is suitable for a medium-density residential development. Current priority is completing the geotechnical survey before structural design.
+a. It is written Kilimani Residences as the project, it needs to change to "Highlands of Limuru" as the name of the project
 
-### Project Health
+b. As of now, the different stuff are so brief when I press a tab to learn about what Terra Planner says about my project.
 
-- 🟢 Project Health — 91%
-- 🟢 Budget Health
-- 🟡 Timeline Confidence
-- 🔴 Top Risk
-- 🟢 Team Activity
+The project is about building a residential estate at the Highlands of Limuru. When I press overview, site, plan, etc all should be really extensive information about building that residential estate in the highlands of Limuru. 
+Use the following to have inspiration of what I need in the middle tab
+![alt text](image-12.png)
+![alt text](image-13.png)
+![alt text](image-14.png)
 
-### Today's Decisions
 
-- Approve Geotechnical Survey
-- Begin Permit Submission
-- Verify Utility Connections
+Like when I click on each it answers this(but note this is all preloaded for a demo, so we all known. All information comes from [text](presentation_mode)):
 
-### Recent Activity
+Overview
+↓
+Can this project succeed?
 
-- Architect uploaded Revision B
-- Surveyor uploaded Drone Survey
-- Client approved Concept Design
-- Terra detected 3 decisions requiring review
+Site
+↓
+What have we learned about the land based on backend variables in [text](backend) ?
 
----
+Plan
+↓
+How should we design the community?
 
-# Site
+Build
+↓
+How do we turn the plan into reality?
 
-Everything inherited from Terra Lens.
+Resources
+↓
+Who and what do we need?
 
-## Sections
+Budget
+↓
+Can we afford it and optimize it?
 
-- Original Site Images
-- Annotated Images
-- Terrain Analysis
-- Drainage
-- Vegetation
-- Utilities
-- Road Access
-- Buildability Score
-- Site Constraints
-- AI Recommendations
+Workspace
+↓
+How do people work together?
 
-Example:
+Reports
+↓
+How do we communicate progress and decisions?
 
-> This site is highly suitable for a 120-unit apartment development. Drainage mitigation is recommended along the western boundary.
 
----
+- All this is true and accurate but generate in a pseudo manner
+- The report tab should take you to the "report" page where I will load a fake report later
+- So basically your job is to think about what building in Tigoni should look like and write it end to end on Terra Planner
 
-# Plan
+- **Content should be formatted in the following ways:**
 
-Everything before construction begins.
-
-## Modules
-
-- Feasibility Checklist
-- Geotechnical Survey
-- Environmental Assessment
-- Utility Verification
-- Legal Documentation
-- Architectural Planning
-- Structural Planning
-- Permit Tracking
-
-## AI Copilot
-
-Questions
-
-> What should I do first?
-
-> What's the biggest risk?
-
-> What approvals are missing?
-
-> If this were your project what would you do next?
-
-> Explain this project in 30 seconds.
-
-> How can I reduce delays?
-
----
-
-# Build
-
-Execution phase.
-
-## Construction Checklist
-
-- Site Preparation
-- Excavation
-- Foundation
-- Structural Works
-- Roofing
-- MEP
-- Interior Finishes
-- Landscaping
-- Final Inspection
-
-Progress indicators show completion status.
-
-AI continuously updates recommendations as work progresses.
-
----
-
-# Resources
-
-Everything needed around the project.
-
-## Materials Nearby
-
-- Cement Suppliers
-- Steel Suppliers
-- Ready Mix Concrete
-- Timber Suppliers
-- Electrical Suppliers
-- Plumbing Suppliers
-
-## Services Nearby
-
-- Architects
-- Structural Engineers
-- Surveyors
-- Contractors
-- Equipment Rental
-- Environmental Consultants
-
-Future capability:
-
-> Terra recommends the best suppliers based on price distance and availability.
-
----
-
-# Budget
-
-Financial intelligence.
-
-## Sections
-
-- Estimated Cost
-- Actual Cost
-- Procurement
-- Material Costs
-- Labour Costs
-- Budget Breakdown
-- Budget Health
-
-AI Insights
-
-> Foundation redesign may increase costs by approximately 8%.
-
-> Delaying procurement could reduce storage expenses.
-
----
-
-# Workspace
-
-The collaborative heart of Terra.
-
-## Features
-
-- Team Invitations
-- Messages
-- Audio Calls
-- Video Meetings
-- Shared Files
-- Comments
-- Activity Feed
-
-Example Demo
-
-Architect uploads Revision C.
-
-Immediately Terra says:
-
-> Building footprint increased by 12%.
-
-> Estimated concrete volume increased.
-
-> Structural review recommended before approval.
-
----
-
-# Reports
-
-Generate professional reports instantly.
-
-Available Reports
-
-- Executive Report
-- Investor Report
-- Architect Report
-- Site Report
-- Weekly Progress Report
-- Compliance Report
-
-Every report includes
-
-- Executive Summary
-- Site Intelligence
-- Risks
-- Opportunities
-- AI Recommendations
-- Images
-- Project Metadata
-
----
-
-# Terra Copilot
-
-Present throughout every module.
-
-Rather than answering generic questions, Copilot provides project-specific guidance.
-
-Example Questions
-
-> What keeps this project from starting?
-
-> Which decision saves the most money?
-
-> What should I prioritize today?
-
-> What changed since yesterday?
-
-> Summarize the project.
-
-> Generate an investor update.
-
-> Explain this project to a first-time client.
-
----
-
-# Design Philosophy
-
-Terra Planner should never feel like project management software.
-
-It should feel like an AI project partner.
-
-Every screen should answer one question:
-
-- **Overview** → How is my project doing?
-- **Site** → What do we know about the land?
-- **Plan** → What should happen before construction?
-- **Build** → What should happen during construction?
-- **Resources** → Who and what do I need?
-- **Budget** → Are we financially healthy?
-- **Workspace** → Is everyone aligned?
-- **Reports** → How do I communicate progress?
-
-The experience should make users feel like Terra is continuously thinking alongside the team rather than simply storing project information.
-
-I should be able to click somewhere, highlight the text and ask copilot using a menu ![alt text](image-3.png) 
-
-All these are menus on the left vertical menu, with a vertical bar with high border radius
-
-So this page has the following design decisions:
-
-(a) the vertical menu has high border radius
-(b) the middle 70% is the planner 
-(c) the right 20% is the side chat panel with copilot
-(d) The middle is basically the planner answering everything on that context eg "build", "resources"
-(e) This middle section should be divided into cards of different colors eg white, blue, green, orange, etc
-(f) It should have icons and images which I will load later to make the presentation more beautiful.
-(g) The right vertical panel is copilot. It should have a chat interface. 
-(h) On the top right of the middle panel, it should have a button
-(i) By far the most important design decision, is each page when selected in the vertical menu it loads that context in the middle panel. It does not open a new page. It just updates the middle panel with the context of the page selected. 
-(j) But we need to add a waiting loading state that makes it look like the text is about to fill up and the AI is thinking. It should be a beautiful animation. ![](image-4.png) or ![alt text](image-5.png)or 
-(i) The design should be so beautiful with headings and sub headings 
-
-Basically the whole point is to build an answer that helps a builder see the process of pre-construction, post-construction and during construction in a way that it tells them what is happening, what should happen next, what has happened and what needs to be done. It should be a beautiful, interactive and engaging experience.
-
+(1) Bold headings
+(2) Information should be arranged inside beautiful colored cards
+(3) Each card should have like 6 sentences
+(4) Each tab should have atleast 6 cards of information
+(5) How the information is presented and arranged depends on what the tab is about 
+(6) Add the images sprinkled relevantly from the following folder [text](presentation_mode/planner_images)
+(7) When I open a tab eg Resources, I should see the "AI Thinking for like 3 seconds" then it starts typing. Words should be typed letter by letter to fill the card but filling the card should never take more than 3500ms
+(8) Add an empty sentence holder like in ![alt text](image-15.png)to show that some text is about to appear after thinking is done
+
+Note: All this information is already preloaded and fake, what we are working on is how they are presented to a user. 
+
+**AI Functionality:**
+
+I will tell you about this later on Terra Planner
