@@ -16,11 +16,6 @@ PyJWT>=2.8.0
 # ── Environment ───────────────────────────────────────────────────────────────
 python-dotenv==1.2.2
 
-# ── Google AI / Gemini ───────────────────────────────────────────────────────
-google-generativeai>=0.7.0
-google-api-python-client==2.196.0
-google-auth==2.52.0
-
 # ── Supabase v2 ───────────────────────────────────────────────────────────────
 # v2 supports httpx>=0.24.0 — compatible with google-genai's httpx>=0.28.1
 supabase>=2.3.0

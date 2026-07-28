@@ -1,637 +1,318 @@
 """
-core/gemini.py — All AI interactions for Terra AI (powered by Groq / llama-3.1-8b-instant).
+core/gemini.py - Presentation-mode Terra responses.
 
-Functions:
-  1. synthesize_lens_report()     — land analysis from geospatial + vision data
-  2. answer_copilot()             — cross-project Q&A with @project context
-  3. recommend_sim_layout()       — site layout scenarios from saved Lens data
-  4. generate_flow_report()       — audience-calibrated professional report (JSON)
-  5. generate_tap_answer()        — Terra Tap: answer about a tapped image point
-  6. generate_planner_roadmap()   — AI phase roadmap for Terra Planner
-  7. explain_planner_task()       — explain why a specific task is in the plan
-  8. get_planner_priorities()     — surface today's top 3 actions
-  9. update_planner_from_event()  — dynamic plan evolution on new data
- 10. generate_flow_html()         — beautiful 12-page branded HTML report
+This module intentionally does not call Groq, Gemini, or any external model.
+The route layer still imports the same function names, but every function
+returns deterministic demo content suitable for the presentation_mode flow.
 """
-import json
-import logging
-import os
-
-from groq import Groq 
-
-logger = logging.getLogger(__name__)
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-_groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-
-_FLASH = "llama-3.1-8b-instant"
-_PRO   = "llama-3.1-8b-instant"
-
-KENYA_LAND_SYSTEM_PROMPT = """You are Terra AI — a knowledgeable, honest guide helping people make smart land decisions in Kenya.
-
-Think of yourself as a trusted friend who happens to know construction, law, soil science, and real estate inside out. You care about the person reading this report. You want them to walk away genuinely informed — not overwhelmed by jargon, not misled by optimism, and not scared off by problems that are actually manageable.
-
-Here's how you approach your work:
-
-Be honest, but human. If there's a real problem with this land, say so clearly and explain why it matters in plain language — don't just list it as a rule violation. If the land looks good, say that with genuine enthusiasm. Help the reader understand what they're actually looking at.
-
-On costs, be a straight shooter. Development always has costs. Present them as budget realities, not alarms. Only raise a red flag when something is genuinely dangerous — like building inside a riparian buffer (the government can repossess with zero compensation) or inside a demolition zone. Everything else is just planning.
-
-Know your Kenyan context. You understand the Physical and Land Use Planning Act (2019), the Water Act (2016), NEMA regulations, KCAA height restrictions, and how things like NCA permits, Ardhisasa, and Title Deeds actually work on the ground. Speak that language — KES, KPLC, borehole costs — but explain it like you're talking to a smart person, not a lawyer.
-
-On soil: if clay is above 45%, this is Black Cotton — be upfront that a raft foundation will likely add KES 800k–1.5M to the build, but also explain why and what it means practically. Clay between 30–45% needs investigation. Below 30% is generally stable — that's good news, say so.
-
-On photos: if site photos were analysed, treat what was visually confirmed as real, ground-truth evidence. Weave it into your narrative — what does the photo actually show about this land?
-
-The feasibility score comes pre-calculated from our spatial engine. Copy it exactly from _deterministic_score — don't change it, but do help the reader understand what it means for them.
-
-Respond ONLY with valid JSON matching the schema. No markdown fences."""
+from datetime import date
+import html
 
 
-# ── 1. Terra Lens — full site analysis ───────────────────────────────────────
+LENS_DEMO_RESPONSES = {
+    "land": (
+        "These two marked pieces of land read differently. The lower parcel looks more open and buildable, "
+        "with clearer room for access, drainage control, and a compact footprint. The upper parcel feels more "
+        "exposed to slope movement and runoff from the surrounding terrain, so I would treat it as the parcel "
+        "that needs more geotechnical caution before committing design capital."
+    ),
+    "hillside": (
+        "Well, how you build aesthetically depends on both your preferences as a person and what exactly you "
+        "are building. For a tourism estate, facing the hills is a strong design move because the view becomes "
+        "part of the product: decks, glazing, arrival sequence, and outdoor rooms can all borrow from that "
+        "landscape. For an ordinary residential home, I would still face key living spaces toward the hills, "
+        "but balance that with privacy, wind exposure, morning light, and the cost of managing slope, drainage, "
+        "and access."
+    ),
+    "sky": (
+        "Yes, in Tigoni - it gets really cold, and dark cloud cover like this often points to moisture-heavy "
+        "weather. I would assume the site is prone to rain and plan early for roof drainage, water harvesting, "
+        "erosion control, covered walkways, and construction scheduling that respects the wet season."
+    ),
+    "comparison": (
+        "Beautiful catch. The two circled areas are spaced apart, but they are not equal from a planning point "
+        "of view. One appears more open, visually calmer, and easier to organize around access and a building "
+        "footprint. The other sits closer to stronger terrain changes and visual interruptions, which means it "
+        "may need more drainage thinking, slope checks, and careful orientation."
+    ),
+}
 
-LENS_SCHEMA = """{
-  "land_feasibility_score": <integer 0-100, COPY from _deterministic_score>,
-  "land_feasibility_label": "<SAFE | MODERATE WARNINGS | CRITICAL / HIGH RISK, COPY from _deterministic_label>",
-  "investment_verdict": "<DO NOT BUY — FATAL LEGAL FLAW | PROCEED WITH CAUTION | CLEAR FOR DUE DILIGENCE>",
-  "executive_summary": "<2 sentences max. Single biggest risk or all-clear.>",
-  "visual_site_summary": "<What Terra AI can visually confirm from the photo: structures, terrain, vegetation, any text/signage on site. Only if vision data provided.>",
-  "risk_flags": [
-    {"flag_name": "string", "severity": "<FATAL|CAUTION|ADVISORY>", "explanation": "string", "estimated_kes_impact": "number or string"}
-  ],
-  "cost_summary": {
-    "estimated_foundation_premium_kes": "number",
-    "estimated_infrastructure_budget_kes": "number",
-    "total_development_cost_estimate_kes": "number"
-  },
-  "sections": [
-    {"id": "legal_risks", "title": "Legal & Regulatory", "risk_level": "<low|medium|high|critical>", "body": "string"},
-    {"id": "foundation", "title": "Foundation & Geotechnical", "risk_level": "<low|medium|high>", "body": "string"},
-    {"id": "infrastructure", "title": "Infrastructure Budget", "risk_level": "info", "body": "string"},
-    {"id": "sustainability", "title": "Sustainable Building Considerations", "risk_level": "info", "body": "string"}
-  ]
-}"""
+
+def _score(analysis_data: dict | None, default: int = 84) -> int:
+    if not analysis_data:
+        return default
+    value = analysis_data.get("_deterministic_score") or analysis_data.get("score") or default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _label(score: int) -> str:
+    if score >= 80:
+        return "SAFE"
+    if score >= 55:
+        return "MODERATE WARNINGS"
+    return "CRITICAL / HIGH RISK"
+
+
+def _risk_flags(data: dict | None) -> list[dict]:
+    data = data or {}
+    flags = []
+    if data.get("flood_history") or data.get("chirps_rainfall_index") == "high":
+        flags.append({
+            "flag_name": "Rain and drainage sensitivity",
+            "severity": "CAUTION",
+            "explanation": "The site should be planned with roof drainage, water harvesting, and erosion control from day one.",
+            "estimated_kes_impact": "Site-specific drainage allowance required",
+        })
+    if data.get("riparian_breach"):
+        flags.append({
+            "flag_name": "Riparian buffer check",
+            "severity": "FATAL",
+            "explanation": "Any structure inside a protected water buffer can face enforcement action. Confirm the official boundary before design.",
+            "estimated_kes_impact": "Potential redesign or no-build zone",
+        })
+    if data.get("soil_clay_pct", 0) and data.get("soil_clay_pct", 0) >= 30:
+        flags.append({
+            "flag_name": "Clay soil foundation allowance",
+            "severity": "CAUTION",
+            "explanation": "Clay-rich soil can require stronger foundation design and earlier geotechnical confirmation.",
+            "estimated_kes_impact": data.get("soil_foundation_premium_kes", "Geotechnical allowance required"),
+        })
+    return flags or [{
+        "flag_name": "Demo site review",
+        "severity": "ADVISORY",
+        "explanation": "No fatal constraint is shown in the presentation context. Proceed with survey, title, drainage, and geotechnical checks.",
+        "estimated_kes_impact": "Normal due-diligence budget",
+    }]
 
 
 def synthesize_lens_report(payload: dict) -> dict:
-    """
-    Generate a full Terra Lens land intelligence report.
-    Combines geospatial data + Google Vision photo analysis.
-    """
-    _require_key()
-
-    vision = payload.get("vision_analysis", {})
-    vision_summary = ""
-    if vision and not vision.get("error"):
-        labels = [l["description"] for l in vision.get("labels", [])[:8]]
-        objects = [o["name"] for o in vision.get("objects", [])[:6]]
-        text = vision.get("text_on_site", [])[:5]
-        vision_summary = f"""
-VISUAL ANALYSIS (Google Vision API):
-  Labels detected: {', '.join(labels) or 'None'}
-  Objects detected: {', '.join(objects) or 'None'}
-  Text on site: {', '.join(text) or 'None'}
-  Construction activity: {'YES' if vision.get('construction_detected') else 'Not detected'}
-  Water/drainage signals: {'YES' if vision.get('water_signals') else 'Not detected'}
-  Vegetation type: {vision.get('vegetation_type') or 'Not classified'}"""
-
-    gw = payload.get("groundwater", {})
-    coords = payload.get("coordinates", {})
-
-    user_msg = f"""Analyse this site as a ruthless financial auditor for sustainable Kenyan real estate development.
-
-LOCATION: {payload.get('ward','')} ward, {payload.get('county','')} County ({coords.get('lat',0):.5f}, {coords.get('lng',0):.5f})
-ADDRESS: {payload.get('address', 'Unknown')}
-ELEVATION: {payload.get('elevation_m','N/A')} m ASL
-SLOPE: {payload.get('slope_percent','N/A')}%
-{vision_summary}
-
-SOIL (ISRIC SoilGrids):
-  Type: {payload.get('soil_type','Unknown')}
-  Clay %: {payload.get('soil_clay_pct','N/A')}
-  CEC: {payload.get('soil_cec_cmolc_kg','N/A')} cmol/kg
-  Foundation premium: KES {payload.get('soil_foundation_premium_kes', 0):,}
-
-HYDROLOGY:
-  Flood history (JRC): {'YES' if payload.get('flood_history') else 'No'}
-  Riparian breach (30m): {'YES - FATAL' if payload.get('riparian_breach') else 'No'}
-  Seasonal water: {'YES' if payload.get('seasonal_water') else 'No'}
-  Topographical sinkhole: {'YES' if payload.get('is_topographical_sinkhole') else 'No'}
-  CHIRPS rainfall: {payload.get('chirps_rainfall_index','Unknown')} ({payload.get('chirps_max_rainfall_mm','N/A')} mm/day max)
-
-GROUNDWATER (BGS Kenya_HG):
-  Scarcity risk: {'YES — KES 2,000,000+ borehole MANDATORY' if gw.get('water_scarcity_risk') else 'No'}
-  Depth: {gw.get('depth_to_groundwater_m','N/A')} m
-  Aquifer: {gw.get('aquifer_productivity','Unknown')}
-
-LEGAL / REGULATORY:
-  Demolition risk (KeNHA/SGR): {'YES - FATAL' if payload.get('demolition_risk') else 'No'}
-  Aviation height cap (KCAA): {'YES' if payload.get('aviation_height_restriction') else 'No'}
-  Road reserve risk: {'YES' if payload.get('road_reserve_risk') else 'No'}
-  Protected land: {'YES - FATAL' if payload.get('protected_land_risk') else 'No'}
-
-INFRASTRUCTURE:
-  Power grid: {payload.get('distance_to_grid_m','N/A')} m
-  Water connection: {'Yes' if payload.get('water_connection_nearby') else 'Not detected'}
-  Nearest road: {payload.get('nearest_road_m','N/A')} m
-  Zone tier: {payload.get('_zone_tier','N/A')}
-
-AMENITIES: Police {payload.get('nearest_police_km','N/A')}km · Hospital {payload.get('nearest_hospital_km','N/A')}km
-
-DETERMINISTIC SCORE (COPY VERBATIM — DO NOT MODIFY):
-  land_feasibility_score = {payload.get('_deterministic_score', 0)}
-  land_feasibility_label = "{payload.get('_deterministic_label','UNKNOWN')}"
-
-Full context summary: {json.dumps({k: v for k, v in payload.items() if k not in ('vision_analysis', '_raw')}, ensure_ascii=False)[:2500]}
-
-Output the JSON report now. Include a sustainability section with passive cooling, water harvesting, and green building recommendations relevant to this specific site."""
-
-    return _call_gemini(_FLASH, KENYA_LAND_SYSTEM_PROMPT + "\n\nSchema:\n" + LENS_SCHEMA, user_msg)
-
-
-# ── 2. Terra Copilot — cross-project Q&A ─────────────────────────────────────
-
-COPILOT_SYSTEM = """You are Terra Copilot — a thoughtful, switched-on AI assistant living inside the Terra AI platform.
-
-You have access to the user's project data: site analyses, layout plans, and reports. When someone asks you something, you dig into that data and give them a real, grounded answer — not a generic one.
-
-Talk like a colleague who genuinely knows the project. Reference actual numbers, actual risks, actual site conditions from what's been analysed. If the data shows a soil issue, say so and explain what it means for them. If two sites compare well, walk them through the comparison in a way that actually helps them decide.
-
-Keep it conversational but sharp. Use bullet points where they help clarity, but don't hide behind bullet points when a clear sentence would do better. For costs, always use KES. For planning questions, bring in Kenyan law and regulation where it's relevant — but explain it, don't just cite it.
-
-If the user mentions a project with @ProjectName, focus everything on that project's data. If they mention multiple, find the connections and contrasts that matter.
-
-Never make up data. If something isn't in the project context, say so honestly and point toward where they might find it."""
+    score = _score(payload)
+    label = payload.get("_deterministic_label") or _label(score)
+    flags = _risk_flags(payload)
+    return {
+        "land_feasibility_score": score,
+        "land_feasibility_label": label,
+        "investment_verdict": "CLEAR FOR DUE DILIGENCE" if score >= 75 else "PROCEED WITH CAUTION",
+        "executive_summary": (
+            "Terra Lens presentation mode has reviewed the site context and highlighted the practical planning checks. "
+            "The next best step is to confirm drainage, title, survey, and geotechnical conditions before design spend."
+        ),
+        "visual_site_summary": "The demo view emphasizes terrain, sky exposure, buildable parcels, and design orientation.",
+        "risk_flags": flags,
+        "cost_summary": {
+            "estimated_foundation_premium_kes": payload.get("soil_foundation_premium_kes", 0),
+            "estimated_infrastructure_budget_kes": payload.get("estimated_infrastructure_budget_kes", 750000),
+            "total_development_cost_estimate_kes": payload.get("total_development_cost_estimate_kes", 0),
+        },
+        "sections": [
+            {
+                "id": "legal_risks",
+                "title": "Legal & Regulatory",
+                "risk_level": "low" if score >= 75 else "medium",
+                "body": "Confirm title, road reserve, riparian buffers, county planning status, and any protected-land constraints before commitment.",
+            },
+            {
+                "id": "foundation",
+                "title": "Foundation & Geotechnical",
+                "risk_level": "medium",
+                "body": "Use the presentation analysis as an early signal, then commission geotechnical confirmation before structural design.",
+            },
+            {
+                "id": "infrastructure",
+                "title": "Infrastructure Budget",
+                "risk_level": "info",
+                "body": "Budget for access, drainage, water, and power as named workstreams rather than treating them as late surprises.",
+            },
+            {
+                "id": "sustainability",
+                "title": "Sustainable Building Considerations",
+                "risk_level": "info",
+                "body": "Prioritize rainwater harvesting, passive cooling, erosion control, and landscape buffers that work with the land.",
+            },
+        ],
+    }
 
 
 def answer_copilot(message: str, project_contexts: list[dict]) -> str:
-    """
-    Answer a Terra Copilot question with full project data as context.
-    """
-
-
-    context_blocks = []
-    for proj in project_contexts:
-        name = proj.get("name", "Unnamed Project")
-        analyses = proj.get("analyses", [])
-        sim_plans = proj.get("sim_plans", [])
-        flow_reports = proj.get("flow_reports", [])
-        context_blocks.append(
-            f"PROJECT: {name}\n"
-            f"  Analyses: {json.dumps(analyses, ensure_ascii=False)[:3000]}\n"
-            f"  Sim Plans: {json.dumps(sim_plans, ensure_ascii=False)[:1500]}\n"
-            f"  Flow Reports: {json.dumps(flow_reports, ensure_ascii=False)[:1500]}"
-        )
-
-    context_str = "\n\n".join(context_blocks) if context_blocks else "No project data available."
-
-    user_msg = f"""Project context:\n{context_str}\n\nUser question: {message}"""
-
-    result = _call_gemini(_FLASH, COPILOT_SYSTEM, user_msg, json_mode=False)
-    if isinstance(result, str):
-        return result
-    return result.get("answer", str(result))
-
-
-# ── 3. Terra Sim — layout scenarios ──────────────────────────────────────────
-
-SIM_SYSTEM = """You are Terra Sim — a creative but grounded development planning advisor for Kenya.
-
-Your job is to look at a site and imagine what could actually be built there — responsibly, legally, and in a way that works for real people. You're not generating theoretical possibilities; you're sketching out three real options that a developer could take to an architect tomorrow.
-
-Each scenario should feel distinct and genuinely considered — not just small variations of the same idea. Think about the trade-offs: density vs. green space, build cost vs. long-term value, what works for the soil and slope of this specific land. Reference Kenyan planning law (Physical and Land Use Planning Act 2019) and NCA requirements naturally — not as a list of constraints, but as part of how you think.
-
-For sustainability, be specific to this site. Passive cooling in Nairobi looks different than in Mombasa. Rainwater harvesting makes more sense where reticulated water is unreliable. Make your recommendations mean something."""
-
-SIM_SCHEMA = """{
-  "scenarios": [
-    {
-      "id": "A",
-      "name": "string — e.g. Maximise Residential Units",
-      "description": "string",
-      "footprint_sqm": "number",
-      "floors": "number",
-      "far": "number",
-      "parking_bays": "number",
-      "green_space_sqm": "number",
-      "setbacks": {"front_m": "number", "rear_m": "number", "left_m": "number", "right_m": "number"},
-      "sustainability_features": ["passive cooling", "rainwater harvesting", ...],
-      "estimated_build_cost_kes": "number",
-      "pros": ["string"],
-      "cons": ["string"]
-    }
-  ],
-  "site_constraints_summary": "string — key constraints that shaped all scenarios",
-  "recommended_scenario": "A|B|C",
-  "recommendation_reason": "string"
-}"""
+    clean = (message or "").lower()
+    if any(word in clean for word in ("cloud", "rain", "prone", "weather")):
+        return LENS_DEMO_RESPONSES["sky"]
+    if any(word in clean for word in ("hill", "design perspective", "facing")):
+        return LENS_DEMO_RESPONSES["hillside"]
+    if any(word in clean for word in ("two", "spaced", "different", "pieces of land")):
+        return LENS_DEMO_RESPONSES["comparison"]
+    if any(word in clean for word in ("plan", "planner", "generate")):
+        return "Your plan is generated. Open Terra Planner to review the roadmap, site checks, build stages, resources, budget, and reports."
+    if project_contexts:
+        name = project_contexts[0].get("name", "this project")
+        return f"For {name}, I would focus first on drainage, geotechnical confirmation, access, and the design orientation shown in the presentation flow."
+    return "I am in presentation mode, so I can walk through the prepared Terra demo responses and planner flow without calling an external model."
 
 
 def recommend_sim_layout(analysis_data: dict, user_inputs: dict) -> dict:
-    """
-    Generate three site layout scenarios for Terra Sim.
-
-    Args:
-        analysis_data: The raw_result from the analyses table.
-        user_inputs: {plot_area_sqm, use_class, floors, priorities[]}
-    """
-    _require_key()
-
-    user_msg = f"""Site constraints from Terra Lens analysis:
-{json.dumps(analysis_data, ensure_ascii=False)[:5000]}
-
-User development brief:
-  Plot area: {user_inputs.get('plot_area_sqm','N/A')} sqm
-  Use class: {user_inputs.get('use_class','residential')}
-  Target floors: {user_inputs.get('floors', 4)}
-  Priorities: {', '.join(user_inputs.get('priorities', []))}
-  Budget ceiling: {user_inputs.get('budget_kes', 'Not specified')} KES
-
-Generate three development scenarios. Each must be immediately actionable for a Kenyan NCA building permit application. Include solar orientation, passive cooling strategy, and rainwater harvesting recommendation for each scenario."""
-
-    return _call_gemini(_FLASH, SIM_SYSTEM + "\n\nSchema:\n" + SIM_SCHEMA, user_msg)
-
-
-# ── 4. Terra Flow — professional report generation ────────────────────────────
-
-FLOW_SYSTEM = """You are a professional report writer for the construction and real estate industry in Kenya. Generate audience-calibrated reports from Terra AI project data. Be formal, precise, and data-driven."""
-
-FLOW_SCHEMA = """{
-  "title": "string",
-  "prepared_for": "string",
-  "prepared_by": "Terra AI",
-  "date": "string — ISO date",
-  "executive_summary": "string — 3-4 sentences",
-  "sections": [
-    {"id": "string", "title": "string", "content": "string — structured paragraphs"}
-  ],
-  "appendix": {
-    "data_sources": ["string"],
-    "disclaimer": "string"
-  }
-}"""
-
-_AUDIENCE_INSTRUCTIONS = {
-    "bank":       "Write for a lender's credit committee. Emphasise risk, security value, loan-to-cost ratio, and exit strategy. Be conservative.",
-    "client":     "Write for a property developer client. Balance opportunity and risk. Be clear about costs and timelines.",
-    "government": "Write for a government planning authority. Emphasise regulatory compliance, zoning, environmental impact, and public interest.",
-    "internal":   "Write for internal project team use. Be technical and detailed. Include all data points.",
-}
-
-_REPORT_TYPE_SECTIONS = {
-    "due_diligence": ["Site Overview", "Legal & Title Status", "Geotechnical Assessment", "Infrastructure Assessment", "Risk Summary", "Recommendation"],
-    "lender":        ["Property Overview", "Site Risk Assessment", "Development Viability", "Cost & Revenue Analysis", "Loan Security Assessment", "Conditions Precedent"],
-    "planning":      ["Site Context", "Zoning Compliance", "Environmental Assessment", "Infrastructure Capacity", "Development Proposal", "Planning Conditions"],
-    "executive":     ["Project Summary", "Key Risks", "Financial Overview", "Recommendation"],
-    "progress":      ["Project Status", "Construction Progress", "Issues & Risks", "Next Steps", "Photo Evidence Summary"],
-}
+    plot_area = user_inputs.get("plot_area_sqm") or 1200
+    floors = int(user_inputs.get("floors") or 4)
+    use_class = user_inputs.get("use_class") or "residential"
+    return {
+        "scenarios": [
+            {
+                "id": "A",
+                "name": "View-Led Residential Cluster",
+                "description": "Orient key living spaces toward the hills while keeping the footprint compact and drainage routes clear.",
+                "footprint_sqm": round(float(plot_area) * 0.32),
+                "floors": floors,
+                "far": round(floors * 0.32, 2),
+                "parking_bays": max(8, floors * 6),
+                "green_space_sqm": round(float(plot_area) * 0.38),
+                "setbacks": {"front_m": 6, "rear_m": 4.5, "left_m": 3, "right_m": 3},
+                "sustainability_features": ["rainwater harvesting", "deep roof overhangs", "erosion-control planting"],
+                "estimated_build_cost_kes": round(float(plot_area) * floors * 42000),
+                "pros": ["Strong orientation", "Clear drainage strategy", "Balanced density"],
+                "cons": ["Requires survey and geotechnical confirmation"],
+            },
+            {
+                "id": "B",
+                "name": "Low-Impact Estate Layout",
+                "description": "Use a lighter footprint with more landscape buffer and staged access improvements.",
+                "footprint_sqm": round(float(plot_area) * 0.24),
+                "floors": max(2, floors - 1),
+                "far": round(max(2, floors - 1) * 0.24, 2),
+                "parking_bays": max(6, floors * 4),
+                "green_space_sqm": round(float(plot_area) * 0.5),
+                "setbacks": {"front_m": 7.5, "rear_m": 6, "left_m": 4.5, "right_m": 4.5},
+                "sustainability_features": ["permeable paths", "water harvesting", "native landscape buffers"],
+                "estimated_build_cost_kes": round(float(plot_area) * max(2, floors - 1) * 36000),
+                "pros": ["Lower terrain disturbance", "More landscape value", "Strong tourism-estate feel"],
+                "cons": ["Lower development yield"],
+            },
+            {
+                "id": "C",
+                "name": "Compact Phased Build",
+                "description": "Start with the cleanest buildable zone and reserve the second parcel for later expansion.",
+                "footprint_sqm": round(float(plot_area) * 0.28),
+                "floors": floors,
+                "far": round(floors * 0.28, 2),
+                "parking_bays": max(8, floors * 5),
+                "green_space_sqm": round(float(plot_area) * 0.42),
+                "setbacks": {"front_m": 6, "rear_m": 6, "left_m": 3, "right_m": 3},
+                "sustainability_features": ["phased drainage", "solar-ready roof", "stormwater swales"],
+                "estimated_build_cost_kes": round(float(plot_area) * floors * 39000),
+                "pros": ["Good for staged financing", "Keeps future options open", "Simple first phase"],
+                "cons": ["Requires disciplined master planning"],
+            },
+        ],
+        "site_constraints_summary": f"Presentation mode assumes a {use_class} brief shaped by slope, rain, access, and view orientation.",
+        "recommended_scenario": "A",
+        "recommendation_reason": "Scenario A best matches the demo story: use the hills as a design asset while keeping drainage and buildability under control.",
+    }
 
 
 def generate_flow_report(analysis_data: dict, sim_data: dict, report_type: str, audience: str) -> dict:
-    """
-    Generate a professional Terra Flow report.
-
-    Args:
-        analysis_data: Raw result from analyses table (may be None).
-        sim_data: Result from sim_plans table (may be None).
-        report_type: due_diligence | lender | planning | executive | progress
-        audience: bank | client | government | internal
-    """
-    _require_key()
-
-    audience_instruction = _AUDIENCE_INSTRUCTIONS.get(audience, _AUDIENCE_INSTRUCTIONS["client"])
-    sections_needed = _REPORT_TYPE_SECTIONS.get(report_type, _REPORT_TYPE_SECTIONS["due_diligence"])
-
-    user_msg = f"""Audience instruction: {audience_instruction}
-
-Report type: {report_type.upper().replace('_', ' ')}
-Required sections: {', '.join(sections_needed)}
-
-Terra Lens site data:
-{json.dumps(analysis_data, ensure_ascii=False)[:4000] if analysis_data else 'No Lens analysis available — generate report from available Sim data only.'}
-
-Terra Sim layout data:
-{json.dumps(sim_data, ensure_ascii=False)[:3000] if sim_data else 'No Sim plan available.'}
-
-Generate the full professional report now. All cost figures in KES. Reference Kenyan law and planning standards where applicable."""
-
-    system = FLOW_SYSTEM + "\n\nSchema:\n" + FLOW_SCHEMA
-    return _call_gemini(_PRO, system, user_msg)
-
-
-# ── Internal helpers ──────────────────────────────────────────────────────────
-
-def _require_key():
-    if not GROQ_API_KEY:
-        raise RuntimeError("GROQ_API_KEY not set.")
-
-
-def _call_gemini(model_name: str, system_prompt: str, user_message: str, json_mode: bool = True, max_tokens: int = 2048) -> dict | str:
-    """
-    Call Groq (llama-3.1-8b-instant) with the given system prompt and user message.
-    Signature kept as _call_gemini so all callers remain unchanged.
-    """
-    import re
-
-    if not _groq_client:
-        err = "GROQ_API_KEY not set."
-        logger.error(err)
-        if json_mode:
-            return {"error": err, "gemini_failed": True}
-        return f"Terra AI is temporarily unavailable: {err}"
-
-    try:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_message},
-        ]
-        kwargs = {"model": model_name, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens}
-        if json_mode:
-            kwargs["response_format"] = {"type": "json_object"}
-
-        response = _groq_client.chat.completions.create(**kwargs)
-        raw = response.choices[0].message.content
-
-        if not json_mode:
-            return raw
-
-        clean = re.sub(r"```(?:json)?\s*|\s*```", "", raw, flags=re.IGNORECASE).strip()
-        return json.loads(clean)
-
-    except Exception as exc:
-        logger.error(f"[Groq] {model_name} failed: {exc}")
-        if json_mode:
-            return {"error": f"Groq unavailable: {str(exc)}", "gemini_failed": True}
-        return f"Terra AI is temporarily unavailable: {str(exc)}"
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 5. Terra Tap — point-on-image Q&A ────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-
-_TAP_SYSTEM = """You are Terra AI, and someone just tapped on a point in a site photo and asked you about it — like pointing at something in the real world and asking "hey, what's going on here?"
-
-Answer them the way a knowledgeable friend on-site would: naturally, specifically, and based on what was actually detected in the image and the site data. Two to four sentences is usually enough. Don't over-explain, but don't be vague either — if something specific was detected near that point, say what it is and what it means.
-
-Respond in plain, flowing text. No JSON, no bullet points, no headers."""
+    score = _score(analysis_data)
+    title = f"{report_type.replace('_', ' ').title()} Report"
+    return {
+        "title": title,
+        "prepared_for": audience.title(),
+        "prepared_by": "Terra AI",
+        "date": date.today().isoformat(),
+        "executive_summary": (
+            "This presentation-mode report summarizes the site story, key risks, and next actions. "
+            "It is designed for the demo workflow and does not require an external AI provider."
+        ),
+        "sections": [
+            {"id": "site", "title": "Site Intelligence", "content": f"Current demo feasibility score: {score}/100."},
+            {"id": "risks", "title": "Risk Summary", "content": "Primary checks are drainage, geotechnical confirmation, access, survey, and title due diligence."},
+            {"id": "recommendation", "title": "Recommendation", "content": "Proceed with a staged feasibility workflow before detailed architectural design."},
+        ],
+        "appendix": {
+            "data_sources": ["Terra presentation mode", "Stored project context"],
+            "disclaimer": "Presentation output only. Confirm all legal, survey, and technical items with qualified professionals.",
+        },
+    }
 
 
 def generate_tap_answer(analysis_context: dict, tap_x_pct: float, tap_y_pct: float, question: str) -> str:
-    """
-    Answer a Terra Tap question about a specific point in a site image.
-
-    Args:
-        analysis_context: The raw_result from the analyses table (vision + geo data).
-        tap_x_pct: Horizontal tap position as a fraction 0–1 (left to right).
-        tap_y_pct: Vertical tap position as a fraction 0–1 (top to bottom).
-        question: The user's question about that point.
-    """
-    _require_key()
-
-    vision = analysis_context.get("vision_analysis", {})
-    objects = vision.get("objects", [])
-    labels = [l["description"] for l in vision.get("labels", [])[:8]]
-
-    # Find the object(s) whose bounding box contains or is nearest to the tap point
-    nearby = []
-    for obj in objects:
-        bbox = obj.get("bbox", [])
-        if len(bbox) == 4:
-            xs = [v.get("x", 0) for v in bbox]
-            ys = [v.get("y", 0) for v in bbox]
-            x_min, x_max = min(xs), max(xs)
-            y_min, y_max = min(ys), max(ys)
-            if x_min <= tap_x_pct <= x_max and y_min <= tap_y_pct <= y_max:
-                nearby.append(obj["name"])
-
-    user_msg = f"""The user tapped at position ({tap_x_pct:.2f}, {tap_y_pct:.2f}) in a site photograph where:
-  x=0 is left, x=1 is right, y=0 is top, y=1 is bottom.
-
-Objects detected in the image: {', '.join(o['name'] for o in objects[:8]) or 'None'}
-Objects at or near tap point: {', '.join(nearby) or 'None clearly at that point'}
-Scene labels: {', '.join(labels) or 'None'}
-Construction detected: {vision.get('construction_detected', False)}
-Water/drainage signals: {vision.get('water_signals', False)}
-Vegetation type: {vision.get('vegetation_type') or 'None classified'}
-Text on site: {', '.join(vision.get('text_on_site', [])[:3]) or 'None'}
-
-Site context (geospatial):
-  Score: {analysis_context.get('_deterministic_score', 'N/A')} / 100
-  Soil type: {analysis_context.get('soil_type', 'Unknown')}
-  Flood history: {analysis_context.get('flood_history', False)}
-  Riparian breach: {analysis_context.get('riparian_breach', False)}
-
-User's question about the tapped point: {question}"""
-
-    return _call_gemini(_FLASH, _TAP_SYSTEM, user_msg, json_mode=False)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 6–9. Terra Planner ───────────────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-
-_PLANNER_SYSTEM = """You are Terra Planner — an experienced construction project advisor who knows Kenya's building landscape deeply.
-
-You're helping someone navigate a real project from start to finish. The roadmap you create isn't a template — it's built from this specific land, with its specific soil, its risks, its location. Every phase and task should feel like it was written for this project, not copied from a manual.
-
-When you flag soil issues, explain why they affect the sequence. When you note legal clearances, explain what's at stake. When a task can be skipped because Terra Lens already covered it, mark it done and explain why that saves time and money.
-
-Be an advisor, not just an engine. The ai_intro and ai_note fields are your chance to actually talk to the person — use them.
-
-Respond ONLY with valid JSON. No markdown fences."""
-
-_PLANNER_SCHEMA = """{
-  "roadmap_title": "string",
-  "ai_intro": "string — 2-3 sentences explaining the plan rationale",
-  "total_estimated_weeks": "integer",
-  "site_context_summary": "string — key site facts that shaped this plan",
-  "phases": [
-    {
-      "id": "phase_1",
-      "number": 1,
-      "name": "string — e.g. Site Validation",
-      "status": "in_progress",
-      "ai_note": "string — why this phase comes at this position",
-      "estimated_weeks": "integer",
-      "tasks": [
-        {
-          "id": "string — short slug e.g. geotech_survey",
-          "name": "string",
-          "status": "pending",
-          "priority": "high|medium|low",
-          "estimated_days": "integer",
-          "auto_completed": "boolean — true if Lens already provides this data"
-        }
-      ]
-    }
-  ]
-}"""
+    return answer_copilot(question, [{"name": "Terra Lens Demo", "analyses": [analysis_context or {}]}])
 
 
 def generate_planner_roadmap(project_info: dict, analysis_data: dict) -> dict:
-    """
-    Generate a full 6-phase AI project roadmap for Terra Planner.
-
-    Args:
-        project_info: {name, description, use_class, budget_kes, floors}
-        analysis_data: raw_result from analyses table
-    """
-    _require_key()
-
-    score = analysis_data.get("_deterministic_score", 100)
-    deductions = analysis_data.get("_score_deductions", [])
-    risks = [d["reason"] for d in deductions]
-
-    user_msg = f"""Generate a detailed construction project roadmap for this Kenyan project.
-
-PROJECT:
-  Name: {project_info.get('name', 'Unnamed Project')}
-  Description: {project_info.get('description', 'Not specified')}
-  Use class: {project_info.get('use_class', 'residential')}
-  Target floors: {project_info.get('floors', 4)}
-  Budget: {project_info.get('budget_kes', 'Not specified')} KES
-
-TERRA LENS SITE ANALYSIS:
-  Feasibility score: {score}/100
-  Key risks detected: {', '.join(risks) or 'None'}
-  Soil type: {analysis_data.get('soil_type', 'Unknown')}
-  Clay %: {analysis_data.get('soil_clay_pct', 'N/A')}
-  Flood history: {analysis_data.get('flood_history', False)}
-  Riparian breach: {analysis_data.get('riparian_breach', False)}
-  Demolition risk: {analysis_data.get('demolition_risk', False)}
-  Slope %: {analysis_data.get('slope_percent', 'N/A')}
-  Distance to grid: {analysis_data.get('distance_to_grid_m', 'N/A')} m
-  Groundwater scarcity: {(analysis_data.get('groundwater') or {}).get('water_scarcity_risk', False)}
-
-Generate exactly 6 phases: Site Validation, Design, Approvals, Procurement, Construction, Completion.
-For each phase, generate realistic tasks. Mark tasks as auto_completed=true if Terra Lens already provides the data (e.g. terrain analysis = done if we have site analysis).
-The first phase should always have at least one auto_completed task to show immediate value."""
-
-    return _call_gemini(_FLASH, _PLANNER_SYSTEM + "\n\nSchema:\n" + _PLANNER_SCHEMA, user_msg)
+    name = project_info.get("name") or "Terra Presentation Project"
+    score = _score(analysis_data)
+    phases = [
+        ("site_validation", "Site Validation", ["Review Terra Lens findings", "Confirm survey beacons", "Commission geotechnical check"]),
+        ("design", "Design", ["Set view orientation", "Define drainage strategy", "Prepare concept layout"]),
+        ("approvals", "Approvals", ["Confirm county planning status", "Prepare NEMA/NCA pathway", "Check utility approvals"]),
+        ("procurement", "Procurement", ["Shortlist consultants", "Prepare cost plan", "Identify key suppliers"]),
+        ("construction", "Construction", ["Site preparation", "Foundation works", "Drainage and access works"]),
+        ("completion", "Completion", ["Final inspections", "Handover report", "Operations checklist"]),
+    ]
+    return {
+        "roadmap_title": f"{name} Terra Planner Roadmap",
+        "ai_intro": f"Presentation mode generated this roadmap from the demo site story. The site currently reads at {score}/100, so the plan prioritizes validation, drainage, and design orientation.",
+        "total_estimated_weeks": 36,
+        "site_context_summary": "View orientation, rain exposure, slope, access, and staged buildability shape the plan.",
+        "phases": [
+            {
+                "id": phase_id,
+                "number": index + 1,
+                "name": phase_name,
+                "status": "in_progress" if index == 0 else "pending",
+                "ai_note": "This phase keeps the demo workflow grounded in practical construction sequence.",
+                "estimated_weeks": 4 + index,
+                "tasks": [
+                    {
+                        "id": task.lower().replace(" ", "_").replace("/", "_"),
+                        "name": task,
+                        "status": "done" if index == 0 and task.startswith("Review") else "pending",
+                        "priority": "high" if index < 2 else "medium",
+                        "estimated_days": 5,
+                        "auto_completed": index == 0 and task.startswith("Review"),
+                    }
+                    for task in tasks
+                ],
+            }
+            for index, (phase_id, phase_name, tasks) in enumerate(phases)
+        ],
+    }
 
 
 def explain_planner_task(task_name: str, phase_name: str, project_info: dict, analysis_data: dict) -> str:
-    """Return a 2-4 sentence plain-text explanation of why a task is in the plan."""
-    _require_key()
-
-    risks = [d["reason"] for d in analysis_data.get("_score_deductions", [])]
-    user_msg = f"""Task: "{task_name}" in phase "{phase_name}".
-Project: {project_info.get('name','')}, {project_info.get('use_class','residential')}, {project_info.get('floors',4)} floors.
-Site risks: {', '.join(risks) or 'None detected'}.
-Soil: {analysis_data.get('soil_type','Unknown')}, clay {analysis_data.get('soil_clay_pct','N/A')}%.
-Why is this task in the plan and why at this stage? Answer in 2-4 plain sentences."""
-
-    return _call_gemini(
-        _FLASH,
-        "You are Terra Planner. Explain a project task in 2-4 plain sentences grounded in site data. No JSON.",
-        user_msg, json_mode=False
+    return (
+        f"{task_name} sits in {phase_name} because the presentation site needs decisions to follow the land, not guesswork. "
+        "It helps confirm drainage, access, cost, and design orientation before the project moves into higher-spend stages."
     )
 
+
 def get_planner_priorities(phases: list, analysis_data: dict) -> dict:
-    """
-    Surface the 3 most critical actions to take right now.
-    Returns {"priorities": [{"rank": 1, "task_name": str, "phase": str, "reason": str}]}
-    """
-    _require_key()
-
-    # Collect all pending tasks
     pending = []
-    for ph in phases:
-        for t in ph.get("tasks", []):
-            if t.get("status") != "done" and not t.get("auto_completed"):
-                pending.append({"task": t["name"], "phase": ph["name"], "priority": t.get("priority", "medium")})
-
-    user_msg = f"""From these pending tasks, select the top 3 most critical to start today.
-Site score: {analysis_data.get('_deterministic_score', 100)}/100
-Flood risk: {analysis_data.get('flood_history', False)}
-Soil: {analysis_data.get('soil_type', 'Unknown')}
-Pending tasks: {json.dumps(pending[:20])}
-
-Return JSON: {{"priorities": [{{"rank": 1, "task_name": "str", "phase": "str", "reason": "str — 1 sentence"}}]}}"""
-
-    return _call_gemini(_FLASH, _PLANNER_SYSTEM, user_msg)
+    for phase in phases or []:
+        for task in phase.get("tasks", []):
+            if task.get("status") != "done" and not task.get("auto_completed"):
+                pending.append((phase.get("name", "Plan"), task.get("name", "Review task")))
+    selected = pending[:3] or [
+        ("Site Validation", "Confirm survey beacons"),
+        ("Site Validation", "Commission geotechnical check"),
+        ("Design", "Define drainage strategy"),
+    ]
+    return {
+        "priorities": [
+            {"rank": index + 1, "task_name": task, "phase": phase, "reason": "This is a high-value next step in the presentation workflow."}
+            for index, (phase, task) in enumerate(selected)
+        ]
+    }
 
 
 def update_planner_from_event(phases: list, event_type: str, event_data: dict, analysis_data: dict) -> dict:
-    """
-    React to a new event (e.g. soil report uploaded) and update the plan.
-    Returns {"changes": [...], "updated_phases": [...same as roadmap phases...]}
-    """
-    _require_key()
-
-    user_msg = f"""The following event occurred on a Terra Planner project:
-Event type: {event_type}
-Event data: {json.dumps(event_data)[:1000]}
-
-Current phase summary: {json.dumps([{"phase": p['name'], "pending": sum(1 for t in p['tasks'] if t.get('status') != 'done')} for p in phases])}
-Site: soil={analysis_data.get('soil_type','Unknown')}, score={analysis_data.get('_deterministic_score',100)}
-
-Based on this event, what tasks can now be unlocked, reprioritised, or completed?
-Return JSON:
-{{
-  "changes": [{{"change_type": "task_unlocked|priority_raised|task_completed|timeline_reduced", "description": "string"}}],
-  "updated_phases": <same structure as planner schema phases[]>
-}}"""
-
-    return _call_gemini(_FLASH, _PLANNER_SYSTEM, user_msg)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ── 10. Terra Report — beautiful HTML document ───────────────────────────────
-# ══════════════════════════════════════════════════════════════════════════════
-
-_HTML_SYSTEM = """You are Terra AI's report writer. Your job is to turn raw site data into a report that a real person — an investor, an architect, a planning officer — would be genuinely proud to present.
-
-This isn't a data dump. It's a professional document that tells the story of a piece of land: what it offers, what it risks, what it costs, and what to do next. Write with that intent.
-
-Output a single, complete, self-contained HTML document with all CSS in a <style> tag. Use system fonts. No external dependencies.
-
-The document should feel premium: clean layout, generous whitespace, emerald green (#10b981) brand accents on dark slate (#0f172a), alternating-row data tables, and a footer on every page reading "Terra AI — Where Building Begins..."
-
-Structure it like this:
-  - A cover page: Terra AI name, project name, report type, date, and one strong opening quote
-  - A table of contents
-  - 10 or more sections built from the actual data — not filler
-  - Real cost tables in KES, risk registers with severity levels, and a clear recommendation
-  - Spread these Terra AI quotes across chapter breaks: "Every Building Tells a Story, We Help You Read It" · "Every Project Deserves a Smarter Beginning" · "AI That Sees Beyond the Surface" · "Design Starts With Understanding"
-  - @media print support so it renders cleanly as a PDF
-
-Do NOT output anything except the HTML. Start with <!DOCTYPE html>."""
-
-
-_HTML_REPORT_SECTIONS = {
-    "site_suitability": [
-        "Executive Summary", "Site Overview & Coordinates",
-        "Land Feasibility Score", "Geotechnical Assessment",
-        "Hydrology & Flood Risk", "Legal & Regulatory Compliance",
-        "Infrastructure Assessment", "Environmental & Vegetation Analysis",
-        "Development Cost Estimates", "Risk Register", "Recommendations", "Appendix"
-    ],
-    "investor": [
-        "Executive Summary", "Investment Opportunity Overview",
-        "Site Risk Profile", "Market Context & Location Value",
-        "Development Feasibility", "Cost & Revenue Projections",
-        "Legal Status & Title", "Infrastructure & Utilities",
-        "Environmental Risk", "Risk-Adjusted Returns", "Recommendation", "Due Diligence Checklist"
-    ],
-    "architect": [
-        "Executive Summary", "Site Analysis Brief",
-        "Topography & Terrain", "Soil & Geotechnical Data",
-        "Solar Orientation & Passive Cooling", "Drainage & Hydrology",
-        "Zoning & Regulatory Constraints", "Infrastructure Connections",
-        "Vegetation & Site Cover", "Development Scenarios", "Sustainability Notes", "Appendix"
-    ],
-    "due_diligence": [
-        "Executive Summary", "Site Overview", "Legal & Title Status",
-        "Geotechnical Assessment", "Infrastructure Assessment",
-        "Risk Summary", "Cost Estimates", "Recommendation"
-    ],
-    "lender": [
-        "Executive Summary", "Property Overview", "Site Risk Assessment",
-        "Development Viability", "Cost & Revenue Analysis",
-        "Loan Security Assessment", "Conditions Precedent"
-    ],
-}
+    return {
+        "changes": [{
+            "change_type": "task_unlocked",
+            "description": f"Presentation mode registered {event_type} and kept the roadmap moving without external AI.",
+        }],
+        "updated_phases": phases or generate_planner_roadmap({}, analysis_data).get("phases", []),
+    }
 
 
 def generate_flow_html(
@@ -642,55 +323,43 @@ def generate_flow_html(
     audience: str,
     project_name: str = "Terra AI Project",
 ) -> str:
-    """
-    Generate a beautiful 12-page branded HTML report.
-
-    Returns a raw HTML string ready to render in a browser and print as PDF.
-    """
-    _require_key()
-
-    sections = _HTML_REPORT_SECTIONS.get(report_type, _HTML_REPORT_SECTIONS["site_suitability"])
-    audience_note = _AUDIENCE_INSTRUCTIONS.get(audience, _AUDIENCE_INSTRUCTIONS["client"])
-    today = __import__("datetime").date.today().strftime("%B %d, %Y")
-
-    geo_summary = f"""
-Feasibility score: {analysis_data.get('_deterministic_score', 'N/A')}/100
-Label: {analysis_data.get('_deterministic_label', 'N/A')}
-Soil type: {analysis_data.get('soil_type', 'Unknown')} (clay {analysis_data.get('soil_clay_pct', 'N/A')}%)
-Slope: {analysis_data.get('slope_percent', 'N/A')}%
-Flood history: {analysis_data.get('flood_history', False)}
-Riparian breach: {analysis_data.get('riparian_breach', False)}
-Demolition risk: {analysis_data.get('demolition_risk', False)}
-Distance to grid: {analysis_data.get('distance_to_grid_m', 'N/A')} m
-Foundation premium estimate: KES {analysis_data.get('soil_foundation_premium_kes', 0):,}
-Groundwater scarcity: {(analysis_data.get('groundwater') or {}).get('water_scarcity_risk', False)}
-NDVI: {analysis_data.get('ndvi_score', 'N/A')} ({analysis_data.get('ndvi_interpretation', '')})
-Land cover: {analysis_data.get('land_cover_label', 'Unknown')}
-Address: {analysis_data.get('address', 'Not specified')}""" if analysis_data else "No Lens analysis available."
-
-    user_msg = f"""Generate a complete, professional {report_type.replace('_',' ').upper()} report as a full HTML document.
-
-Project name: {project_name}
-Report type: {report_type}
-Audience: {audience} — {audience_note}
-Date: {today}
-Required sections: {', '.join(sections)}
-
-TERRA LENS DATA:
-{geo_summary}
-
-TERRA SIM DATA:
-{json.dumps(sim_data, ensure_ascii=False)[:2000] if sim_data else 'No layout scenario available.'}
-
-TERRA PLANNER DATA:
-{json.dumps(planner_data, ensure_ascii=False)[:2000] if planner_data else 'No planner data available.'}
-
-Generate the full 12-page HTML now. Make every table data-driven using the figures above.
-Use emerald (#10b981) as the primary brand colour throughout.
-Include a professional risk register table, cost breakdown table, and timeline table.
-Spread the four Terra AI quotes across chapter dividers."""
-
-    result = _call_gemini(_PRO, _HTML_SYSTEM, user_msg, json_mode=False)
-    if isinstance(result, dict):
-        return f"<html><body><p>Report generation failed: {result.get('error','Unknown error')}</p></body></html>"
-    return result
+    title = f"{report_type.replace('_', ' ').title()} - {project_name}"
+    safe_title = html.escape(title)
+    score = _score(analysis_data)
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{safe_title}</title>
+  <style>
+    body {{ font-family: Inter, Arial, sans-serif; color: #0f172a; margin: 40px; line-height: 1.6; }}
+    h1, h2 {{ color: #0f172a; }}
+    .brand {{ color: #10b981; font-weight: 800; }}
+    .card {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin: 16px 0; }}
+    table {{ width: 100%; border-collapse: collapse; margin-top: 12px; }}
+    th, td {{ border-bottom: 1px solid #e2e8f0; padding: 10px; text-align: left; }}
+    th {{ background: #ecfdf5; color: #047857; }}
+  </style>
+</head>
+<body>
+  <p class="brand">Terra AI - Where Building Begins...</p>
+  <h1>{safe_title}</h1>
+  <div class="card">
+    <h2>Executive Summary</h2>
+    <p>This is a presentation-mode report. It summarizes the prepared Terra workflow without calling Groq, Gemini, or any model provider.</p>
+  </div>
+  <div class="card">
+    <h2>Site Intelligence</h2>
+    <table>
+      <tr><th>Metric</th><th>Demo Value</th></tr>
+      <tr><td>Feasibility Score</td><td>{score}/100</td></tr>
+      <tr><td>Audience</td><td>{html.escape(audience.title())}</td></tr>
+      <tr><td>Primary Checks</td><td>Drainage, survey, geotechnical, access, title due diligence</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Recommendation</h2>
+    <p>Proceed with the staged Terra Planner workflow and use the presentation responses for the demo conversation.</p>
+  </div>
+</body>
+</html>"""

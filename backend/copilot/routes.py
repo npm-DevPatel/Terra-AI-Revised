@@ -44,6 +44,7 @@ def chat():
 
     body = request.get_json(silent=True) or {}
     message = body.get("message", "").strip()
+    project_id = body.get("project_id")
     resolved_refs = body.get("resolved_refs", [])  # [{type: "project", id: "uuid", name: "..."}]
 
     if not message:
@@ -51,8 +52,12 @@ def chat():
 
     # Fetch context for every @project reference
     project_contexts = []
+    if project_id:
+        project_contexts.append(_fetch_project_context(project_id))
     for ref in resolved_refs:
         if ref.get("type") == "project" and ref.get("id"):
+            if ref["id"] == project_id:
+                continue
             ctx = _fetch_project_context(ref["id"])
             project_contexts.append(ctx)
 
@@ -61,5 +66,4 @@ def chat():
         return jsonify({"answer": answer})
     except Exception as exc:
         print(f"[Copilot Error] {exc}")
-        return jsonify({"answer": f"I had trouble analyzing that request right now ({str(exc)}). Please check your backend GROQ_API_KEY environment variable."})
-
+        return jsonify({"answer": f"I had trouble analyzing that request right now ({str(exc)}). Presentation mode is running without an external model provider."})
