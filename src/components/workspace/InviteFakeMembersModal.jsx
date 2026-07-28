@@ -104,6 +104,11 @@ function MemberCard({ user, status, role, onRoleChange, onAdd, addedAt }) {
       transition={{ type: 'spring', damping: 22, stiffness: 200 }}
       className={`mc-card ${isPending ? 'mc-pending' : ''}`}
     >
+      {/* Photo area (background) */}
+      <img src={photoUrl} alt={name} className="mc-photo" />
+      <div className="mc-gradient-top" />
+      <div className="mc-gradient-bottom" />
+
       {/* Role badge overlay — top right */}
       <div className="mc-role-overlay">
         <RoleBadge value={role} onChange={onRoleChange} />
@@ -127,19 +132,19 @@ function MemberCard({ user, status, role, onRoleChange, onAdd, addedAt }) {
         </div>
       </div>
 
-      {/* Portrait photo */}
-      <div className="mc-photo-wrap">
-        <img src={photoUrl} alt={name} className="mc-photo" />
-      </div>
+      {/* Spacer to push footer down */}
+      <div style={{ flex: 1 }} />
 
       {/* Footer */}
       <div className="mc-footer">
         <div className="mc-user-info">
           <img src={thumbUrl} alt="" className="mc-mini-avatar" />
-          <div>
+          <div className="mc-user-text">
             <span className="mc-handle">@{username}</span>
-            {isPending && addedAt && (
+            {isPending && addedAt ? (
               <span className="mc-elapsed">{relativeTime(addedAt)}</span>
+            ) : (
+              <span className="mc-elapsed">New Member</span>
             )}
           </div>
         </div>
@@ -151,9 +156,9 @@ function MemberCard({ user, status, role, onRoleChange, onAdd, addedAt }) {
           {(isOnline || isPending) ? (
             <><Check size={14} /> Added</>
           ) : isConnecting ? (
-            <><Loader2 size={14} className="mc-status-spinner" /> Adding...</>
+            <><Loader2 size={14} className="mc-status-spinner" /> Adding</>
           ) : (
-            <><Plus size={14} /> Add member</>
+            <><Plus size={14} /> Add Member</>
           )}
         </button>
       </div>
