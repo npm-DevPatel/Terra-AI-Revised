@@ -182,6 +182,25 @@ function InsightCard({ title, body, activeKey, tone = 'mint' }) {
   );
 }
 
+function ReadingBridge({ previousTitle, nextTitle, index }) {
+  if (index === 0) {
+    return (
+      <div className="planner-reading-bridge first">
+        <span>AI Brief</span>
+        <h4>Start with the question, then move through the evidence.</h4>
+        <p>Terra Planner reads this like a project book: each section builds on the last decision.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="planner-reading-bridge">
+      <span>AI Brief</span>
+      <h4>{previousTitle} sets up {nextTitle}</h4>
+      <p>The previous note frames the risk or opportunity; the next note turns it into a clearer planning move.</p>
+    </div>
+  );
+}
+
 function PlannerView({ active }) {
   const content = TAB_CONTENT[active];
   const tones = ['mint', 'sky', 'amber', 'rose', 'violet', 'slate'];
@@ -196,9 +215,16 @@ function PlannerView({ active }) {
         </div>
         {content.image2 && <img src={content.image2} alt="" />}
       </div>
-      <div className="planner-card-grid">
+      <div className="planner-reading-flow">
         {content.cards.map(([title, body], index) => (
-          <InsightCard key={`${active}-${title}`} title={title} body={body} activeKey={active} tone={tones[index % tones.length]} />
+          <div key={`${active}-${title}`} className="planner-reading-section">
+            <ReadingBridge
+              index={index}
+              previousTitle={content.cards[index - 1]?.[0]}
+              nextTitle={title}
+            />
+            <InsightCard title={title} body={body} activeKey={active} tone={tones[index % tones.length]} />
+          </div>
         ))}
       </div>
     </div>
@@ -209,7 +235,30 @@ export default function PlannerWorkspace() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [active, setActive] = useState('overview');
+  const [selectionMenu, setSelectionMenu] = useState(null);
   const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === active), [active]);
+
+  useEffect(() => {
+    const handleSelection = () => {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim();
+      if (!text) {
+        setSelectionMenu(null);
+        return;
+      }
+      if (!selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (!rect.width && !rect.height) return;
+      setSelectionMenu({
+        text,
+        x: Math.min(rect.left + rect.width / 2, window.innerWidth - 110),
+        y: Math.max(rect.top - 44, 72),
+      });
+    };
+    document.addEventListener('selectionchange', handleSelection);
+    return () => document.removeEventListener('selectionchange', handleSelection);
+  }, []);
 
   const handleNav = (item) => {
     if (item.id === 'reports') {
@@ -222,6 +271,23 @@ export default function PlannerWorkspace() {
 
   return (
     <div className="planner-screen">
+      {selectionMenu && (
+        <button
+          className="planner-selection-capsule"
+          style={{ left: selectionMenu.x, top: selectionMenu.y }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setSelectionMenu({ ...selectionMenu, opened: true })}
+        >
+          <Sparkles size={13} />
+          AI context
+        </button>
+      )}
+      {selectionMenu?.opened && (
+        <div className="planner-context-popover" style={{ left: selectionMenu.x, top: selectionMenu.y + 38 }}>
+          <strong>Preloaded context</strong>
+          <p>This highlighted phrase will open a Terra explanation in presentation mode. For now, Terra marks it as a decision point for design, cost, risk, or coordination.</p>
+        </div>
+      )}
       <aside className="planner-vertical-menu">
         <div className="planner-brand">
           <div className="planner-brand-mark">T</div>
