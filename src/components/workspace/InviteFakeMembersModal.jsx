@@ -1,16 +1,20 @@
 /**
- * InviteFakeMembersModal.jsx — Premium Member Management Panel
+ * InviteFakeMembersModal.jsx — Card-grid member management panel
  *
- * Two-section layout:
- *   TOP:    Card carousel for discovering & adding new members (randomuser.me)
- *   BOTTOM: Added-members grid + invite-link generator
+ * Matches the "Daily Design Challenge" card anatomy:
+ *   - Full-bleed portrait photo, rounded-2xl, soft shadow
+ *   - Name centered at top, status row below
+ *   - Footer: avatar + @handle on left, "+ Add member" pill on right
+ *   - States: Online (green) / Connecting (spinner) / Pending (muted)
+ *   - Role selector as overlay badge top-right of card
  *
- * Persists to project_mock_members table via Supabase.
+ * Grid layout: 3–4 cards across on desktop.
+ * Invite-link section below the grid.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  X, Loader2, Plus, ChevronLeft, ChevronRight, Check,
-  Copy, Link2, UserPlus, Shield, Eye, Edit3, CheckCircle,
+  X, Loader2, Plus, Check, Copy, Link2, CheckCircle,
+  Shield, Eye, Edit3, ChevronDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
@@ -26,26 +30,31 @@ function genInviteId() {
   return 'terra-' + Math.random().toString(36).slice(2, 10);
 }
 
-function timeAgo() {
-  const mins = Math.floor(Math.random() * 58) + 1;
-  return `${mins}m ago`;
+function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
-/* ── Role Selector Pill ─────────────────────────────────────── */
-function RoleSelector({ value, onChange }) {
+/* ── Role Badge Dropdown (overlaid on card) ─────────────────── */
+function RoleBadge({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const current = ROLES.find((r) => r.value === value) || ROLES[2];
-  const Icon = current.icon;
+  const current = ROLES.find((r) => r.value === value) || ROLES[1];
 
   return (
-    <div className="invite-role-selector">
+    <div className="mc-role-badge-wrap">
       <button
-        className="invite-role-btn"
+        className="mc-role-badge-btn"
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        style={{ '--role-color': current.color }}
       >
-        <Icon size={12} />
         {current.value}
+        <ChevronDown size={11} />
       </button>
       <AnimatePresence>
         {open && (
@@ -54,22 +63,18 @@ function RoleSelector({ value, onChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ duration: 0.12 }}
-            className="invite-role-dropdown"
+            className="mc-role-dropdown"
           >
-            {ROLES.map((r) => {
-              const RIcon = r.icon;
-              return (
-                <button
-                  key={r.value}
-                  className={`invite-role-option ${r.value === value ? 'active' : ''}`}
-                  onClick={(e) => { e.stopPropagation(); onChange(r.value); setOpen(false); }}
-                >
-                  <RIcon size={13} color={r.color} />
-                  <span>{r.value}</span>
-                  {r.value === value && <Check size={12} color={r.color} />}
-                </button>
-              );
-            })}
+            {ROLES.map((r) => (
+              <button
+                key={r.value}
+                className={`mc-role-option ${r.value === value ? 'active' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onChange(r.value); setOpen(false); }}
+              >
+                {r.value}
+                {r.value === value && <Check size={11} />}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -77,42 +82,80 @@ function RoleSelector({ value, onChange }) {
   );
 }
 
-/* ── Member Card (added members grid) ───────────────────────── */
-function MemberGridCard({ member, isPending }) {
-  const role = ROLES.find((r) => r.value === member.role_title) || ROLES[2];
-  const RoleIcon = role.icon;
+/* ── Single Member Card ─────────────────────────────────────── */
+function MemberCard({ user, status, role, onRoleChange, onAdd, addedAt }) {
+  // status: 'idle' | 'connecting' | 'online' | 'pending'
+  const isPending = status === 'pending';
+  const isOnline = status === 'online';
+  const isConnecting = status === 'connecting';
+  const isIdle = status === 'idle';
+
+  const name = user.name
+    ? `${user.name.first} ${user.name.last}`
+    : user.fullName || 'Unknown';
+  const username = user.login?.username || user.username || name.toLowerCase().replace(/\s/g, '.');
+  const photoUrl = user.picture?.large || user.avatar_url || '';
+  const thumbUrl = user.picture?.medium || user.avatar_url || photoUrl;
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`invite-member-card ${isPending ? 'pending' : ''}`}
+      initial={{ opacity: 0, y: 16, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', damping: 22, stiffness: 200 }}
+      className={`mc-card ${isPending ? 'mc-pending' : ''}`}
     >
-      <div className="invite-member-avatar-wrap">
-        <img
-          src={member.avatar_url}
-          alt={member.name}
-          className="invite-member-avatar"
-        />
-        <span className={`invite-presence-dot ${isPending ? 'pending' : 'active'}`} />
+      {/* Role badge overlay — top right */}
+      <div className="mc-role-overlay">
+        <RoleBadge value={role} onChange={onRoleChange} />
       </div>
-      <div className="invite-member-info">
-        <span className="invite-member-name">{member.name}</span>
-        {member.email && (
-          <span className="invite-member-email">{member.email}</span>
-        )}
+
+      {/* Name + Status */}
+      <div className="mc-header">
+        <h3 className="mc-name">{name}</h3>
+        <div className={`mc-status mc-status--${status}`}>
+          {isConnecting && (
+            <Loader2 size={13} className="mc-status-spinner" />
+          )}
+          {isOnline && <span className="mc-status-dot" />}
+          {isPending && <span className="mc-status-dot pending" />}
+          <span>
+            {isIdle && 'Available'}
+            {isConnecting && 'Connecting'}
+            {isOnline && 'Online'}
+            {isPending && 'Pending'}
+          </span>
+        </div>
       </div>
-      <div className="invite-member-meta">
-        <span
-          className="invite-role-badge"
-          style={{ '--role-color': role.color }}
+
+      {/* Portrait photo */}
+      <div className="mc-photo-wrap">
+        <img src={photoUrl} alt={name} className="mc-photo" />
+      </div>
+
+      {/* Footer */}
+      <div className="mc-footer">
+        <div className="mc-user-info">
+          <img src={thumbUrl} alt="" className="mc-mini-avatar" />
+          <div>
+            <span className="mc-handle">@{username}</span>
+            {isPending && addedAt && (
+              <span className="mc-elapsed">{relativeTime(addedAt)}</span>
+            )}
+          </div>
+        </div>
+        <button
+          className={`mc-add-btn ${(isOnline || isPending || isConnecting) ? 'mc-added' : ''}`}
+          onClick={onAdd}
+          disabled={isOnline || isPending || isConnecting}
         >
-          <RoleIcon size={11} />
-          {role.value}
-        </span>
-        {isPending && (
-          <span className="invite-pending-tag">Pending</span>
-        )}
+          {(isOnline || isPending) ? (
+            <><Check size={14} /> Added</>
+          ) : isConnecting ? (
+            <><Loader2 size={14} className="mc-status-spinner" /> Adding...</>
+          ) : (
+            <><Plus size={14} /> Add member</>
+          )}
+        </button>
       </div>
     </motion.div>
   );
@@ -120,26 +163,17 @@ function MemberGridCard({ member, isPending }) {
 
 /* ── Main Component ─────────────────────────────────────────── */
 export default function InviteFakeMembersModal({ projectId, onClose, onMembersAdded }) {
-  // Card carousel state
   const [suggestedUsers, setSuggestedUsers] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [addedIds, setAddedIds] = useState(new Set());
-  const [selectedRole, setSelectedRole] = useState('Editor');
-
-  // Members management state
-  const [allAdded, setAllAdded] = useState([]);
   const [existingMembers, setExistingMembers] = useState([]);
-  const [pendingIds, setPendingIds] = useState(new Set());
+  const [allAdded, setAllAdded] = useState([]);
 
-  // Invite link state
+  // Per-card state: { [uuid]: { status, role, addedAt } }
+  const [cardStates, setCardStates] = useState({});
+
+  // Invite link
   const [inviteLink, setInviteLink] = useState('');
-  const [linkRole, setLinkRole] = useState('Viewer');
   const [linkCopied, setLinkCopied] = useState(false);
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState('discover');
 
   // Load existing members
   useEffect(() => {
@@ -149,7 +183,15 @@ export default function InviteFakeMembersModal({ projectId, onClose, onMembersAd
       .eq('project_id', projectId)
       .order('created_at')
       .then(({ data }) => {
-        if (data) setExistingMembers(data);
+        if (data) {
+          setExistingMembers(data);
+          // Initialize existing members as "online"
+          const states = {};
+          data.forEach((m) => {
+            states[m.id] = { status: 'online', role: m.role_title || 'Editor', addedAt: m.created_at };
+          });
+          setCardStates((prev) => ({ ...prev, ...states }));
+        }
       });
   }, [projectId]);
 
@@ -157,9 +199,15 @@ export default function InviteFakeMembersModal({ projectId, onClose, onMembersAd
   useEffect(() => {
     async function fetchUsers() {
       try {
-        const res = await fetch('https://randomuser.me/api/?results=10');
+        const res = await fetch('https://randomuser.me/api/?results=8');
         const data = await res.json();
         setSuggestedUsers(data.results);
+        // Initialize all as idle
+        const states = {};
+        data.results.forEach((u) => {
+          states[u.login.uuid] = { status: 'idle', role: 'Editor' };
+        });
+        setCardStates((prev) => ({ ...prev, ...states }));
       } catch (err) {
         console.error('Failed to fetch suggested users', err);
       } finally {
@@ -169,20 +217,27 @@ export default function InviteFakeMembersModal({ projectId, onClose, onMembersAd
     fetchUsers();
   }, []);
 
-  // Generate invite link on mount
   useEffect(() => {
     setInviteLink(`https://terra.ai/invite/${genInviteId()}`);
   }, []);
 
-  const handleNext = () => setCurrentIndex((p) => (p + 1) % suggestedUsers.length);
-  const handlePrev = () => setCurrentIndex((p) => (p - 1 + suggestedUsers.length) % suggestedUsers.length);
+  const updateCardState = useCallback((id, updates) => {
+    setCardStates((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] || {}), ...updates },
+    }));
+  }, []);
 
-  async function addCurrentMember() {
-    const user = suggestedUsers[currentIndex];
-    if (!user || addedIds.has(user.login.uuid)) return;
+  async function addUser(user) {
+    const uuid = user.login.uuid;
+    const state = cardStates[uuid];
+    if (!state || state.status !== 'idle') return;
 
-    setSaving(true);
+    const role = state.role || 'Editor';
     const fullName = `${user.name.first} ${user.name.last}`;
+
+    // → Connecting
+    updateCardState(uuid, { status: 'connecting' });
 
     const { data } = await supabase
       .from('project_mock_members')
@@ -191,29 +246,25 @@ export default function InviteFakeMembersModal({ projectId, onClose, onMembersAd
         name: fullName,
         email: user.email,
         avatar_url: user.picture.large,
-        role_title: selectedRole,
+        role_title: role,
       })
       .select()
       .single();
 
     if (data) {
-      setAddedIds((prev) => new Set([...prev, user.login.uuid]));
-      setPendingIds((prev) => new Set([...prev, data.id]));
       setAllAdded((prev) => [...prev, data]);
 
-      // Clear pending after 3s
-      setTimeout(() => {
-        setPendingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(data.id);
-          return next;
-        });
-      }, 3000);
+      // → Pending (with timestamp)
+      updateCardState(uuid, { status: 'pending', addedAt: new Date().toISOString() });
 
-      // Advance card after brief delay
-      setTimeout(handleNext, 600);
+      // → Online after 3s
+      setTimeout(() => {
+        updateCardState(uuid, { status: 'online' });
+      }, 3000);
+    } else {
+      // Reset on failure
+      updateCardState(uuid, { status: 'idle' });
     }
-    setSaving(false);
   }
 
   function handleCopyLink() {
@@ -223,11 +274,6 @@ export default function InviteFakeMembersModal({ projectId, onClose, onMembersAd
     });
   }
 
-  function regenerateLink() {
-    setInviteLink(`https://terra.ai/invite/${genInviteId()}`);
-    setLinkCopied(false);
-  }
-
   function handleClose() {
     if (onMembersAdded && allAdded.length > 0) {
       onMembersAdded(allAdded);
@@ -235,302 +281,117 @@ export default function InviteFakeMembersModal({ projectId, onClose, onMembersAd
     onClose();
   }
 
-  const currentUser = suggestedUsers[currentIndex];
-  const isAdded = currentUser && addedIds.has(currentUser.login.uuid);
-  const combinedMembers = [...existingMembers, ...allAdded];
-
   return (
-    <div className="invite-overlay">
+    <div className="mc-overlay">
       <motion.div
         initial={{ scale: 0.94, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="invite-panel"
+        transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+        className="mc-panel"
       >
-        {/* ─── Header ─────────────────────────────────────────── */}
-        <div className="invite-header">
-          <div className="invite-header-left">
-            <div className="invite-header-icon">
-              <UserPlus size={18} color="#10b981" />
-            </div>
-            <div>
-              <h2 className="invite-title">Team Members</h2>
-              <p className="invite-subtitle">
-                {combinedMembers.length} member{combinedMembers.length !== 1 ? 's' : ''} · Manage your project team
-              </p>
-            </div>
+        {/* Header */}
+        <div className="mc-panel-header">
+          <div>
+            <h2 className="mc-panel-title">Team Members</h2>
+            <p className="mc-panel-sub">
+              {existingMembers.length + allAdded.length} member{(existingMembers.length + allAdded.length) !== 1 ? 's' : ''} · Add collaborators to your project
+            </p>
           </div>
-          <button onClick={handleClose} className="invite-close-btn">
-            <X size={16} />
-          </button>
+          <button onClick={handleClose} className="mc-close-btn"><X size={18} /></button>
         </div>
 
-        {/* ─── Tabs ───────────────────────────────────────────── */}
-        <div className="invite-tabs">
-          <button
-            className={`invite-tab ${activeTab === 'discover' ? 'active' : ''}`}
-            onClick={() => setActiveTab('discover')}
-          >
-            <UserPlus size={14} />
-            Discover
-          </button>
-          <button
-            className={`invite-tab ${activeTab === 'members' ? 'active' : ''}`}
-            onClick={() => setActiveTab('members')}
-          >
-            <Shield size={14} />
-            Members
-            {combinedMembers.length > 0 && (
-              <span className="invite-tab-count">{combinedMembers.length}</span>
-            )}
-          </button>
-          <button
-            className={`invite-tab ${activeTab === 'invite' ? 'active' : ''}`}
-            onClick={() => setActiveTab('invite')}
-          >
-            <Link2 size={14} />
-            Invite Link
-          </button>
-        </div>
-
-        {/* ─── Tab Content ────────────────────────────────────── */}
-        <div className="invite-body">
-          <AnimatePresence mode="wait">
-            {/* ── Discover Tab ───────────────────────────────── */}
-            {activeTab === 'discover' && (
-              <motion.div
-                key="discover"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15 }}
-                className="invite-discover-tab"
-              >
-                {loading ? (
-                  <div className="invite-loading">
-                    <Loader2 size={28} className="invite-spinner" />
-                    <span>Finding teammates…</span>
-                  </div>
-                ) : currentUser ? (
-                  <div className="invite-carousel-area">
-                    {/* Role selector above the card */}
-                    <div className="invite-role-row">
-                      <span className="invite-role-label">Assign role:</span>
-                      <RoleSelector value={selectedRole} onChange={setSelectedRole} />
-                    </div>
-
-                    <div className="invite-carousel">
-                      <button onClick={handlePrev} className="invite-nav-arrow">
-                        <ChevronLeft size={20} />
-                      </button>
-
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={currentUser.login.uuid}
-                          initial={{ opacity: 0, y: 20, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -20, scale: 0.96 }}
-                          transition={{ type: 'spring', damping: 24, stiffness: 220 }}
-                          className="invite-profile-card"
-                        >
-                          {/* Profile image */}
-                          <div className="invite-profile-image-wrap">
-                            <motion.img
-                              initial={{ scale: 1.06 }}
-                              animate={{ scale: 1 }}
-                              transition={{ duration: 3.5, ease: 'easeOut' }}
-                              src={currentUser.picture.large}
-                              alt={`${currentUser.name.first} ${currentUser.name.last}`}
-                              className="invite-profile-image"
-                            />
-                            <div className="invite-profile-gradient-top" />
-                            <div className="invite-profile-gradient-bottom" />
-                          </div>
-
-                          {/* Name & status overlay */}
-                          <div className="invite-profile-overlay">
-                            <h3 className="invite-profile-name">
-                              {currentUser.name.first} {currentUser.name.last}
-                            </h3>
-                            <div className={`invite-status-pill ${isAdded ? 'ready' : ''}`}>
-                              {!isAdded ? (
-                                <>
-                                  <Loader2 size={12} className="invite-spinner" />
-                                  <span>Connecting</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Check size={12} />
-                                  <span>Added</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Footer */}
-                          <div className="invite-profile-footer">
-                            <div className="invite-profile-user">
-                              <img
-                                src={currentUser.picture.medium}
-                                alt=""
-                                className="invite-profile-mini-avatar"
-                              />
-                              <div>
-                                <div className="invite-profile-username">
-                                  @{currentUser.login.username}
-                                </div>
-                                <div className="invite-profile-ago">{timeAgo()}</div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={addCurrentMember}
-                              disabled={isAdded || saving}
-                              className={`invite-add-btn ${isAdded ? 'added' : ''}`}
-                            >
-                              {saving ? (
-                                <Loader2 size={16} className="invite-spinner" />
-                              ) : isAdded ? (
-                                <Check size={16} />
-                              ) : (
-                                <Plus size={16} />
-                              )}
-                              {isAdded ? 'Added' : 'Add Member'}
-                            </button>
-                          </div>
-                        </motion.div>
-                      </AnimatePresence>
-
-                      <button onClick={handleNext} className="invite-nav-arrow">
-                        <ChevronRight size={20} />
-                      </button>
-                    </div>
-
-                    {/* Carousel dots */}
-                    <div className="invite-carousel-dots">
-                      {suggestedUsers.map((u, i) => (
-                        <button
-                          key={u.login.uuid}
-                          className={`invite-dot ${i === currentIndex ? 'active' : ''} ${addedIds.has(u.login.uuid) ? 'added' : ''}`}
-                          onClick={() => setCurrentIndex(i)}
+        {/* Body */}
+        <div className="mc-panel-body">
+          {loading ? (
+            <div className="mc-loading">
+              <Loader2 size={28} className="mc-status-spinner" />
+              <span>Finding teammates…</span>
+            </div>
+          ) : (
+            <>
+              {/* Existing members */}
+              {existingMembers.length > 0 && (
+                <>
+                  <p className="mc-section-label">Current Members</p>
+                  <div className="mc-grid">
+                    {existingMembers.map((m) => {
+                      const st = cardStates[m.id] || { status: 'online', role: m.role_title || 'Editor' };
+                      return (
+                        <MemberCard
+                          key={m.id}
+                          user={{
+                            fullName: m.name,
+                            username: m.email?.split('@')[0] || m.name.toLowerCase().replace(/\s/g, '.'),
+                            avatar_url: m.avatar_url,
+                          }}
+                          status={st.status}
+                          role={st.role}
+                          onRoleChange={(r) => updateCardState(m.id, { role: r })}
+                          onAdd={() => {}}
+                          addedAt={m.created_at}
                         />
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <div className="invite-loading">
-                    <span>No users found.</span>
-                  </div>
-                )}
-              </motion.div>
-            )}
+                </>
+              )}
 
-            {/* ── Members Tab ────────────────────────────────── */}
-            {activeTab === 'members' && (
-              <motion.div
-                key="members"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15 }}
-                className="invite-members-tab"
-              >
-                {combinedMembers.length === 0 ? (
-                  <div className="invite-empty-state">
-                    <UserPlus size={32} color="#cbd5e1" />
-                    <p>No members yet. Switch to <strong>Discover</strong> to add teammates.</p>
-                  </div>
-                ) : (
-                  <div className="invite-members-grid">
-                    {combinedMembers.map((m) => (
-                      <MemberGridCard
-                        key={m.id}
-                        member={m}
-                        isPending={pendingIds.has(m.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
+              {/* Suggested / new */}
+              <p className="mc-section-label">
+                {existingMembers.length > 0 ? 'Suggested' : 'Discover Teammates'}
+              </p>
+              <div className="mc-grid">
+                {suggestedUsers.map((u) => {
+                  const uuid = u.login.uuid;
+                  const st = cardStates[uuid] || { status: 'idle', role: 'Editor' };
+                  return (
+                    <MemberCard
+                      key={uuid}
+                      user={u}
+                      status={st.status}
+                      role={st.role}
+                      onRoleChange={(r) => updateCardState(uuid, { role: r })}
+                      onAdd={() => addUser(u)}
+                      addedAt={st.addedAt}
+                    />
+                  );
+                })}
+              </div>
 
-            {/* ── Invite Link Tab ────────────────────────────── */}
-            {activeTab === 'invite' && (
-              <motion.div
-                key="invite"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15 }}
-                className="invite-link-tab"
-              >
-                <div className="invite-link-card">
-                  <div className="invite-link-header">
-                    <Link2 size={18} color="#10b981" />
-                    <div>
-                      <h4>Share invite link</h4>
-                      <p>Anyone with this link can join your project</p>
-                    </div>
-                  </div>
-
-                  <div className="invite-link-role-row">
-                    <span>New members will join as:</span>
-                    <RoleSelector value={linkRole} onChange={setLinkRole} />
-                  </div>
-
-                  <div className="invite-link-input-row">
-                    <div className="invite-link-input">
-                      <Link2 size={14} color="#94a3b8" />
-                      <input
-                        type="text"
-                        value={inviteLink}
-                        readOnly
-                      />
-                    </div>
-                    <button
-                      onClick={handleCopyLink}
-                      className={`invite-copy-btn ${linkCopied ? 'copied' : ''}`}
-                    >
-                      {linkCopied ? (
-                        <>
-                          <CheckCircle size={14} />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={14} />
-                          Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <button onClick={regenerateLink} className="invite-regen-btn">
-                    Regenerate link
+              {/* Invite link section */}
+              <div className="mc-link-section">
+                <div className="mc-link-row">
+                  <Link2 size={16} color="#94a3b8" />
+                  <input
+                    type="text"
+                    value={inviteLink}
+                    readOnly
+                    className="mc-link-input"
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className={`mc-link-copy ${linkCopied ? 'copied' : ''}`}
+                  >
+                    {linkCopied ? <><CheckCircle size={14} /> Copied!</> : <><Copy size={14} /> Copy link</>}
                   </button>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* ─── Footer ─────────────────────────────────────────── */}
-        <div className="invite-footer">
-          <span className="invite-footer-hint">
+        {/* Footer */}
+        <div className="mc-panel-footer">
+          <span className="mc-footer-hint">
             {allAdded.length > 0
-              ? `${allAdded.length} new member${allAdded.length !== 1 ? 's' : ''} added this session`
-              : 'Add teammates to collaborate on this project'}
+              ? `${allAdded.length} new member${allAdded.length !== 1 ? 's' : ''} added`
+              : 'Click a card to invite a teammate'}
           </span>
-          <button onClick={handleClose} className="invite-done-btn">
-            <CheckCircle size={14} />
-            Done
+          <button onClick={handleClose} className="mc-done-btn">
+            <CheckCircle size={14} /> Done
           </button>
         </div>
       </motion.div>
-
-      {/* Scoped keyframes */}
-      <style>{`
-        @keyframes invite-spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

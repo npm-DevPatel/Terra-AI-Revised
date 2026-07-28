@@ -220,8 +220,12 @@ function MessageView({
         filter: filterStr,
       }, (payload) => {
         setMessages((prev) => {
-          if (prev.some((m) => m.id === payload.new.id)) return prev;
-          return [...prev, payload.new];
+          // Remove any optimistic duplicates (match by content + sender)
+          const cleaned = prev.filter((m) =>
+            !m._optimistic || m.content !== payload.new.content || m.sender_name !== payload.new.sender_name
+          );
+          if (cleaned.some((m) => m.id === payload.new.id)) return cleaned;
+          return [...cleaned, payload.new];
         });
       }).subscribe();
 
@@ -252,7 +256,7 @@ function MessageView({
     setLoading(false);
   }
 
-  // Send message
+  // Send message — optimistic UI
   async function handleSend() {
     const msg = text.trim();
     if (!msg) return;
@@ -281,7 +285,26 @@ function MessageView({
       content: msg,
     };
 
-    await supabase.from('workspace_messages').insert(newMsg);
+    // Optimistic: add to local state immediately with temp id
+    const optimisticMsg = {
+      ...newMsg,
+      id: `optimistic-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    const { data } = await supabase.from('workspace_messages').insert(newMsg).select().single();
+
+    // Replace optimistic message with real one (if realtime hasn't already)
+    if (data) {
+      setMessages((prev) => {
+        // Remove optimistic, add real if not already present
+        const withoutOptimistic = prev.filter((m) => m.id !== optimisticMsg.id);
+        if (withoutOptimistic.some((m) => m.id === data.id)) return withoutOptimistic;
+        return [...withoutOptimistic, data];
+      });
+    }
 
     // Check for @Terra AI mention or if this is an AI DM
     const mentionsTerraAI = /(@terra\s*ai|@terraai)/i.test(msg);
@@ -443,6 +466,8 @@ function MessageView({
                 const sameUser = prev?.sender_name === msg.sender_name &&
                   new Date(msg.created_at) - new Date(prev?.created_at) < 120000;
                 const isAi = msg.sender_type === 'ai';
+                const isOwn = msg.sender_type === 'user';
+                const isMock = msg.sender_type === 'mock_member';
                 const msgReactions = reactions[msg.id] || {};
 
                 return (
@@ -451,26 +476,28 @@ function MessageView({
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.15 }}
-                    className={`team-channel-msg ${sameUser ? 'consecutive' : ''}`}
-                    onMouseEnter={() => {}}
+                    className={`chat-bubble-row ${isOwn ? 'own' : 'other'} ${sameUser ? 'grouped' : ''}`}
                   >
-                    {!sameUser && (
+                    {/* Avatar — only for others, only first in group */}
+                    {!isOwn && !sameUser && (
                       <button
-                        className="team-channel-msg-avatar-btn"
+                        className="chat-bubble-avatar-btn"
                         onClick={() => onOpenProfile(isAi
                           ? { id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon, role_title: 'AI Assistant' }
                           : mockMembers.find((m) => m.name === msg.sender_name) || { name: msg.sender_name, avatar_url: msg.sender_avatar }
                         )}
                       >
-                        <img src={isAi ? aiIcon : (msg.sender_avatar || dicebearUrl(msg.sender_name))} alt="" className="team-channel-msg-avatar" />
+                        <img src={isAi ? aiIcon : (msg.sender_avatar || dicebearUrl(msg.sender_name))} alt="" className="chat-bubble-avatar" />
                       </button>
                     )}
-                    {sameUser && <div className="team-channel-msg-spacer" />}
-                    <div className="team-channel-msg-body">
-                      {!sameUser && (
-                        <div className="team-channel-msg-meta">
+                    {!isOwn && sameUser && <div className="chat-bubble-avatar-spacer" />}
+
+                    <div className={`chat-bubble ${isOwn ? 'chat-bubble--own' : 'chat-bubble--other'} ${isAi ? 'chat-bubble--ai' : ''} ${sameUser ? 'chat-bubble--grouped' : ''}`}>
+                      {/* Sender name — only for others, first in group */}
+                      {!isOwn && !sameUser && (
+                        <div className="chat-bubble-sender-row">
                           <button
-                            className="team-channel-msg-sender"
+                            className="chat-bubble-sender-name"
                             onClick={() => onOpenProfile(isAi
                               ? { id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon, role_title: 'AI Assistant' }
                               : mockMembers.find((m) => m.name === msg.sender_name) || { name: msg.sender_name }
@@ -479,10 +506,11 @@ function MessageView({
                             {msg.sender_name}
                           </button>
                           {isAi && <span className="team-channel-ai-tag">AI</span>}
-                          <span className="team-channel-msg-time">{fmtTime(msg.created_at)}</span>
                         </div>
                       )}
-                      <p className="team-channel-msg-content">{msg.content}</p>
+
+                      <p className="chat-bubble-text">{msg.content}</p>
+                      <span className="chat-bubble-time">{fmtTime(msg.created_at)}</span>
 
                       {/* Reactions */}
                       <div className="team-channel-msg-reactions">
