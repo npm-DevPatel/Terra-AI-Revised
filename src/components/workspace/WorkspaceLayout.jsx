@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   ScanSearch, LayoutDashboard, FileText, Hash, Plus,
   Sparkles, ChevronLeft, Settings, X, Send, Loader2, Kanban,
-  UserPlus, Mail, CheckCircle, AlertCircle, Users,
+  UserPlus, Mail, CheckCircle, AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useTerraStore from '../../store/useTerraStore';
@@ -372,6 +372,7 @@ export default function WorkspaceLayout() {
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [channelFeedOpen, setChannelFeedOpen] = useState(false);
   const [activeChannelName, setActiveChannelName] = useState('');
+  const [workspaceSidebarOpen, setWorkspaceSidebarOpen] = useState(true);
 
   const activeProduct = PRODUCTS.find(p => location.pathname.includes(`/${p.path}`));
 
@@ -428,12 +429,26 @@ export default function WorkspaceLayout() {
       `}</style>
 
       {/* ── Sidebar ── */}
-      <aside style={{ width: 240, background: '#fff', borderRight: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+      {!workspaceSidebarOpen && (
+        <button
+          onClick={() => setWorkspaceSidebarOpen(true)}
+          title="Show workspace sidebar"
+          style={{ position: 'fixed', left: 12, top: 92, zIndex: 80, width: 34, height: 34, borderRadius: 12, border: '1px solid #dbeafe', background: '#fff', color: '#60a5fa', boxShadow: '0 14px 34px rgba(15,23,42,0.14)', cursor: 'pointer', fontWeight: 900 }}
+        >
+          +
+        </button>
+      )}
+      <aside style={{ width: workspaceSidebarOpen ? 240 : 0, background: '#fff', borderRight: workspaceSidebarOpen ? '1px solid #f1f5f9' : 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', overflowX: 'hidden', transition: 'width 0.24s ease' }}>
         {/* Back + project name */}
         <div style={{ padding: '16px 16px 12px' }}>
-          <button onClick={() => navigate('/workspace')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12, padding: 0, marginBottom: 12, fontFamily: 'inherit' }}>
-            <ChevronLeft size={13} /> All Projects
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+            <button onClick={() => navigate('/workspace')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12, padding: 0, fontFamily: 'inherit' }}>
+              <ChevronLeft size={13} /> All Projects
+            </button>
+            <button onClick={() => setWorkspaceSidebarOpen(false)} title="Hide workspace sidebar" style={{ width: 24, height: 20, borderRadius: 8, border: 'none', background: '#f1f5f9', color: '#64748b', cursor: 'pointer', fontWeight: 900, lineHeight: 1 }}>
+              -
+            </button>
+          </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginBottom: 2, lineHeight: 1.3 }}>{project?.name || '…'}</div>
           <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Project workspace</div>
         </div>
