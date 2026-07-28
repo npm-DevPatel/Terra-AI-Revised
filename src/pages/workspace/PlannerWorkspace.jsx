@@ -139,12 +139,28 @@ function PlannerIcon({ item, active }) {
 
 function TypeText({ text, activeKey }) {
   const [visible, setVisible] = useState('');
+  const [paused, setPaused] = useState(false);
   useEffect(() => {
     let typer;
+    let pauseTimer;
     const wait = window.setTimeout(() => {
       let index = 0;
-      const step = Math.max(8, Math.floor(3500 / Math.max(text.length, 1)));
+      const step = Math.max(14, Math.floor(3300 / Math.max(text.length, 1)));
+      const pauseAt = Math.floor(text.length * 0.52);
       typer = window.setInterval(() => {
+        if (index >= pauseAt && index < pauseAt + 4) {
+          window.clearInterval(typer);
+          setPaused(true);
+          pauseTimer = window.setTimeout(() => {
+            setPaused(false);
+            typer = window.setInterval(() => {
+              index += Math.max(2, Math.ceil(text.length / 180));
+              setVisible(text.slice(0, index));
+              if (index >= text.length) window.clearInterval(typer);
+            }, step);
+          }, 420);
+          return;
+        }
         index += Math.max(1, Math.ceil(text.length / 220));
         setVisible(text.slice(0, index));
         if (index >= text.length) window.clearInterval(typer);
@@ -152,18 +168,21 @@ function TypeText({ text, activeKey }) {
     }, 3000);
     return () => {
       window.clearTimeout(wait);
+      if (pauseTimer) window.clearTimeout(pauseTimer);
       if (typer) window.clearInterval(typer);
     };
   }, [text, activeKey]);
-  return <p>{visible}</p>;
+  return <p>{visible}<span className={`planner-type-cursor ${paused ? 'paused' : ''}`} /></p>;
 }
 
-function ThinkingState() {
+function ThinkingState({ lines = 4 }) {
   return (
     <div className="planner-thinking">
       <img src={loadingGif} alt="" />
       <span className="lens-faded-word thinking-word" aria-label="thinking"><strong>th</strong><span>inki</span><strong>ng</strong></span>
-      <div className="planner-sentence-holder" />
+      <div className="planner-line-loader" style={{ '--line-count': lines }}>
+        {Array.from({ length: lines }).map((_, index) => <span key={index} />)}
+      </div>
     </div>
   );
 }
@@ -177,7 +196,7 @@ function InsightCard({ title, body, activeKey, tone = 'mint' }) {
   return (
     <article className={`planner-insight-card ${tone}`}>
       <h3>{title}</h3>
-      {thinking ? <ThinkingState /> : <TypeText text={body} activeKey={activeKey} />}
+      {thinking ? <ThinkingState lines={Math.min(6, Math.max(4, Math.ceil(body.length / 150)))} /> : <TypeText text={body} activeKey={activeKey} />}
     </article>
   );
 }
@@ -207,13 +226,15 @@ function PlannerView({ active }) {
   return (
     <div className="planner-content-grid">
       <div className="planner-image-strip">
-        {content.image && <img src={content.image} alt="" />}
-        <div>
+        <div className="planner-image-copy">
           <div className="planner-ai-label"><Sparkles size={14} /> Presentation Mode</div>
           <h3>{NAV_ITEMS.find((item) => item.id === active)?.question}</h3>
           <p>Preloaded Terra Planner intelligence for a residential estate at the Highlands of Limuru.</p>
         </div>
-        {content.image2 && <img src={content.image2} alt="" />}
+        <div className="planner-image-row">
+          {content.image && <img src={content.image} alt="" />}
+          {content.image2 && <img src={content.image2} alt="" />}
+        </div>
       </div>
       <div className="planner-reading-flow">
         {content.cards.map(([title, body], index) => (

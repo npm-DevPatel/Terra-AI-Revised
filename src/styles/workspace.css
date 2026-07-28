@@ -193,27 +193,40 @@
 }
 
 .copilot-header {
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-bottom: 1px solid #f1f5f9;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
 }
 
 .copilot-title {
-  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  padding: 12px;
+  font-size: 17px;
   font-weight: 700;
   color: #0f172a;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.copilot-title span {
+  display: block;
+  line-height: 1.1;
 }
 
 .copilot-title p {
-  margin: 2px 0 0;
+  margin: 6px 0 0;
   color: #0f172a;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 800;
   line-height: 1.35;
 }
 
@@ -1510,16 +1523,16 @@
 .planner-vertical-menu {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  width: 98px;
-  margin: 18px 0 18px 16px;
-  padding: 14px 10px;
+  gap: 8px;
+  width: 104px;
+  margin: 12px 0 12px 16px;
+  padding: 12px 9px;
   border: 1px solid rgba(16, 185, 129, 0.16);
   border-radius: 30px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(18px);
-  flex: 0 0 98px;
+  flex: 0 0 104px;
   z-index: 2;
 }
 
@@ -1527,15 +1540,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 12px;
+  gap: 6px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #dbece7;
   text-align: center;
 }
 
 .planner-brand-mark {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -1561,14 +1574,14 @@
   max-width: 86px;
   margin-top: 3px;
   color: #0f172a;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.15;
 }
 
 .planner-vertical-menu nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .planner-nav-button {
@@ -1576,15 +1589,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 72px;
+  gap: 4px;
+  min-height: 58px;
   border: 1px solid transparent;
   border-radius: 18px;
   background: transparent;
   color: #64748b;
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
 }
@@ -1604,8 +1617,8 @@
 }
 
 .planner-nav-icon {
-  width: 24px;
-  height: 24px;
+  width: 21px;
+  height: 21px;
   object-fit: contain;
 }
 
@@ -1662,22 +1675,29 @@
 }
 
 .planner-image-strip {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.78fr) minmax(260px, 1.2fr) minmax(180px, 0.78fr);
+  width: min(100%, 1060px);
+  margin: 0 auto 8px;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  align-items: stretch;
 }
 
-.planner-image-strip img {
+.planner-image-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.planner-image-row img {
   width: 100%;
-  height: 210px;
+  height: clamp(220px, 28vw, 340px);
   border-radius: 8px;
   object-fit: cover;
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
 }
 
-.planner-image-strip > div {
-  min-height: 210px;
+.planner-image-copy {
+  min-height: auto;
   border: 1px solid rgba(16, 185, 129, 0.16);
   border-radius: 8px;
   background: #ffffff;
@@ -1829,10 +1849,10 @@
 .planner-insight-card.slate { background: #f8fafc; }
 
 .planner-thinking {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .planner-thinking img {
@@ -1840,14 +1860,35 @@
   height: 30px;
 }
 
-.planner-sentence-holder {
-  width: 100%;
-  height: 78px;
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, #e2e8f0 25%, #f8fafc 37%, #e2e8f0 63%);
-  background-size: 400% 100%;
-  animation: plannerSkeleton 1.4s ease-in-out infinite;
+.planner-line-loader {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.planner-line-loader span {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  animation: plannerLineBlink 0.72s ease-in-out infinite;
+}
+
+.planner-line-loader span:nth-child(2) { width: 92%; animation-delay: 0.08s; }
+.planner-line-loader span:nth-child(3) { width: 96%; animation-delay: 0.16s; }
+.planner-line-loader span:nth-child(4) { width: 84%; animation-delay: 0.24s; }
+.planner-line-loader span:nth-child(5) { width: 90%; animation-delay: 0.32s; }
+.planner-line-loader span:nth-child(6) { width: 72%; animation-delay: 0.4s; }
+
+.planner-type-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: -0.12em;
+  background: #0f766e;
+  animation: plannerCursorBlink 0.7s steps(2, start) infinite;
 }
 
 .planner-selection-capsule {
@@ -1895,9 +1936,14 @@
   line-height: 1.55;
 }
 
-@keyframes plannerSkeleton {
-  0% { background-position: 100% 0; }
-  100% { background-position: 0 0; }
+@keyframes plannerLineBlink {
+  0%, 100% { opacity: 0.24; }
+  50% { opacity: 0.78; }
+}
+
+@keyframes plannerCursorBlink {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0; }
 }
 
 .planner-view,
