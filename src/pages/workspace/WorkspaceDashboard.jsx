@@ -383,7 +383,7 @@ export default function WorkspaceDashboard() {
       const channelIds = channelsData?.map((channel) => channel.id).filter(Boolean) || [];
       if (channelIds.length > 0) {
         const { error: messagesError } = await supabase
-          .from('workspace_messages')
+          .from('messages')
           .delete()
           .in('channel_id', channelIds);
         if (messagesError) throw messagesError;
