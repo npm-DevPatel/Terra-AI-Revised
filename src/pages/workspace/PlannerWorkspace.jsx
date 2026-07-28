@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  CircleDollarSign, FileText, MapPinned, Sparkles, Lock,
+  CircleDollarSign, FileText, MapPinned, Sparkles,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import overviewIcon from '../../assets/planner/overview.png';
@@ -22,7 +22,7 @@ import resourcesImage from '../../../presentation_mode/planner_images/resources.
 import resourcesImage2 from '../../../presentation_mode/planner_images/resources_2.jpeg';
 import budgetImage from '../../../presentation_mode/planner_images/budget.jpeg';
 import budgetImage2 from '../../../presentation_mode/planner_images/budget_2.jpeg';
-import TeamChannel from '../../components/workspace/TeamChannel';
+
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles/workspace.css';
 
@@ -36,7 +36,6 @@ const NAV_ITEMS = [
   { id: 'build', label: 'Build', icon: buildIcon, question: 'How do we turn the plan into reality?' },
   { id: 'resources', label: 'Resources', icon: resourcesIcon, question: 'Who and what do we need?' },
   { id: 'budget', label: 'Budget', Icon: CircleDollarSign, question: 'Can we afford it and optimize it?' },
-  { id: 'workspace', label: 'Workspace', icon: collaborateIcon, question: 'How do people work together?' },
   { id: 'reports', label: 'Reports', icon: reportIcon, question: 'How do we communicate progress and decisions?' },
 ];
 
@@ -111,16 +110,7 @@ const TAB_CONTENT = {
       ['Financial Controls', 'Use monthly cost reports, procurement trackers, variation approval rules, and phase-gate budgets. The QS should compare planned versus committed cost. The project manager should flag decisions that affect roads, drainage, or foundations. Sales assumptions should be updated as buyer feedback arrives. Reports should translate numbers into clear choices. Terra Planner should help the team know what to do next, not just what was spent.'],
     ],
   },
-  workspace: {
-    cards: [
-      ['Team Rhythm', 'The team should work in weekly decision cycles. Architects, engineers, QS, sales, and ownership should review the same priorities. Each meeting should end with clear decisions, blockers, and owners. Site intelligence should remain visible as design changes. The workspace should reduce scattered WhatsApp decisions. Good collaboration makes the project feel smaller and more controllable.'],
-      ['Decision Log', 'Every major decision should be logged with its reason, cost impact, and design impact. This matters when the team later asks why a road moved or why a cluster was phased differently. Decisions around drainage, access, view orientation, and approvals should be especially clear. A decision log protects continuity when consultants change. It also helps investors understand discipline. Terra Workspace should become the project memory.'],
-      ['Communication', 'Communication should be tailored by audience. Owners need risk and money. Architects need design direction. Engineers need constraints. Buyers need confidence and timelines. County or approval stakeholders need compliance clarity. The workspace should turn one project truth into different useful outputs.'],
-      ['Reviews', 'Reviews should happen at concept, schematic design, civil coordination, tender, construction start, and handover. Each review should ask whether the estate still fits the Limuru land story. If a design change harms drainage or landscape identity, it should be challenged. If it improves buildability without weakening the product, it should be welcomed. The review rhythm keeps quality intentional. This is how the project avoids drifting.'],
-      ['Collaboration Tools', 'The workspace should support messages, comments, uploaded drawings, reports, calls, and approvals. Files should be organized by phase and discipline. Important messages should become tasks, not disappear in chat. Visual updates should include annotated images and site notes. The team should always know the latest source of truth. Collaboration is only useful when it reduces ambiguity.'],
-      ['Governance', 'Governance should define who approves budget changes, design changes, supplier substitutions, and buyer-facing promises. Without this, the estate can lose control as pressure rises. A small steering group can review big decisions. The project manager should enforce documentation. The owner should see concise dashboards rather than every operational detail. Terra Planner should make governance feel natural.'],
-    ],
-  },
+
   reports: {
     cards: [
       ['Report Purpose', 'Reports should communicate progress, risk, and decisions clearly. Different audiences need different levels of detail. Investors want confidence and cost control. Buyers want timeline and product clarity. Consultants want technical instructions. A good report turns project complexity into shared understanding.'],
@@ -260,21 +250,11 @@ export default function PlannerWorkspace() {
   const [active, setActive] = useState('overview');
   const [selectionMenu, setSelectionMenu] = useState(null);
   const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === active), [active]);
-  const [hasAnalysis, setHasAnalysis] = useState(null); // null = loading, true/false
   const [projectName, setProjectName] = useState(PROJECT_NAME);
 
-  // Check if land assessment is complete (at least one analysis exists)
+  // Fetch project name
   useEffect(() => {
     if (!projectId) return;
-    supabase
-      .from('analyses')
-      .select('id')
-      .eq('project_id', projectId)
-      .limit(1)
-      .then(({ data }) => {
-        setHasAnalysis(data && data.length > 0);
-      });
-    // Also fetch project name for TeamChannel
     supabase
       .from('projects')
       .select('name')
@@ -316,64 +296,7 @@ export default function PlannerWorkspace() {
     setActive(item.id);
   };
 
-  // Workspace tab — locked state
-  function WorkspaceLocked() {
-    return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '80px 40px', textAlign: 'center', maxWidth: 480, margin: '0 auto',
-      }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: 18, background: '#f5f3ff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-        }}>
-          <Lock size={28} color="#8b5cf6" />
-        </div>
-        <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
-          Team Workspace Locked
-        </h3>
-        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
-          Available once your land assessment is complete. Run a Lens analysis on your project site to unlock the collaborative workspace.
-        </p>
-        <button
-          onClick={() => navigate(`/workspace/${projectId}/lens`)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 24px', borderRadius: 100, border: 'none',
-            background: '#8b5cf6', color: '#fff', fontSize: 14, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit',
-            boxShadow: '0 4px 16px rgba(139,92,246,0.25)',
-          }}
-        >
-          <MapPinned size={16} /> Go to Terra Lens
-        </button>
-      </div>
-    );
-  }
 
-  // Determine what to render for the workspace tab
-  function renderWorkspaceContent() {
-    if (active !== 'workspace') {
-      return <PlannerView active={active} />;
-    }
-
-    // Still checking analysis status
-    if (hasAnalysis === null) {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60, color: '#94a3b8', fontSize: 13 }}>
-          Checking project status…
-        </div>
-      );
-    }
-
-    // No analysis yet — show locked state
-    if (!hasAnalysis) {
-      return <WorkspaceLocked />;
-    }
-
-    // Analysis exists — render TeamChannel
-    return <TeamChannel projectId={projectId} projectName={projectName} />;
-  }
 
   return (
     <div className="planner-screen">
@@ -437,10 +360,9 @@ export default function PlannerWorkspace() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={active === 'workspace' ? 'planner-view' : 'planner-view'}
-          style={active === 'workspace' && hasAnalysis ? { height: '100%', overflow: 'hidden' } : {}}
+          className="planner-view"
         >
-          {renderWorkspaceContent()}
+          <PlannerView active={active} />
         </motion.div>
       </main>
     </div>

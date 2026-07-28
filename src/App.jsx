@@ -27,6 +27,7 @@ import LensWorkspace from './pages/workspace/LensWorkspace';
 import SimWorkspace from './pages/workspace/SimWorkspace';
 import FlowWorkspace from './pages/workspace/FlowWorkspace';
 import PlannerWorkspace from './pages/workspace/PlannerWorkspace';
+import TeamWorkspacePage from './pages/workspace/TeamWorkspacePage';
 import ProfileSetup from './pages/workspace/ProfileSetup';
 import InviteAccept from './pages/InviteAccept';
 import { supabase } from './lib/supabaseClient';
@@ -129,6 +130,7 @@ export default function App() {
           <Route path="sim"     element={<SimWorkspace />} />
           <Route path="planner" element={<PlannerWorkspace />} />
           <Route path="flow"    element={<FlowWorkspace />} />
+          <Route path="team"    element={<TeamWorkspacePage />} />
         </Route>
         {/* Products (marketing pages) */}
         <Route path="/products/terra-lens"    element={<TerraLens />} />
