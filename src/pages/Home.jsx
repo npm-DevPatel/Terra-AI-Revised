@@ -97,18 +97,11 @@ export default function Home() {
   const { user, openAuthModal } = useTerraStore();
   const [hoveredProduct, setHoveredProduct] = useState(null);
 
-  // Project ID for the default demo/landing project
-  const DEMO_PROJECT_ID = '87d674dd-9e52-45aa-8d97-c92085fc7975';
-
-  // Tool key → workspace sub-route
-  const TOOL_ROUTE = { lens: 'lens', sim: 'planner', flow: 'flow' };
-
-  const handleProductPick = (productKey) => {
-    const tool = TOOL_ROUTE[productKey] || 'lens';
+  const handleProductPick = () => {
     if (user) {
-      navigate(`/workspace/${DEMO_PROJECT_ID}/${tool}`);
+      navigate('/workspace?create=true');
     } else {
-      openAuthModal({ tab: 'signup', redirectTo: `/workspace/${DEMO_PROJECT_ID}/${tool}` });
+      openAuthModal({ tab: 'signup', redirectTo: '/workspace?create=true' });
     }
   };
 

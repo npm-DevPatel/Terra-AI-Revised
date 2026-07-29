@@ -23,8 +23,7 @@ const CAPABILITIES = [
 export default function TerraFlow() {
   const navigate = useNavigate();
   const { user, openAuthModal } = useTerraStore();
-  const DEST = '/workspace/87d674dd-9e52-45aa-8d97-c92085fc7975/flow';
-  const handleTry = () => user ? navigate(DEST) : openAuthModal({ tab: 'signup', redirectTo: DEST });
+  const handleTry = () => user ? navigate('/workspace?create=true') : openAuthModal({ tab: 'signup', redirectTo: '/workspace?create=true' });
   return (
     <MarketingLayout>
       {/* Hero */}

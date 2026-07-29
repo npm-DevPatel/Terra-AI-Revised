@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   CircleDollarSign, FileText, MapPinned, Sparkles,
@@ -212,7 +212,371 @@ function ReadingBridge({ previousTitle, nextTitle, index }) {
   );
 }
 
+// ── Budget data ────────────────────────────────────────────────────────────
+const BUDGET_PHASES = [
+  {
+    phase: 'Phase 1 — Infrastructure',
+    color: '#10b981', bg: '#f0fdf4', border: '#bbf7d0',
+    items: [
+      { label: 'Survey & geotechnical testing', qty: 1, unit: 380000, note: 'Full topographic + soil pits' },
+      { label: 'Entrance road (600 m tarmac)', qty: 600, unit: 8500, note: 'Sub-base, base, AC wearing' },
+      { label: 'Internal gravel roads', qty: 1200, unit: 3200, note: 'Compacted murram' },
+      { label: 'Stormwater drainage system', qty: 1, unit: 2800000, note: 'Culverts, channels, outfalls' },
+      { label: 'Perimeter security fence', qty: 900, unit: 4500, note: 'Chain link + concrete posts' },
+      { label: 'Borehole + water storage (50,000 L)', qty: 1, unit: 1200000, note: 'Pump, tank, distribution' },
+      { label: 'Electrical reticulation', qty: 1, unit: 950000, note: 'Poles, cabling, metering' },
+    ],
+  },
+  {
+    phase: 'Phase 2 — Show Homes (4 units)',
+    color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe',
+    items: [
+      { label: 'Foundations (strip + raft)', qty: 4, unit: 320000, note: 'Avg per unit — slope adjusted' },
+      { label: 'Superstructure (walls, slab, roof)', qty: 4, unit: 2100000, note: 'Incl. pitched roof, tile' },
+      { label: 'Internal finishes & MEP', qty: 4, unit: 1450000, note: 'Plumbing, elec, tiles, joinery' },
+      { label: 'External works (paving, planting)', qty: 4, unit: 280000, note: 'Per unit landscaping' },
+      { label: 'Sales office / show unit fit-out', qty: 1, unit: 850000, note: 'Branded interior fit-out' },
+    ],
+  },
+  {
+    phase: 'Phase 3 — Amenities & Common Areas',
+    color: '#8b5cf6', bg: '#f5f3ff', border: '#ddd6fe',
+    items: [
+      { label: 'Clubhouse (200 m²)', qty: 200, unit: 45000, note: 'Lounge, gym, boardroom' },
+      { label: 'Shared gardens & landscaping', qty: 1, unit: 1600000, note: 'Incl. specimen trees, turf' },
+      { label: "Children's play area", qty: 1, unit: 420000, note: 'Equipment + safety surfacing' },
+      { label: 'Gatehouse & guardroom', qty: 1, unit: 380000, note: 'Block construction, CCTV' },
+      { label: 'Waste management infrastructure', qty: 1, unit: 180000, note: 'Skip bays, signage' },
+    ],
+  },
+];
+
+function fmtKES(n) {
+  if (n == null) return '—';
+  return 'KES ' + Math.round(n).toLocaleString('en-KE');
+}
+
+function BudgetView() {
+  const constructionBase = BUDGET_PHASES.reduce((s, ph) =>
+    s + ph.items.reduce((ps, it) => ps + it.unit * it.qty, 0), 0);
+  const archFee = constructionBase * 0.05;
+  const engFees = 680000 + 420000 + 240000 + 85000 * 8;
+  const contingency = constructionBase * 0.10;
+  const grandTotal = constructionBase + archFee + engFees + contingency;
+
+  const phaseTotals = BUDGET_PHASES.map(ph =>
+    ph.items.reduce((s, it) => s + it.unit * it.qty, 0));
+  const feesTotal = archFee + engFees + contingency;
+
+  const SUMMARY = [
+    { label: 'Infrastructure', value: phaseTotals[0], color: '#10b981' },
+    { label: 'Show Homes', value: phaseTotals[1], color: '#3b82f6' },
+    { label: 'Amenities', value: phaseTotals[2], color: '#8b5cf6' },
+    { label: 'Fees & Contingency', value: feesTotal, color: '#f59e0b' },
+  ];
+
+  const FEES = [
+    { label: 'Architect fees (5% of construction cost)', amount: archFee, note: 'BORAQS regulated scale' },
+    { label: 'Civil / structural engineer', amount: 680000, note: 'Design + site supervision' },
+    { label: 'Quantity surveyor', amount: 420000, note: 'Bills of quantities + monitoring' },
+    { label: 'Environmental consultant (NEMA)', amount: 240000, note: 'EIA screening report' },
+    { label: 'Project management (8 months)', amount: 85000 * 8, note: 'Resident PM @ KES 85k/mo' },
+    { label: 'Contingency (10% of construction)', amount: contingency, note: 'Applied to all build costs' },
+  ];
+
+  return (
+    <div style={{ paddingBottom: 48, maxWidth: 900 }}>
+      {/* Grand total hero */}
+      <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', borderRadius: 20, padding: '28px 32px', marginBottom: 28, color: '#fff' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 6 }}>TOTAL PROJECT ESTIMATE — ALL PHASES</div>
+        <div style={{ fontSize: 38, fontWeight: 900, color: '#10b981' }}>{fmtKES(grandTotal)}</div>
+        <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Highlands of Limuru Residential Estate · Tigoni, Kiambu County</div>
+        <div style={{ display: 'flex', gap: 3, marginTop: 20, height: 10, borderRadius: 6, overflow: 'hidden' }}>
+          {SUMMARY.map(s => (
+            <div key={s.label} style={{ flex: s.value, background: s.color }} title={`${s.label}: ${fmtKES(s.value)}`} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 24px', marginTop: 12 }}>
+          {SUMMARY.map(s => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color }} />
+              {s.label} · <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{fmtKES(s.value)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Phase tables */}
+      {BUDGET_PHASES.map((ph, idx) => {
+        const total = phaseTotals[idx];
+        return (
+          <div key={ph.phase} style={{ background: ph.bg, border: `1px solid ${ph.border}`, borderRadius: 16, marginBottom: 20, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 22px', borderBottom: `1px solid ${ph.border}` }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>{ph.phase}</div>
+              <div style={{ fontWeight: 900, fontSize: 18, color: ph.color }}>{fmtKES(total)}</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'rgba(0,0,0,0.03)' }}>
+                  <th style={{ textAlign: 'left', padding: '10px 22px', fontWeight: 700, color: '#64748b' }}>Line Item</th>
+                  <th style={{ textAlign: 'right', padding: '10px 16px', fontWeight: 700, color: '#64748b' }}>Qty × Rate</th>
+                  <th style={{ textAlign: 'right', padding: '10px 22px', fontWeight: 700, color: '#64748b' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ph.items.map((it, i) => (
+                  <tr key={it.label} style={{ borderTop: '1px solid rgba(0,0,0,0.06)', background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }}>
+                    <td style={{ padding: '11px 22px', color: '#0f172a', fontWeight: 600 }}>
+                      {it.label}
+                      <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400, marginTop: 2 }}>{it.note}</div>
+                    </td>
+                    <td style={{ padding: '11px 16px', textAlign: 'right', color: '#475569', whiteSpace: 'nowrap' }}>
+                      {it.qty.toLocaleString()} × {fmtKES(it.unit)}
+                    </td>
+                    <td style={{ padding: '11px 22px', textAlign: 'right', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                      {fmtKES(it.unit * it.qty)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: `2px solid ${ph.border}` }}>
+                  <td colSpan={2} style={{ padding: '12px 22px', fontWeight: 700, color: '#475569' }}>Phase Total</td>
+                  <td style={{ padding: '12px 22px', textAlign: 'right', fontWeight: 900, fontSize: 15, color: ph.color }}>{fmtKES(total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        );
+      })}
+
+      {/* Fees & contingency */}
+      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 16, marginBottom: 20, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 22px', borderBottom: '1px solid #fde68a' }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Professional Fees &amp; Contingency</div>
+          <div style={{ fontWeight: 900, fontSize: 18, color: '#f59e0b' }}>{fmtKES(feesTotal)}</div>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <tbody>
+            {FEES.map((f, i) => (
+              <tr key={f.label} style={{ borderTop: '1px solid rgba(0,0,0,0.06)', background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }}>
+                <td style={{ padding: '11px 22px', color: '#0f172a', fontWeight: 600 }}>
+                  {f.label}
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400, marginTop: 2 }}>{f.note}</div>
+                </td>
+                <td style={{ padding: '11px 22px', textAlign: 'right', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmtKES(f.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: '2px solid #fde68a' }}>
+              <td style={{ padding: '12px 22px', fontWeight: 700, color: '#475569' }}>Fees Total</td>
+              <td style={{ padding: '12px 22px', textAlign: 'right', fontWeight: 900, fontSize: 15, color: '#f59e0b' }}>{fmtKES(feesTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Grand total row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', borderRadius: 14, padding: '18px 24px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 800, fontSize: 16, color: '#fff' }}>Grand Total (All Phases)</div>
+        <div style={{ fontWeight: 900, fontSize: 22, color: '#10b981' }}>{fmtKES(grandTotal)}</div>
+      </div>
+
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 20px', fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
+        <strong style={{ color: '#0f172a' }}>Disclaimer:</strong> Order-of-magnitude estimates based on 2025 Kenyan construction cost benchmarks for Kiambu County highland terrain. Final figures must be verified by a registered Quantity Surveyor after geotechnical investigation and detailed design.
+      </div>
+    </div>
+  );
+}
+
+// ── Resources data ─────────────────────────────────────────────────────────
+const RESOURCE_CATEGORIES = [
+  {
+    key: 'hardware',
+    label: 'Hardware & Materials',
+    color: '#10b981',
+    query: 'hardware store building materials Limuru Kenya',
+    contacts: [
+      { name: 'Timber Mart Limuru', phone: '+254 722 123 456', address: 'Limuru Town Centre', type: 'Timber & Steel' },
+      { name: 'Bamburi Cement Dealer — Tigoni', phone: '+254 733 456 789', address: 'Tigoni Road, Limuru', type: 'Cement & Aggregates' },
+      { name: 'Kiambu Hardware Hub', phone: '+254 700 987 654', address: 'Kiambu Road, Kiambu', type: 'General Hardware' },
+    ],
+  },
+  {
+    key: 'contractors',
+    label: 'Civil Contractors',
+    color: '#3b82f6',
+    query: 'civil construction contractor Limuru Kiambu Kenya',
+    contacts: [
+      { name: 'Highlands Civil Works Ltd', phone: '+254 722 334 455', address: 'Limuru Road, Nairobi', type: 'Roads & Drainage' },
+      { name: 'Rift Earthmovers Kenya', phone: '+254 711 223 344', address: 'Tigoni, Limuru', type: 'Excavation & Compaction' },
+      { name: 'Kiambu Graders & Plant Hire', phone: '+254 733 667 788', address: 'Kiambu Town', type: 'Plant & Equipment' },
+    ],
+  },
+  {
+    key: 'water',
+    label: 'Water & Boreholes',
+    color: '#0ea5e9',
+    query: 'borehole drilling water supply Limuru Kenya',
+    contacts: [
+      { name: 'Aquatek Borehole Drillers', phone: '+254 722 556 677', address: 'Limuru, Kiambu', type: 'Borehole Drilling' },
+      { name: 'Limuru Water & Sewerage Co.', phone: '+254 20 204 4000', address: 'Limuru Town', type: 'Municipal Water' },
+      { name: 'Hydroflow Kenya Ltd', phone: '+254 733 445 566', address: 'Tigoni Road', type: 'Tanks & Pumps' },
+    ],
+  },
+  {
+    key: 'roofing',
+    label: 'Stone, Timber & Roofing',
+    color: '#f59e0b',
+    query: 'roofing materials stone quarry timber yard Limuru',
+    contacts: [
+      { name: 'Tigoni Stone Quarry', phone: '+254 722 778 899', address: 'Tigoni, Limuru', type: 'Cut Stone & Ballast' },
+      { name: 'Limuru Timber Yard', phone: '+254 711 889 900', address: 'Limuru Town Road', type: 'Hardwood & Softwood' },
+      { name: 'IronShield Roofing — Kiambu', phone: '+254 700 112 233', address: 'Kiambu Road', type: 'Mabati & IBR Sheets' },
+    ],
+  },
+];
+
+const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const LIMURU_CENTER = { lat: -1.1167, lng: 36.6500 };
+
+function ResourcesView() {
+  const [activeCategory, setActiveCategory] = useState(RESOURCE_CATEGORIES[0]);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
+
+  function clearMarkers() {
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+  }
+
+  function searchCategory(map, cat) {
+    if (!map || !window.google) return;
+    clearMarkers();
+    const service = new window.google.maps.places.PlacesService(map);
+    service.textSearch({ query: cat.query, location: LIMURU_CENTER, radius: 25000 }, (results, status) => {
+      if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results) return;
+      results.slice(0, 8).forEach(place => {
+        const marker = new window.google.maps.Marker({
+          map,
+          position: place.geometry.location,
+          title: place.name,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 9,
+            fillColor: cat.color,
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 2,
+          },
+        });
+        const iw = new window.google.maps.InfoWindow({
+          content: `<div style="font-family:system-ui;padding:4px 2px;max-width:200px"><strong style="font-size:13px">${place.name}</strong><br/><span style="font-size:11px;color:#64748b">${place.formatted_address || ''}</span>${place.rating ? `<br/><span style="font-size:11px;color:#f59e0b">★ ${place.rating}</span>` : ''}</div>`,
+        });
+        marker.addListener('click', () => iw.open(map, marker));
+        markersRef.current.push(marker);
+      });
+    });
+  }
+
+  function initMap() {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: LIMURU_CENTER,
+      zoom: 12,
+      styles: [
+        { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+        { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+        { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e8f7' }] },
+        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      ],
+    });
+    mapInstanceRef.current = map;
+    searchCategory(map, RESOURCE_CATEGORIES[0]);
+  }
+
+  useEffect(() => {
+    if (window.google?.maps) { initMap(); return; }
+    const existing = document.getElementById('gmaps-places-script');
+    if (existing) { existing.addEventListener('load', initMap); return; }
+    const script = document.createElement('script');
+    script.id = 'gmaps-places-script';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.onload = initMap;
+    document.head.appendChild(script);
+  }, []);
+
+  const handleCategoryChange = (cat) => {
+    setActiveCategory(cat);
+    if (mapInstanceRef.current) searchCategory(mapInstanceRef.current, cat);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 48 }}>
+      {/* Category pills */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {RESOURCE_CATEGORIES.map(cat => (
+          <button
+            key={cat.key}
+            onClick={() => handleCategoryChange(cat)}
+            style={{
+              padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 700,
+              border: `1.5px solid ${activeCategory.key === cat.key ? cat.color : '#e2e8f0'}`,
+              background: activeCategory.key === cat.key ? `${cat.color}18` : '#fff',
+              color: activeCategory.key === cat.key ? cat.color : '#64748b',
+              cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+            }}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Map */}
+      <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #e2e8f0', height: 380 }}>
+        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+      </div>
+
+      {/* Contact cards */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 12 }}>
+          Recommended contacts — {activeCategory.label}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+          {activeCategory.contacts.map(c => (
+            <div key={c.name} style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 14, padding: '16px 18px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', lineHeight: 1.3 }}>{c.name}</div>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: `${activeCategory.color}18`, color: activeCategory.color, whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{c.type}</span>
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>📍 {c.address}</div>
+              <a
+                href={`tel:${c.phone.replace(/\s/g, '')}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 13, fontWeight: 700, color: activeCategory.color, textDecoration: 'none', background: `${activeCategory.color}12`, padding: '6px 12px', borderRadius: 8 }}
+              >
+                📞 {c.phone}
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+        Map shows live Places API results near Limuru/Tigoni. Contact details for the curated supplier cards are representative — always verify before engaging.
+      </div>
+    </div>
+  );
+}
+
+// ── Generic PlannerView ─────────────────────────────────────────────────────
 function PlannerView({ active }) {
+  if (active === 'budget') return <BudgetView />;
+  if (active === 'resources') return <ResourcesView />;
+
   const content = TAB_CONTENT[active];
   const tones = ['mint', 'sky', 'amber', 'rose', 'violet', 'slate'];
   return (
