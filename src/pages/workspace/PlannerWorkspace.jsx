@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import GroveReport from './GroveReport';
 import {
   CircleDollarSign, FileText, MapPinned, Sparkles,
 } from 'lucide-react';
@@ -612,6 +613,7 @@ export default function PlannerWorkspace() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [active, setActive] = useState('overview');
+  const [showReport, setShowReport] = useState(false);
   const [selectionMenu, setSelectionMenu] = useState(null);
   const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === active), [active]);
   const [projectName, setProjectName] = useState(PROJECT_NAME);
@@ -653,8 +655,7 @@ export default function PlannerWorkspace() {
 
   const handleNav = (item) => {
     if (item.id === 'reports') {
-      setActive(item.id);
-      window.setTimeout(() => navigate(`/workspace/${projectId}/flow`), 650);
+      setShowReport(true);
       return;
     }
     setActive(item.id);
@@ -664,6 +665,7 @@ export default function PlannerWorkspace() {
 
   return (
     <div className="planner-screen">
+      {showReport && <GroveReport onClose={() => setShowReport(false)} />}
       {selectionMenu && (
         <button
           className="planner-selection-capsule"
