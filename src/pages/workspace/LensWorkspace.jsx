@@ -11,7 +11,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Upload, X, AlertTriangle, CheckCircle,
+  X, AlertTriangle, CheckCircle,
   Maximize2, Minimize2, Crosshair, MessageSquare,
   LayoutDashboard, FileText, Sparkles, Loader2, MapPin,
   Image as ImageIcon, Search, Navigation, Layers3, Check,
@@ -59,6 +59,43 @@ const DEMO_LOCATION_SUGGESTIONS = [
   { place_id: 'demo-kiambu', description: 'Kiambu County, Kenya', label: 'Kiambu County, Kenya', lat: -1.0314, lng: 36.8681 },
 ];
 const LOADING_WORDS = ['synthesizing', 'pondering', 'crafting', 'composing'];
+
+function buildDemoLensResult(image, location, title) {
+  const objects = image?.isKilgoris
+    ? [
+        { name: 'front parcel', confidence: 0.94, bbox: demoAnnotations.regions[0].polygon },
+        { name: 'upper parcel', confidence: 0.9, bbox: demoAnnotations.regions[1].polygon },
+        { name: 'hillside terrain', confidence: 0.86, bbox: demoAnnotations.regions[2].polygon },
+        { name: 'weather cues', confidence: 0.82, bbox: demoAnnotations.regions[3].polygon },
+      ]
+    : [];
+
+  return {
+    analysis_id: `demo-${Date.now()}`,
+    score: image?.isKilgoris ? 84 : 72,
+    label: image?.isKilgoris ? 'Highly buildable with drainage discipline' : 'Review required',
+    address: title || location?.label || image?.label || 'Preloaded site image',
+    geospatial_available: Boolean(location),
+    key_risks: image?.isKilgoris
+      ? [
+          'Highland rainfall requires early stormwater routing and temporary site drainage.',
+          'Slope and soil moisture should be validated before foundation details are repeated.',
+          'First phase should stay on the cleaner open parcel to protect budget and momentum.',
+        ]
+      : [
+          'This preloaded visual is not the Limuru demo parcel, so Terra marks it for manual review.',
+          'Confirm parcel boundary, access, and planning context before treating the image as buildable land.',
+        ],
+    vision: {
+      labels: image?.isKilgoris
+        ? ['Highland site', 'Open parcel', 'Hillside', 'Weather exposure', 'Vegetation edge']
+        : ['Preloaded image', 'Visual scan', 'Manual context needed'],
+      objects,
+      water_signals: image?.isKilgoris,
+      construction_detected: false,
+    },
+  };
+}
 
 function FadedActionWord({ word }) {
   const first = word.slice(0, 2);
@@ -522,7 +559,7 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
   const score = result?.score || 0;
   const scoreColor = score >= 80 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
   const createdAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const isKilgorisDemo = image?.url?.includes('kilgoris');
+  const isKilgorisDemo = image?.isKilgoris || image?.url?.includes('kilgoris');
   const annotationRegions = isKilgorisDemo ? demoAnnotations.regions : [];
   const displayName = profileName
     || user?.user_metadata?.full_name
@@ -1077,10 +1114,8 @@ export default function LensWorkspace() {
   const [geminiReport, setGeminiReport] = useState(null);
   const [analysisId, setAnalysisId] = useState(null);
   const [error, setError] = useState('');
-  const [dragOver, setDragOver] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [projectName, setProjectName] = useState('');
-  const fileInputRef = useRef(null);
 
   // Gallery and scanning flow state
   const [showGallery, setShowGallery] = useState(false);
@@ -1100,12 +1135,12 @@ export default function LensWorkspace() {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result.split(',')[1];
-          setImage({ url: img.src, base64 });
+          setImage({ url: img.src, base64, source: 'gallery', label: img.label, isKilgoris: img.isKilgoris });
         };
         reader.readAsDataURL(blob);
       })
       .catch(() => {
-        setImage({ url: img.src, base64: '' });
+        setImage({ url: img.src, base64: '', source: 'gallery', label: img.label, isKilgoris: img.isKilgoris });
       });
 
     setShowGallery(false);
@@ -1116,7 +1151,7 @@ export default function LensWorkspace() {
     window.setTimeout(() => {
       setMapLoadingCard(false);
       setShowSatellitePicker(true);
-    }, 2000);
+    }, 900);
   };
 
   useEffect(() => {
@@ -1135,21 +1170,26 @@ export default function LensWorkspace() {
         }).subscribe();
   }, []);
 
-  const processFile = file => {
-    if (!file?.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const dataUrl = e.target.result;
-      setImage({ url: dataUrl, base64: dataUrl.split(',')[1] });
-      setShowGallery(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const analyze = useCallback(async ({ keepVisualLoader = false } = {}) => {
     if (!image) return;
     if (!keepVisualLoader) setPhase('analyzing');
     setError('');
+    if (image.source === 'gallery') {
+      const demoResult = buildDemoLensResult(image, location, title);
+      setResult(demoResult);
+      setAnalysisId(demoResult.analysis_id);
+      setGeminiReport({
+        executive_summary: image.isKilgoris
+          ? 'The Grove at Highlands of Limuru is a strong candidate for a landscape-led residential estate. Terra recommends a phased first cluster, early drainage engineering, and design rules that protect the highland character.'
+          : 'Terra has prepared a visual demo read for this preloaded image. Select the Highlands of Limuru image for the full estate-specific planning narrative.',
+        visual_site_summary: image.isKilgoris
+          ? 'The image shows open highland land, rolling terrain, moisture-heavy skies, and clear opportunity for view-led planning with careful runoff control.'
+          : 'This image can be explored visually, but it is not the primary Limuru site asset.',
+      });
+      setFullscreen(true);
+      setPhase('result');
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/api/lens/analyze`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
@@ -1177,10 +1217,10 @@ export default function LensWorkspace() {
     const resetTimer = setTimeout(() => setLoaderWordIndex(0), 0);
     const wordInterval = setInterval(() => {
       setLoaderWordIndex((index) => (index + 1) % LOADING_WORDS.length);
-    }, 1500);
+    }, 1000);
     const analysisTimer = setTimeout(() => {
       analyze({ keepVisualLoader: true });
-    }, 6000);
+    }, 4700);
 
     return () => {
       clearTimeout(resetTimer);
@@ -1237,41 +1277,24 @@ export default function LensWorkspace() {
                 ) : (
                   /* Upload zone */
                   <div
-                    className={`lens-upload-zone ${dragOver ? 'drag-over' : ''}`}
+                    className="lens-upload-zone"
                     onClick={() => setShowGallery(true)}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setDragOver(true);
-                    }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      setDragOver(false);
-                      processFile(event.dataTransfer.files?.[0]);
-                    }}
                   >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => processFile(event.target.files?.[0])}
-                      style={{ display: 'none' }}
-                    />
                     <div className="lens-upload-icon">
                       <ImageIcon size={24} />
                     </div>
-                    <p>Pictures in your Device...</p>
-                    <small>Upload from your camera roll or choose a site image</small>
+                    <p>Choose a preloaded site image</p>
+                    <small>Open the Terra image library and select the view for this demo.</small>
                     <div className="lens-upload-actions">
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          fileInputRef.current?.click();
+                          setShowGallery(true);
                         }}
                       >
-                        <Upload size={14} />
-                        Upload Image
+                        <ImageIcon size={14} />
+                        Open Image Library
                       </button>
                     </div>
                   </div>
@@ -1331,14 +1354,7 @@ export default function LensWorkspace() {
               {image && location && (
                 <button
                   onClick={() => setPhase('scanning')}
-                  style={{
-                    width: '100%', padding: '14px', borderRadius: 14,
-                    background: 'linear-gradient(135deg, #10b981, #34d399)',
-                    border: 'none', color: '#fff', fontSize: 15, fontWeight: 800,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                    boxShadow: '0 14px 34px rgba(16,185,129,0.28)',
-                    letterSpacing: '-0.01em',
-                  }}
+                  className="lens-analyze-button"
                 >
                   Analyze Site →
                 </button>
@@ -1382,15 +1398,6 @@ export default function LensWorkspace() {
                         {selectionError}
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="lens-device-image-button"
-                    >
-                      <Upload size={14} />
-                      Pictures in your Device...
-                    </button>
-
                     {/* Full-size image list */}
                     <div className="lens-gallery-grid">
                       {GALLERY_IMAGES.map((img) => (

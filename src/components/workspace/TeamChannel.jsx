@@ -1,903 +1,262 @@
 /**
- * TeamChannel.jsx — Three-pane Slack-style workspace
- * LEFT: channel/DM sidebar  |  CENTER: message view + composer  |  RIGHT: profile/details panel
+ * TeamChannel.jsx — Terra Workspace demo room
  *
- * Data flows through Supabase tables: workspace_channels, workspace_messages, project_mock_members.
- * @Terra AI mentions trigger backend/copilot/routes.py for inline AI replies.
+ * Beautiful team cards (photo + role only), preloaded conversation,
+ * @Terra_AI mention that summarises the chat when triggered.
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Hash, Plus, Search, Info, Send, X, MessageCircle,
-  Bold, Italic, Link2, List, Smile, AtSign, Paperclip,
-  Headphones, ChevronDown, UserPlus, Bot,
-} from 'lucide-react';
-import useTerraStore from '../../store/useTerraStore';
-import { supabase } from '../../lib/supabaseClient';
-import { API_BASE_URL as API_BASE } from '../../lib/apiBase';
-import aiIcon from '../../assets/ai_chat/ai_icon.png';
-import InviteFakeMembersModal from './InviteFakeMembersModal';
+import { Send, Sparkles } from 'lucide-react';
+import imaniPhoto from '../../assets/invite/Imani_Wafula(surveyor).jpeg';
+import alexanderPhoto from '../../assets/invite/Alexander_Whitfield(structural-engineer).jpeg';
+import bekelePhoto from '../../assets/invite/Bekele_Tesfaye(site-agent).jpeg';
 import '../../styles/workspace.css';
 
-const DEFAULT_CHANNELS = ['general', 'site-notes', 'budget'];
-const EMOJI_QUICK = ['👍', '🔥', '👀', '✅', '❤️', '😂'];
+const TEAM_MEMBERS = [
+  { id: 'imani',     name: 'Imani Wafula',      role: 'Surveyor',            photo: imaniPhoto,     accent: '#10b981', emoji: '📐' },
+  { id: 'alexander', name: 'Alexander Whitfield', role: 'Structural Engineer', photo: alexanderPhoto, accent: '#3b82f6', emoji: '🏗️' },
+  { id: 'bekele',    name: 'Bekele Tesfaye',      role: 'Site Agent',          photo: bekelePhoto,    accent: '#d6a331', emoji: '⛏️' },
+];
 
-function dicebearUrl(name) {
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'M')}&backgroundColor=c084fc,818cf8,60a5fa,34d399,f59e0b,f87171&backgroundType=gradientLinear`;
+const INITIAL_MESSAGES = [
+  {
+    id: 'm1', memberId: 'imani',
+    content: 'I have reviewed the upper boundary. The first residential cluster should stay clear of the wetter lower edge — the open parcel gives us cleaner setting-out and better view control toward the hills.',
+    createdAt: '2026-07-29T08:42:00.000Z',
+  },
+  {
+    id: 'm2', memberId: 'bekele',
+    content: 'Agreed. From a site operations angle, I would start access from the existing track, fence the working zone, then bring drainage protection in before any heavy plant movement. Temporary culverts first.',
+    createdAt: '2026-07-29T08:47:00.000Z',
+  },
+  {
+    id: 'm3', memberId: 'alexander',
+    content: 'Before we lock foundations, I need plot-level soil checks on the sloped parcels. The homes can step beautifully into the hillside — but we cannot copy one foundation detail across every pad without geotech confirmation.',
+    createdAt: '2026-07-29T08:53:00.000Z',
+  },
+  {
+    id: 'm4', memberId: 'imani',
+    content: 'Survey priority zones flagged: entrance geometry, main drainage corridor, proposed show-home pads (4 units), and the steep edge parcels that should remain as landscape buffer.',
+    createdAt: '2026-07-29T09:02:00.000Z',
+  },
+  {
+    id: 'm5', memberId: 'bekele',
+    content: 'Once those stakes are in I can sequence the first two weeks — temp drainage, storage compound, safe machine route with turning bay, and daily photo logs for the site diary.',
+    createdAt: '2026-07-29T09:08:00.000Z',
+  },
+];
+
+const TERRA_AI_SUMMARY = {
+  id: 'terra-summary',
+  memberId: 'terra',
+  content: `Here is a structured summary of the conversation so far:\n\n**🗺️ Survey — Imani Wafula**\nImani has identified the upper, open parcel as the optimal starting zone for the first residential cluster, keeping away from the moisture-heavy lower edge. Priority survey zones have been flagged: entrance geometry, drainage corridor, 4 show-home pads, and landscape buffer parcels.\n\n**⛏️ Site Operations — Bekele Tesfaye**\nBekele recommends beginning with the existing track for access, installing perimeter fencing and temporary culverts before any heavy plant mobilises. He is ready to sequence the first two weeks once survey stakes are confirmed — covering temp drainage, a storage compound, safe machine routing, and daily photo documentation.\n\n**🏗️ Structural Engineering — Alexander Whitfield**\nAlexander has flagged that plot-level geotechnical testing is required before foundation details are locked. Stepped foundations on the sloped parcels are favoured aesthetically and technically, but each pad needs individual soil confirmation to avoid costly redesign.\n\n**📌 Key Decisions Outstanding:**\n1. Confirm open parcel as Phase 1 cluster zone\n2. Commission geotech test pits on sloped home pads\n3. Approve temp drainage and machine access route\n4. Set date for show-home peg-out`,
+  createdAt: new Date().toISOString(),
+};
+
+function fmtTime(v) {
+  return new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function fmtTime(d) {
-  return new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtDate(d) {
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LEFT PANE — Channel / DM sidebar
-   ═══════════════════════════════════════════════════════════════ */
-function ChannelSidebar({
-  projectName, channels, mockMembers, activeChannelId, activeDmId,
-  onSelectChannel, onSelectDm, onNewChannel, onInvite, unreadMap,
-}) {
+function MemberCard({ member }) {
   return (
-    <div className="team-channel-sidebar">
-      {/* Project header */}
-      <div className="team-channel-sidebar-header">
-        <div className="team-channel-project-name">{projectName || 'Project'}</div>
-        <span className="team-channel-project-badge">Team Workspace</span>
+    <motion.div
+      className="tc-member-card"
+      style={{ '--accent': member.accent }}
+      whileHover={{ y: -4, scale: 1.02 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+    >
+      <div className="tc-member-photo-wrap">
+        <img src={member.photo} alt={member.name} className="tc-member-photo" />
+        <div className="tc-member-status-dot" />
       </div>
-
-      {/* Channels */}
-      <div className="team-channel-section">
-        <div className="team-channel-section-head">
-          <span>Channels</span>
-          <button onClick={onNewChannel} className="team-channel-add-btn" title="New channel"><Plus size={11} /></button>
-        </div>
-        {channels.map((ch) => {
-          const active = ch.id === activeChannelId && !activeDmId;
-          const unread = unreadMap[ch.id] || 0;
-          return (
-            <button key={ch.id} onClick={() => onSelectChannel(ch)} className={`team-channel-item ${active ? 'active' : ''}`}>
-              <Hash size={13} />
-              <span className="team-channel-item-label">{ch.name}</span>
-              {unread > 0 && <span className="team-channel-unread">{unread}</span>}
-            </button>
-          );
-        })}
+      <div className="tc-member-info">
+        <span className="tc-member-emoji">{member.emoji}</span>
+        <strong className="tc-member-name">{member.name}</strong>
+        <span className="tc-member-role">{member.role}</span>
       </div>
-
-      {/* Direct Messages */}
-      <div className="team-channel-section">
-        <div className="team-channel-section-head">
-          <span>Direct Messages</span>
-        </div>
-        {/* Terra AI — always pinned first */}
-        <button
-          onClick={() => onSelectDm({ id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon, role_title: 'AI Assistant' })}
-          className={`team-channel-item dm ${activeDmId === '__terra_ai__' ? 'active' : ''}`}
-        >
-          <img src={aiIcon} alt="" className="team-channel-dm-avatar" />
-          <span className="team-channel-item-label">Terra AI</span>
-          <span className="team-channel-ai-badge">AI</span>
-        </button>
-        {mockMembers.map((m) => (
-          <button key={m.id} onClick={() => onSelectDm(m)} className={`team-channel-item dm ${activeDmId === m.id ? 'active' : ''}`}>
-            <img src={m.avatar_url || dicebearUrl(m.name)} alt="" className="team-channel-dm-avatar" />
-            <span className="team-channel-item-label">{m.name}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Add members */}
-      <div className="team-channel-sidebar-footer">
-        <button onClick={onInvite} className="team-channel-invite-btn">
-          <UserPlus size={13} /> Add Members
-        </button>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   NEW CHANNEL INLINE MODAL
-   ═══════════════════════════════════════════════════════════════ */
-function NewChannelInline({ projectId, onCreated, onClose }) {
-  const [name, setName] = useState('');
-  const [creating, setCreating] = useState(false);
+function Bubble({ msg, member }) {
+  const isOwn    = msg.memberId === 'you';
+  const isTerra  = msg.memberId === 'terra';
 
-  async function create() {
-    if (!name.trim()) return;
-    setCreating(true);
-    const slug = name.trim().toLowerCase().replace(/\s+/g, '-');
-    const { data } = await supabase
-      .from('workspace_channels')
-      .insert({ project_id: projectId, name: slug })
-      .select()
-      .single();
-    if (data) onCreated(data);
-    setCreating(false);
-    onClose();
+  if (isTerra) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="tc-terra-bubble"
+      >
+        <div className="tc-terra-header">
+          <div className="tc-terra-icon"><Sparkles size={14} /></div>
+          <div>
+            <strong>Terra AI</strong>
+            <span>Chat Summary</span>
+          </div>
+        </div>
+        <div className="tc-terra-body">
+          {msg.content.split('\n').map((line, i) => {
+            if (line.startsWith('**') && line.endsWith('**')) {
+              return <p key={i} style={{ fontWeight: 800, color: '#0f172a', margin: '10px 0 4px' }}>{line.replace(/\*\*/g, '')}</p>;
+            }
+            if (line.startsWith('**') && line.includes('**')) {
+              return <p key={i} style={{ fontWeight: 700, color: '#334155', margin: '6px 0 2px' }} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
+            }
+            if (line.startsWith('1.') || line.startsWith('2.') || line.startsWith('3.') || line.startsWith('4.')) {
+              return <p key={i} style={{ fontSize: 12, color: '#475569', margin: '2px 0 2px 8px' }}>{line}</p>;
+            }
+            return line ? <p key={i} style={{ fontSize: 12, color: '#475569', margin: '2px 0' }}>{line}</p> : null;
+          })}
+        </div>
+        <time className="tc-time">{fmtTime(msg.createdAt)}</time>
+      </motion.div>
+    );
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
-      backdropFilter: 'blur(6px)', zIndex: 999,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <motion.div
-        initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        style={{
-          background: '#fff', borderRadius: 20, padding: 28, width: 400,
-          boxShadow: '0 40px 80px rgba(0,0,0,0.15)',
-          fontFamily: "'Gabarito', 'Inter', system-ui",
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0f172a' }}>New channel</h3>
-          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '5px 7px', cursor: 'pointer', display: 'flex', color: '#64748b' }}><X size={14} /></button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '0 14px', marginBottom: 16 }}>
-          <Hash size={14} color="#94a3b8" />
-          <input
-            value={name} onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && create()}
-            placeholder="channel-name"
-            style={{ flex: 1, padding: '10px 10px', border: 'none', background: 'transparent', color: '#0f172a', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, background: '#f1f5f9', border: 'none', borderRadius: 100, padding: '10px 0', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button onClick={create} disabled={!name.trim() || creating} style={{
-            flex: 2, background: name.trim() ? '#8b5cf6' : '#e2e8f0', border: 'none', borderRadius: 100, padding: '10px 0',
-            color: name.trim() ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: name.trim() ? 'pointer' : 'default',
-            fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}>
-            <Hash size={13} /> Create
-          </button>
-        </div>
-      </motion.div>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className={`tc-message ${isOwn ? 'own' : ''}`}
+    >
+      {!isOwn && member && (
+        <img src={member.photo} alt="" className="tc-avatar" />
+      )}
+      <div className={`tc-bubble ${isOwn ? 'own' : ''}`} style={!isOwn && member ? { '--accent': member.accent } : {}}>
+        {!isOwn && member && (
+          <div className="tc-bubble-meta">
+            <strong>{member.name}</strong>
+            <span>{member.role}</span>
+          </div>
+        )}
+        <p>{msg.content}</p>
+        <time>{fmtTime(msg.createdAt)}</time>
+      </div>
+    </motion.div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   CENTER PANE — Message view + Composer
-   ═══════════════════════════════════════════════════════════════ */
-function MessageView({
-  projectId, channelId, channelName, dmMember, mockMembers,
-  user, session, onOpenProfile, onOpenDetails,
-}) {
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [aiThinking, setAiThinking] = useState(false);
-  const [senderAs, setSenderAs] = useState('self'); // 'self' | mock member id
-  const [showSenderPicker, setShowSenderPicker] = useState(false);
-  const [reactions, setReactions] = useState({}); // { msgId: { emoji: count } }
-  const [showEmojiFor, setShowEmojiFor] = useState(null);
-  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-  const [mentionResults, setMentionResults] = useState([]);
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+export default function TeamChannel({ projectName }) {
+  const [messages, setMessages]     = useState(INITIAL_MESSAGES);
+  const [draft, setDraft]           = useState('');
+  const [showMention, setShowMention] = useState(false);
+  const messagesEndRef              = useRef(null);
+  const textareaRef                 = useRef(null);
 
-  const isDm = !!dmMember;
-  const isAiDm = dmMember?.id === '__terra_ai__';
-  const headerName = isDm ? dmMember.name : `# ${channelName}`;
-
-  // Fetch profile data
-  const [profileName, setProfileName] = useState('');
-  useEffect(() => {
-    if (!user?.id) return;
-    supabase.from('profiles').select('display_name, username').eq('id', user.id).single()
-      .then(({ data }) => {
-        const n = data?.display_name || data?.username;
-        if (n) setProfileName(n);
-      });
-  }, [user?.id]);
-  const displayName = profileName || user?.user_metadata?.full_name || user?.email?.split('@')?.[0] || 'You';
-
-  // Load messages
-  useEffect(() => {
-    if (!channelId && !isDm) return;
-    loadMessages();
-
-    // Realtime subscription
-    let filterStr;
-    if (isDm && !isAiDm) {
-      filterStr = `dm_with_id=eq.${dmMember.id}`;
-    } else if (isDm && isAiDm) {
-      filterStr = `dm_with_id=eq.${dmMember.id}`;
-    } else {
-      filterStr = `channel_id=eq.${channelId}`;
-    }
-
-    const sub = supabase.channel(`wm:${channelId || dmMember?.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'workspace_messages',
-        filter: filterStr,
-      }, (payload) => {
-        setMessages((prev) => {
-          // Remove any optimistic duplicates (match by content + sender)
-          const cleaned = prev.filter((m) =>
-            !m._optimistic || m.content !== payload.new.content || m.sender_name !== payload.new.sender_name
-          );
-          if (cleaned.some((m) => m.id === payload.new.id)) return cleaned;
-          return [...cleaned, payload.new];
-        });
-      }).subscribe();
-
-    return () => supabase.removeChannel(sub);
-  }, [channelId, dmMember?.id]);
-
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, aiThinking]);
+  }, [messages]);
 
-  async function loadMessages() {
-    setLoading(true);
-    let query = supabase.from('workspace_messages')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: true })
-      .limit(200);
-
-    if (isDm) {
-      query = query.eq('dm_with_id', dmMember.id);
-    } else {
-      query = query.eq('channel_id', channelId);
-    }
-
-    const { data } = await query;
-    setMessages(data || []);
-    setLoading(false);
-  }
-
-  // Send message — optimistic UI
-  async function handleSend() {
-    const msg = text.trim();
-    if (!msg) return;
-    setText('');
-
-    // Determine sender
-    let senderType = 'user';
-    let senderName = displayName;
-    let senderAvatar = null;
-    if (senderAs !== 'self') {
-      const mockMember = mockMembers.find((m) => m.id === senderAs);
-      if (mockMember) {
-        senderType = 'mock_member';
-        senderName = mockMember.name;
-        senderAvatar = mockMember.avatar_url || dicebearUrl(mockMember.name);
-      }
-    }
-
-    const newMsg = {
-      project_id: projectId,
-      channel_id: isDm ? null : channelId,
-      dm_with_id: isDm ? dmMember.id : null,
-      sender_type: senderType,
-      sender_name: senderName,
-      sender_avatar: senderAvatar,
-      content: msg,
-    };
-
-    // Optimistic: add to local state immediately with temp id
-    const optimisticMsg = {
-      ...newMsg,
-      id: `optimistic-${Date.now()}`,
-      created_at: new Date().toISOString(),
-      _optimistic: true,
-    };
-    setMessages((prev) => [...prev, optimisticMsg]);
-
-    const { data } = await supabase.from('workspace_messages').insert(newMsg).select().single();
-
-    // Replace optimistic message with real one (if realtime hasn't already)
-    if (data) {
-      setMessages((prev) => {
-        // Remove optimistic, add real if not already present
-        const withoutOptimistic = prev.filter((m) => m.id !== optimisticMsg.id);
-        if (withoutOptimistic.some((m) => m.id === data.id)) return withoutOptimistic;
-        return [...withoutOptimistic, data];
-      });
-    }
-
-    // Check for @Terra AI mention or if this is an AI DM
-    const mentionsTerraAI = /(@terra\s*ai|@terraai)/i.test(msg);
-    if (mentionsTerraAI || isAiDm) {
-      triggerAiReply(msg);
-    }
-  }
-
-  async function triggerAiReply(userMessage) {
-    setAiThinking(true);
-    try {
-      // Gather recent context
-      const recentMessages = messages.slice(-10).map((m) => `${m.sender_name}: ${m.content}`).join('\n');
-      const contextMessage = `[Channel context]\n${recentMessages}\n\n[New message]\n${userMessage}`;
-
-      const res = await fetch(`${API_BASE}/api/copilot/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          message: contextMessage,
-          project_id: projectId,
-          resolved_refs: [],
-        }),
-      });
-      const data = await res.json();
-      const reply = data.answer || 'I couldn\'t process that right now.';
-
-      // Post AI reply
-      await supabase.from('workspace_messages').insert({
-        project_id: projectId,
-        channel_id: isDm ? null : channelId,
-        dm_with_id: isDm ? dmMember.id : null,
-        sender_type: 'ai',
-        sender_name: 'Terra AI',
-        sender_avatar: null,
-        content: reply,
-      });
-    } catch {
-      await supabase.from('workspace_messages').insert({
-        project_id: projectId,
-        channel_id: isDm ? null : channelId,
-        dm_with_id: isDm ? dmMember.id : null,
-        sender_type: 'ai',
-        sender_name: 'Terra AI',
-        sender_avatar: null,
-        content: 'Terra AI is temporarily unavailable. Please try again.',
-      });
-    }
-    setAiThinking(false);
-  }
-
-  // @mention handling
-  function handleInputChange(e) {
+  function handleDraftChange(e) {
     const val = e.target.value;
-    setText(val);
+    setDraft(val);
+    setShowMention(val.includes('@Terra_AI'));
+  }
 
-    const atIdx = val.lastIndexOf('@');
-    if (atIdx !== -1) {
-      const afterAt = val.slice(atIdx + 1).split(' ')[0].toLowerCase();
-      if (afterAt.length >= 1) {
-        const results = [];
-        // Match Terra AI
-        if ('terra ai'.includes(afterAt) || 'terraai'.includes(afterAt)) {
-          results.push({ id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon });
-        }
-        // Match mock members
-        mockMembers.forEach((m) => {
-          if (m.name.toLowerCase().includes(afterAt)) {
-            results.push(m);
-          }
-        });
-        if (results.length > 0) {
-          setMentionResults(results);
-          setShowMentionDropdown(true);
-          return;
-        }
-      }
+  function sendMessage() {
+    const content = draft.trim();
+    if (!content) return;
+    setDraft('');
+    setShowMention(false);
+
+    const isAISummaryRequest =
+      content.toLowerCase().includes('@terra_ai') &&
+      content.toLowerCase().includes('summar');
+
+    setMessages((cur) => [
+      ...cur,
+      { id: `you-${Date.now()}`, memberId: 'you', content, createdAt: new Date().toISOString() },
+    ]);
+
+    if (isAISummaryRequest) {
+      setTimeout(() => {
+        setMessages((cur) => [...cur, { ...TERRA_AI_SUMMARY, id: `terra-${Date.now()}`, createdAt: new Date().toISOString() }]);
+      }, 1400);
     }
-    setShowMentionDropdown(false);
-  }
-
-  function insertMention(member) {
-    const atIdx = text.lastIndexOf('@');
-    const before = text.slice(0, atIdx);
-    setText(`${before}@${member.name} `);
-    setShowMentionDropdown(false);
-    inputRef.current?.focus();
-  }
-
-  function toggleReaction(msgId, emoji) {
-    setReactions((prev) => {
-      const msgReactions = { ...(prev[msgId] || {}) };
-      msgReactions[emoji] = (msgReactions[emoji] || 0) > 0 ? 0 : 1;
-      return { ...prev, [msgId]: msgReactions };
-    });
-    setShowEmojiFor(null);
   }
 
   return (
-    <div className="team-channel-center">
-      {/* Header */}
-      <div className="team-channel-center-header">
-        <div className="team-channel-center-title">
-          {isDm ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src={dmMember.avatar_url || dicebearUrl(dmMember.name)} alt="" className="team-channel-header-avatar" />
-              <div>
-                <span className="team-channel-header-name">{dmMember.name}</span>
-                {dmMember.role_title && <span className="team-channel-header-role">{dmMember.role_title}</span>}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Hash size={16} color="#8b5cf6" />
-              <span className="team-channel-header-name">{channelName}</span>
-            </div>
-          )}
+    <div className="tc-root">
+      {/* ── Left: member cards ── */}
+      <aside className="tc-sidebar">
+        <div className="tc-sidebar-head">
+          <span className="tc-sidebar-label">Collaborators</span>
+          <span className="tc-sidebar-count">{TEAM_MEMBERS.length} active</span>
         </div>
-        <div className="team-channel-center-actions">
-          <button className="team-channel-icon-btn" title="Huddle"><Headphones size={15} /></button>
-          <button className="team-channel-icon-btn" title="Search"><Search size={15} /></button>
-          {!isDm && (
-            <button className="team-channel-icon-btn" title="Channel details" onClick={onOpenDetails}>
-              <Info size={15} />
-            </button>
-          )}
+        <div className="tc-members-grid">
+          {TEAM_MEMBERS.map((m) => <MemberCard key={m.id} member={m} />)}
         </div>
-      </div>
+        <div className="tc-ai-hint">
+          <Sparkles size={12} />
+          <span>Type <code>@Terra_AI</code> and ask it to summarise the chat</span>
+        </div>
+      </aside>
 
-      {/* Messages */}
-      <div className="team-channel-messages">
-        {loading ? (
-          <div className="team-channel-loading">Loading messages…</div>
-        ) : (
-          <>
-            {/* Start banner */}
-            <div className="team-channel-start-banner">
-              {isDm ? (
-                <>
-                  <img src={dmMember.avatar_url || dicebearUrl(dmMember.name)} alt="" style={{ width: 48, height: 48, borderRadius: 14 }} />
-                  <h3>This is the start of your conversation with {dmMember.name}</h3>
-                </>
-              ) : (
-                <>
-                  <div className="team-channel-start-icon"><Hash size={22} color="#8b5cf6" /></div>
-                  <h3>Welcome to #{channelName}</h3>
-                  <p>This is the beginning of the #{channelName} channel. Send a message to start the conversation.</p>
-                </>
-              )}
-            </div>
+      {/* ── Right: chat ── */}
+      <main className="tc-chat">
+        <header className="tc-chat-head">
+          <div>
+            <span className="tc-chat-super">Terra Workspace</span>
+            <h2 className="tc-chat-title">{projectName || 'The Grove at Highlands of Limuru'}</h2>
+          </div>
+          <p className="tc-chat-sub">Survey · Structure · Site Execution</p>
+        </header>
 
-            {/* Message list */}
-            <AnimatePresence initial={false}>
-              {messages.map((msg, i) => {
-                const prev = messages[i - 1];
-                const sameUser = prev?.sender_name === msg.sender_name &&
-                  new Date(msg.created_at) - new Date(prev?.created_at) < 120000;
-                const isAi = msg.sender_type === 'ai';
-                const isOwn = msg.sender_type === 'user';
-                const isMock = msg.sender_type === 'mock_member';
-                const msgReactions = reactions[msg.id] || {};
-
-                return (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className={`chat-bubble-row ${isOwn ? 'own' : 'other'} ${sameUser ? 'grouped' : ''}`}
-                  >
-                    {/* Avatar — only for others, only first in group */}
-                    {!isOwn && !sameUser && (
-                      <button
-                        className="chat-bubble-avatar-btn"
-                        onClick={() => onOpenProfile(isAi
-                          ? { id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon, role_title: 'AI Assistant' }
-                          : mockMembers.find((m) => m.name === msg.sender_name) || { name: msg.sender_name, avatar_url: msg.sender_avatar }
-                        )}
-                      >
-                        <img src={isAi ? aiIcon : (msg.sender_avatar || dicebearUrl(msg.sender_name))} alt="" className="chat-bubble-avatar" />
-                      </button>
-                    )}
-                    {!isOwn && sameUser && <div className="chat-bubble-avatar-spacer" />}
-
-                    <div className={`chat-bubble ${isOwn ? 'chat-bubble--own' : 'chat-bubble--other'} ${isAi ? 'chat-bubble--ai' : ''} ${sameUser ? 'chat-bubble--grouped' : ''}`}>
-                      {/* Sender name — only for others, first in group */}
-                      {!isOwn && !sameUser && (
-                        <div className="chat-bubble-sender-row">
-                          <button
-                            className="chat-bubble-sender-name"
-                            onClick={() => onOpenProfile(isAi
-                              ? { id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon, role_title: 'AI Assistant' }
-                              : mockMembers.find((m) => m.name === msg.sender_name) || { name: msg.sender_name }
-                            )}
-                          >
-                            {msg.sender_name}
-                          </button>
-                          {isAi && <span className="team-channel-ai-tag">AI</span>}
-                        </div>
-                      )}
-
-                      <p className="chat-bubble-text">{msg.content}</p>
-                      <span className="chat-bubble-time">{fmtTime(msg.created_at)}</span>
-
-                      {/* Reactions */}
-                      <div className="team-channel-msg-reactions">
-                        {Object.entries(msgReactions).filter(([, c]) => c > 0).map(([emoji]) => (
-                          <button key={emoji} className="team-channel-reaction active" onClick={() => toggleReaction(msg.id, emoji)}>
-                            {emoji}
-                          </button>
-                        ))}
-                        <button
-                          className="team-channel-reaction add"
-                          onClick={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)}
-                        >
-                          <Smile size={12} />
-                        </button>
-                        {showEmojiFor === msg.id && (
-                          <div className="team-channel-emoji-picker">
-                            {EMOJI_QUICK.map((em) => (
-                              <button key={em} onClick={() => toggleReaction(msg.id, em)}>{em}</button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-
-            {/* AI thinking indicator */}
-            {aiThinking && (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="team-channel-msg"
-              >
-                <img src={aiIcon} alt="" className="team-channel-msg-avatar" />
-                <div className="team-channel-msg-body">
-                  <div className="team-channel-msg-meta">
-                    <span className="team-channel-msg-sender">Terra AI</span>
-                    <span className="team-channel-ai-tag">AI</span>
-                  </div>
-                  <div className="team-channel-typing">
-                    <span /><span /><span />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </>
-        )}
-      </div>
-
-      {/* Composer */}
-      <div className="team-channel-composer">
-        {/* Sender-select dropdown */}
-        <div className="team-channel-sender-select">
-          <button onClick={() => setShowSenderPicker(!showSenderPicker)} className="team-channel-sender-btn">
-            Sending as: <strong>{senderAs === 'self' ? displayName : mockMembers.find((m) => m.id === senderAs)?.name || 'Unknown'}</strong>
-            <ChevronDown size={12} />
-          </button>
-          <AnimatePresence>
-            {showSenderPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-                className="team-channel-sender-dropdown"
-              >
-                <button onClick={() => { setSenderAs('self'); setShowSenderPicker(false); }} className={senderAs === 'self' ? 'active' : ''}>
-                  {displayName} <span>(You)</span>
-                </button>
-                {mockMembers.map((m) => (
-                  <button key={m.id} onClick={() => { setSenderAs(m.id); setShowSenderPicker(false); }} className={senderAs === m.id ? 'active' : ''}>
-                    <img src={m.avatar_url || dicebearUrl(m.name)} alt="" style={{ width: 18, height: 18, borderRadius: 6 }} />
-                    {m.name}
-                  </button>
-                ))}
-              </motion.div>
-            )}
+        <div className="tc-messages">
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => {
+              const member = TEAM_MEMBERS.find((m) => m.id === msg.memberId);
+              return <Bubble key={msg.id} msg={msg} member={member} />;
+            })}
           </AnimatePresence>
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* @mention dropdown */}
+        {/* @Terra_AI suggestion chip */}
         <AnimatePresence>
-          {showMentionDropdown && mentionResults.length > 0 && (
+          {showMention && (
             <motion.div
-              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
-              className="team-channel-mention-dropdown"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              className="tc-mention-chip"
+              onClick={() => {
+                setDraft((d) => {
+                  const base = d.includes('@Terra_AI') ? d : d + '@Terra_AI';
+                  return base.includes('summar') ? base : base + ' would you summarise messages in the chat so far?';
+                });
+                textareaRef.current?.focus();
+              }}
             >
-              {mentionResults.map((m) => (
-                <button key={m.id} onClick={() => insertMention(m)}>
-                  <img src={m.avatar_url || dicebearUrl(m.name)} alt="" style={{ width: 20, height: 20, borderRadius: 6 }} />
-                  <span>{m.name}</span>
-                  {m.id === '__terra_ai__' && <span className="team-channel-ai-tag" style={{ marginLeft: 4 }}>AI</span>}
-                </button>
-              ))}
+              <Sparkles size={13} />
+              <span><strong>@Terra_AI</strong> — ask Terra to summarise the conversation</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Toolbar */}
-        <div className="team-channel-toolbar">
-          <button className="team-channel-toolbar-btn" title="Bold"><Bold size={14} /></button>
-          <button className="team-channel-toolbar-btn" title="Italic"><Italic size={14} /></button>
-          <button className="team-channel-toolbar-btn" title="Link"><Link2 size={14} /></button>
-          <button className="team-channel-toolbar-btn" title="List"><List size={14} /></button>
-          <div className="team-channel-toolbar-sep" />
-          <button className="team-channel-toolbar-btn" title="Emoji"><Smile size={14} /></button>
-          <button className="team-channel-toolbar-btn" title="Mention" onClick={() => { setText(text + '@'); inputRef.current?.focus(); }}><AtSign size={14} /></button>
-          <button className="team-channel-toolbar-btn" title="Attach"><Paperclip size={14} /></button>
-        </div>
-
-        {/* Input */}
-        <div className="team-channel-input-row">
+        <form
+          className="tc-composer"
+          onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+        >
           <textarea
-            ref={inputRef}
-            className="team-channel-textarea"
-            placeholder={isDm ? `Message ${dmMember.name}` : `Message #${channelName}`}
-            value={text}
-            onChange={handleInputChange}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            rows={1}
-          />
-          <button
-            className="team-channel-send-btn"
-            onClick={handleSend}
-            disabled={!text.trim()}
-          >
-            <Send size={15} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   RIGHT PANE — Profile / Details panel
-   ═══════════════════════════════════════════════════════════════ */
-function RightPanel({ type, data, onClose, onMessageMember, channelInfo }) {
-  if (type === 'profile') {
-    return (
-      <motion.div
-        initial={{ x: 280, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 280, opacity: 0 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="team-channel-right-panel"
-      >
-        <div className="team-channel-right-header">
-          <span>Profile</span>
-          <button onClick={onClose} className="team-channel-icon-btn"><X size={14} /></button>
-        </div>
-        <div className="team-channel-profile">
-          <img src={data?.avatar_url || dicebearUrl(data?.name)} alt="" className="team-channel-profile-photo" />
-          <h3>{data?.name || 'Unknown'}</h3>
-          {data?.role_title && <p className="team-channel-profile-role">{data.role_title}</p>}
-          {data?.email && <p className="team-channel-profile-email">{data.email}</p>}
-          <div className="team-channel-profile-status">
-            <span className="team-channel-status-dot active" />
-            {data?.id === '__terra_ai__' ? 'Always available' : 'Available'}
-          </div>
-          {data?.id !== '__terra_ai__' && (
-            <button
-              onClick={() => onMessageMember(data)}
-              className="team-channel-profile-msg-btn"
-            >
-              <MessageCircle size={14} /> Message
-            </button>
-          )}
-          {data?.id === '__terra_ai__' && (
-            <button
-              onClick={() => onMessageMember(data)}
-              className="team-channel-profile-msg-btn ai"
-            >
-              <Bot size={14} /> Open DM
-            </button>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
-
-  if (type === 'details' && channelInfo) {
-    return (
-      <motion.div
-        initial={{ x: 280, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 280, opacity: 0 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="team-channel-right-panel"
-      >
-        <div className="team-channel-right-header">
-          <span>Channel Details</span>
-          <button onClick={onClose} className="team-channel-icon-btn"><X size={14} /></button>
-        </div>
-        <div className="team-channel-details">
-          <div className="team-channel-details-name">
-            <Hash size={16} color="#8b5cf6" /> {channelInfo.name}
-          </div>
-          {channelInfo.topic && (
-            <div className="team-channel-details-topic">
-              <span className="label">Topic</span>
-              <p>{channelInfo.topic}</p>
-            </div>
-          )}
-          <div className="team-channel-details-created">
-            <span className="label">Created</span>
-            <p>{fmtDate(channelInfo.created_at)}</p>
-          </div>
-          {channelInfo.members && (
-            <div className="team-channel-details-members">
-              <span className="label">Members ({channelInfo.members.length})</span>
-              {channelInfo.members.map((m) => (
-                <div key={m.id || m.name} className="team-channel-details-member-row">
-                  <img src={m.avatar_url || dicebearUrl(m.name)} alt="" style={{ width: 28, height: 28, borderRadius: 8 }} />
-                  <span>{m.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
-
-  return null;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   MAIN — TeamChannel orchestrator
-   ═══════════════════════════════════════════════════════════════ */
-export default function TeamChannel({ projectId, projectName }) {
-  const {
-    workspace, setTeamActiveChannel, setTeamActiveDm,
-    openTeamRightPanel, closeTeamRightPanel, user, session,
-  } = useTerraStore();
-  const { teamChannel } = workspace;
-
-  const [channels, setChannels] = useState([]);
-  const [mockMembers, setMockMembers] = useState([]);
-  const [showNewChannel, setShowNewChannel] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [activeChannel, setActiveChannel] = useState(null);
-  const [activeDmMember, setActiveDmMember] = useState(null);
-
-  // Load channels — seed defaults if empty
-  useEffect(() => {
-    loadChannels();
-    loadMockMembers();
-  }, [projectId]);
-
-  async function loadChannels() {
-    const { data } = await supabase
-      .from('workspace_channels')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at');
-
-    if (!data || data.length === 0) {
-      // Seed default channels
-      const inserts = DEFAULT_CHANNELS.map((name) => ({ project_id: projectId, name }));
-      const { data: seeded } = await supabase
-        .from('workspace_channels')
-        .insert(inserts)
-        .select();
-      if (seeded) {
-        setChannels(seeded);
-        setActiveChannel(seeded[0]);
-        setTeamActiveChannel(seeded[0].id);
-      }
-    } else {
-      setChannels(data);
-      if (!teamChannel.activeChannelId && !teamChannel.activeDmMemberId) {
-        setActiveChannel(data[0]);
-        setTeamActiveChannel(data[0].id);
-      } else if (teamChannel.activeChannelId) {
-        setActiveChannel(data.find((c) => c.id === teamChannel.activeChannelId) || data[0]);
-      }
-    }
-  }
-
-  async function loadMockMembers() {
-    const { data } = await supabase
-      .from('project_mock_members')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at');
-    if (data) setMockMembers(data);
-  }
-
-  function handleSelectChannel(ch) {
-    setActiveChannel(ch);
-    setActiveDmMember(null);
-    setTeamActiveChannel(ch.id);
-    closeTeamRightPanel();
-  }
-
-  function handleSelectDm(member) {
-    setActiveDmMember(member);
-    setActiveChannel(null);
-    setTeamActiveDm(member.id);
-    closeTeamRightPanel();
-  }
-
-  function handleOpenProfile(memberData) {
-    openTeamRightPanel('profile', memberData);
-  }
-
-  function handleOpenDetails() {
-    if (!activeChannel) return;
-    const channelInfo = {
-      ...activeChannel,
-      members: [
-        { id: '__terra_ai__', name: 'Terra AI', avatar_url: aiIcon },
-        ...mockMembers,
-      ],
-    };
-    openTeamRightPanel('details', channelInfo);
-  }
-
-  function handleMessageFromProfile(member) {
-    handleSelectDm(member);
-    closeTeamRightPanel();
-  }
-
-  function handleChannelCreated(ch) {
-    setChannels((prev) => [...prev, ch]);
-    handleSelectChannel(ch);
-  }
-
-  return (
-    <div className={`team-channel-layout ${teamChannel.rightPanelOpen ? 'with-right-panel' : ''}`}>
-      {/* Left pane */}
-      <ChannelSidebar
-        projectName={projectName}
-        channels={channels}
-        mockMembers={mockMembers}
-        activeChannelId={activeChannel?.id}
-        activeDmId={activeDmMember?.id}
-        onSelectChannel={handleSelectChannel}
-        onSelectDm={handleSelectDm}
-        onNewChannel={() => setShowNewChannel(true)}
-        onInvite={() => setShowInviteModal(true)}
-        unreadMap={{}}
-      />
-
-      {/* Center pane */}
-      <MessageView
-        projectId={projectId}
-        channelId={activeChannel?.id}
-        channelName={activeChannel?.name}
-        dmMember={activeDmMember}
-        mockMembers={mockMembers}
-        user={user}
-        session={session}
-        onOpenProfile={handleOpenProfile}
-        onOpenDetails={handleOpenDetails}
-      />
-
-      {/* Right pane */}
-      <AnimatePresence>
-        {teamChannel.rightPanelOpen && (
-          <RightPanel
-            type={teamChannel.rightPanelType}
-            data={teamChannel.rightPanelData}
-            onClose={closeTeamRightPanel}
-            onMessageMember={handleMessageFromProfile}
-            channelInfo={teamChannel.rightPanelType === 'details' ? teamChannel.rightPanelData : null}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Modals */}
-      <AnimatePresence>
-        {showNewChannel && (
-          <NewChannelInline
-            projectId={projectId}
-            onCreated={handleChannelCreated}
-            onClose={() => setShowNewChannel(false)}
-          />
-        )}
-        {showInviteModal && (
-          <InviteFakeMembersModal
-            projectId={projectId}
-            onClose={() => setShowInviteModal(false)}
-            onMembersAdded={(newMembers) => {
-              setMockMembers((prev) => [...prev, ...newMembers]);
-              setShowInviteModal(false);
+            ref={textareaRef}
+            value={draft}
+            onChange={handleDraftChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
             }}
+            rows={1}
+            placeholder='Message the team, or type @Terra_AI to ask the AI…'
           />
-        )}
-      </AnimatePresence>
+          <button type="submit" disabled={!draft.trim()} aria-label="Send">
+            <Send size={16} />
+          </button>
+        </form>
+      </main>
     </div>
   );
 }

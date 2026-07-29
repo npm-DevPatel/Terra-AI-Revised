@@ -609,6 +609,31 @@ function PlannerView({ active }) {
   );
 }
 
+// ── Preloaded AI highlight responses ──────────────────────────────────────
+const HIGHLIGHT_RESPONSES = [
+  {
+    match: 'strongest opportunity is to create a community',
+    title: '🌄 Opportunity Intelligence',
+    response: 'This passage identifies the core value proposition for the estate — place identity over generic product. Tigoni and Limuru carry genuine brand weight: the hills, cool climate, lush greenery, and proximity to Nairobi without being inside it. The recommendation is to lean into that hard. Arrival roads should feel like a journey into something distinct. Walking loops and shared gardens can turn infrastructure into amenity. Water harvesting and lush planting are not just engineering — they become marketing. The wellness and remote-work narrative is highly relevant to 2025-2026 Kenyan buyer psychology. A phased approach limits capital risk while proving demand. The phrase "the land story is good; the execution has to be equally careful" is the key sentence — it frames this as an execution challenge, not a concept challenge.',
+  },
+  {
+    match: 'Buildability Zones',
+    title: '📐 Zone Intelligence',
+    response: 'Terra reads buildability in four stacked dimensions: foundation complexity (soil, slope, drainage), view quality (orientation, sightlines, privacy), infrastructure reach (road distance, utility proximity), and commercial appeal (plot desirability, price per sqm potential). The cleanest zone for this site is the upper open parcel — manageable slope, best views, easiest access setting-out. The lower wetter edge scores poorly on foundation complexity and drainage, which is why it should become a landscape or buffer zone in Phase 1. Phase 2 can address the steeper or more complex parcels once drainage infrastructure is in place and revenue from Phase 1 validates the product. The principle is: spend capital where the land is easiest and the buyer experience is strongest first.',
+  },
+  {
+    match: 'KES 56,472,500',
+    title: '💰 Budget Derivation Breakdown',
+    response: 'Here is how that figure was built:\n\n**Phase 1 — Infrastructure: KES 14,780,000**\nSurvey & geotech (380K) · Entrance tarmac road 600m (5.1M) · Internal gravel roads (3.84M) · Stormwater drainage system (2.8M) · Security fence 900m (4.05M) · Borehole + 50K L storage (1.2M) · Electrical reticulation (950K)\n\n**Phase 2 — Show Homes × 4: KES 17,450,000**\nFoundations strip+raft (1.28M) · Superstructure incl. pitched roof (8.4M) · Internal finishes & MEP (5.8M) · External works & paving (1.12M) · Sales office fit-out (850K)\n\n**Phase 3 — Amenities: KES 11,580,000**\nClubhouse 200m² (9M) · Shared gardens & landscaping (1.6M) · Play area (420K) · Gatehouse & CCTV (380K) · Waste management (180K)\n\n**Professional Fees & Contingency: KES 12,662,500**\nArchitect at 5% of construction (2.19M) · Civil & structural engineer (680K) · QS (420K) · Environmental consultant (240K) · PM 8 months (680K) · 10% contingency on all phases (4.38M)\n\n**Grand Total: KES 56,472,500**\n\nAll rates benchmarked against 2025 Kiambu County highland construction costs.',
+  },
+];
+
+function getHighlightResponse(selectedText) {
+  if (!selectedText) return null;
+  const lower = selectedText.toLowerCase();
+  return HIGHLIGHT_RESPONSES.find((r) => lower.includes(r.match.toLowerCase())) || null;
+}
+
 export default function PlannerWorkspace() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -677,12 +702,27 @@ export default function PlannerWorkspace() {
           AI context
         </button>
       )}
-      {selectionMenu?.opened && (
-        <div className="planner-context-popover" style={{ left: selectionMenu.x, top: selectionMenu.y + 38 }}>
-          <strong>Preloaded context</strong>
-          <p>This highlighted phrase will open a Terra explanation in presentation mode. For now, Terra marks it as a decision point for design, cost, risk, or coordination.</p>
-        </div>
-      )}
+      {selectionMenu?.opened && (() => {
+        const hit = getHighlightResponse(selectionMenu.text);
+        return (
+          <div className="planner-context-popover" style={{ left: Math.min(selectionMenu.x, window.innerWidth - 360), top: selectionMenu.y + 38 }}>
+            {hit ? (
+              <>
+                <strong>{hit.title}</strong>
+                {hit.response.split('\n').map((line, i) => {
+                  if (line.startsWith('**') && line.endsWith('**')) return <p key={i} style={{fontWeight:800,color:'#0f172a',marginBottom:4}}>{line.replace(/\*\*/g,'')}</p>;
+                  return line ? <p key={i}>{line}</p> : <br key={i} />;
+                })}
+              </>
+            ) : (
+              <>
+                <strong>Terra AI Context</strong>
+                <p>This phrase is a decision point for design, cost, risk, or coordination. Highlight one of the specific passages in Overview or Site to see preloaded Terra intelligence.</p>
+              </>
+            )}
+          </div>
+        );
+      })()}
       <aside className="planner-vertical-menu">
         <div className="planner-brand">
           <div className="planner-brand-mark">T</div>
