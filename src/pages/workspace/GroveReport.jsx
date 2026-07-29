@@ -1,7 +1,22 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageFlip } from 'page-flip';
-import loadingGif from '../../assets/loading_state/loading.gif';
+import {
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  Droplets,
+  Layers3,
+  MapPin,
+  Mountain,
+  ShieldAlert,
+  Sparkles,
+  Trees,
+  X,
+} from 'lucide-react';
 
+import loadingGif from '../../assets/loading_state/loading.gif';
 import overviewImg from '../../../presentation_mode/planner_images/overview.jpeg';
 import overview2Img from '../../../presentation_mode/planner_images/overview_2.jpeg';
 import siteImg from '../../../presentation_mode/planner_images/site.jpeg';
@@ -11,6 +26,7 @@ import buildImg from '../../../presentation_mode/planner_images/build_2.jpeg';
 import resourcesImg from '../../../presentation_mode/planner_images/resources.jpeg';
 import budgetImg from '../../../presentation_mode/planner_images/budget.jpeg';
 import budget2Img from '../../../presentation_mode/planner_images/budget_2.jpeg';
+import terraPlannerImg from '../../assets/terra_planner.jpeg';
 
 import '../../styles/groveReport.css';
 
@@ -21,15 +37,306 @@ const LOADING_MESSAGES = [
   'Great Projects Begin With Understanding',
 ];
 
-const BUDGET_DATA = [
-  { label: 'Infrastructure', amount: 14780000, color: '#10b981', pct: 35 },
-  { label: 'Show Homes', amount: 17450000, color: '#3b82f6', pct: 41 },
-  { label: 'Amenities', amount: 11580000, color: '#8b5cf6', pct: 15 },
-  { label: 'Fees & Contingency', amount: 5120000, color: '#f59e0b', pct: 9 },
+const TOTAL_PAGES = 12;
+const CAPEX_TOTAL = 48_930_000;
+const PROJECTED_SALES = 78_500_000;
+
+const metrics = [
+  ['Project health', '91%', 'Proceed with discipline'],
+  ['Buildability', '84/100', 'Best first phase on open parcel'],
+  ['Drainage exposure', 'Medium', 'Needs early civil design'],
+  ['Vegetation retained', '42%', 'Landscape as infrastructure'],
 ];
 
-function fmtKES(n) {
-  return 'KES ' + Math.round(n).toLocaleString('en-KE');
+const budgetItems = [
+  { label: 'Civil infrastructure', amount: 14_780_000, pct: 30, tone: 'green' },
+  { label: 'Show homes', amount: 17_450_000, pct: 36, tone: 'blue' },
+  { label: 'Amenities and security', amount: 11_580_000, pct: 24, tone: 'gold' },
+  { label: 'Fees and contingency', amount: 5_120_000, pct: 10, tone: 'slate' },
+];
+
+const reportPages = [
+  {
+    eyebrow: '01 / Executive Summary',
+    title: 'Proceed, but let the land lead.',
+    subtitle:
+      'The Grove works as a premium highland estate when terrain, drainage, architecture, and cash flow are managed as one system.',
+    image: overviewImg,
+    Icon: Sparkles,
+    body: [
+      ['Development thesis', 'A calm residential retreat close to Nairobi, positioned around views, cool air, landscape privacy, and disciplined infrastructure.'],
+      ['First decision', 'Start with the cleaner parcel, prove demand with a beautiful first cluster, and reserve complex slopes for landscape or later phases.'],
+    ],
+  },
+  {
+    eyebrow: '02 / Site Intelligence',
+    title: 'A highland parcel with real water logic.',
+    subtitle:
+      'Backend variables convert terrain, rainfall, soil, and access into build decisions the team can act on.',
+    image: siteImg,
+    Icon: Mountain,
+    facts: [
+      ['Elevation', '2,140m ASL'],
+      ['Average slope', '12.4%'],
+      ['Soil profile', 'Red volcanic'],
+      ['Annual rain', '1,450mm'],
+    ],
+    body: [
+      ['Climate cue', 'Design for warmth, dry thresholds, roof performance, covered entries, and daylight rather than generic suburbia.'],
+    ],
+  },
+  {
+    eyebrow: '04 / Terrain and Drainage',
+    title: 'Make stormwater visible, controlled, and beautiful.',
+    subtitle:
+      'Contour roads, planted swales, retention gardens, and gabion edges reduce erosion while preserving the estate character.',
+    image: overview2Img,
+    Icon: Droplets,
+    body: [
+      ['Runoff control', 'Interceptor drains route heavy rain toward planted retention areas before it reaches residential clusters.'],
+      ['Slope strategy', 'Roads follow contours to reduce cut-and-fill, retaining costs, and harsh visual edges.'],
+    ],
+  },
+  {
+    eyebrow: '05 / Planning Concept',
+    title: 'Cluster homes around landscape, not asphalt.',
+    subtitle:
+      'The masterplan organizes four residential pods, protected pedestrian loops, shared gardens, and view-led orientation.',
+    image: planImg,
+    Icon: Trees,
+    body: [
+      ['Estate language', 'Pitched roofs, deep overhangs, planted boundaries, and quiet material choices should make the project unmistakably Limuru.'],
+      ['Buyer promise', 'Privacy, green edges, clean air, and reliable infrastructure become the core product.'],
+    ],
+  },
+  {
+    eyebrow: '06 / Build Strategy',
+    title: 'Sequence the work like a risk system.',
+    subtitle:
+      'Survey, geotechnical testing, drainage setting-out, access roads, utilities, then show homes. No heroic shortcuts.',
+    image: buildImg,
+    Icon: Layers3,
+    body: [
+      ['Phase gate', 'Do not pour foundations until wet-weather drainage paths and soil assumptions are confirmed.'],
+      ['Quality focus', 'Track road falls, roof drainage, external finishes, retaining edges, and landscape establishment every week.'],
+    ],
+  },
+  {
+    eyebrow: '07 / Resources',
+    title: 'Use local availability as a strategic advantage.',
+    subtitle:
+      'Procurement favors nearby stone, resilient timber, moisture-ready finishes, and consultants who understand highland sites.',
+    image: resourcesImg,
+    Icon: CheckCircle2,
+    body: [
+      ['Core team', 'Surveyor, geotechnical engineer, civil engineer, architect, QS, environmental consultant, and project manager.'],
+      ['Material logic', 'Specify roads, gutters, roofing, paving, timber, and drainage products for wet-season durability.'],
+    ],
+  },
+  {
+    eyebrow: '09 / Budget Breakdown',
+    title: 'A budget with named risks is a usable budget.',
+    subtitle:
+      'Civil works, show homes, amenities, professional fees, and contingency are separated so leadership can make clear tradeoffs.',
+    image: budget2Img,
+    Icon: BarChart3,
+    table: true,
+  },
+  {
+    eyebrow: '10 / Risk and AI Recommendations',
+    title: 'The hidden danger is late coordination.',
+    subtitle:
+      'Terra AI flags the project conditions most likely to damage cost, schedule, or trust if they are ignored early.',
+    image: site2Img,
+    Icon: ShieldAlert,
+    risks: [
+      ['Rain-season earthworks', 'Complete major earthworks before the April-May rain window, with temporary drainage active during construction.'],
+      ['Soil moisture variation', 'Run plot-level testing before foundation details are copied across the estate.'],
+      ['Cash-flow discipline', 'Release Phase 2 funding only after Phase 1 infrastructure and presale signals are verified.'],
+    ],
+  },
+];
+
+function fmtKES(value) {
+  if (value >= 1_000_000) return `KES ${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M`;
+  return `KES ${value.toLocaleString('en-KE')}`;
+}
+
+function playFlipSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContext();
+    const gain = ctx.createGain();
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(420, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(160, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.045, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.14);
+    window.setTimeout(() => ctx.close(), 220);
+  } catch {
+    // Browsers can block generated audio until the first user gesture.
+  }
+}
+
+function StandardPage({ page, pageNumber }) {
+  const Icon = page.Icon;
+  return (
+    <div className="grove-page">
+      <div className="grove-page-inner">
+        <header className="grove-page-header">
+          <span>{page.eyebrow}</span>
+          <Icon size={18} />
+        </header>
+        <h2>{page.title}</h2>
+        <p className="grove-lede">{page.subtitle}</p>
+        <div className="grove-media-frame">
+          <img src={page.image} alt="" />
+        </div>
+        {page.facts && (
+          <div className="grove-fact-grid">
+            {page.facts.map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+        {page.body && (
+          <div className="grove-insight-stack">
+            {page.body.map(([title, text]) => (
+              <article className="grove-insight" key={title}>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        )}
+        {page.table && <BudgetBreakdown />}
+        {page.risks && (
+          <div className="grove-risk-stack">
+            {page.risks.map(([title, text], index) => (
+              <article key={title} className="grove-risk-row">
+                <strong>{String(index + 1).padStart(2, '0')}</strong>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        <PageNumber value={pageNumber} />
+      </div>
+    </div>
+  );
+}
+
+function PageNumber({ value }) {
+  return <div className="grove-page-number">{value} / {TOTAL_PAGES}</div>;
+}
+
+function BudgetBreakdown() {
+  return (
+    <div className="grove-budget-list">
+      {budgetItems.map((item) => (
+        <div className="grove-budget-row" key={item.label}>
+          <div>
+            <span>{item.label}</span>
+            <strong>{fmtKES(item.amount)}</strong>
+          </div>
+          <div className="grove-budget-track">
+            <span className={`grove-budget-fill ${item.tone}`} style={{ width: `${item.pct}%` }} />
+          </div>
+          <em>{item.pct}%</em>
+        </div>
+      ))}
+      <div className="grove-budget-total">
+        <span>Total CAPEX</span>
+        <strong>{fmtKES(CAPEX_TOTAL)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function TimelapsePage({ phase }) {
+  const phases = ['2024 Raw Parcel', '2025 Earthworks', '2026 Phase 1', '2027 Full Estate'];
+  return (
+    <div className="grove-page">
+      <div className="grove-page-inner grove-timelapse-page">
+        <header className="grove-page-header">
+          <span>03 / Land Timelapse</span>
+          <CalendarDays size={18} />
+        </header>
+        <h2>Four years of land becoming legible.</h2>
+        <p className="grove-lede">A CSS-driven satellite sequence tracks vegetation, access, earthworks, foundations, and completed estate footprint.</p>
+        <div className="grove-timelapse">
+          <div className={`grove-sat-layer raw ${phase === 0 ? 'active' : ''}`} />
+          <div className={`grove-sat-layer works ${phase === 1 ? 'active' : ''}`} />
+          <div className={`grove-sat-layer phase-one ${phase === 2 ? 'active' : ''}`} />
+          <div className={`grove-sat-layer estate ${phase === 3 ? 'active' : ''}`} />
+          <div className="grove-contour-lines" />
+          <div className="grove-scanline" />
+          <div className="grove-timelapse-label">
+            <strong>{phases[phase]}</strong>
+            <span>AI spatial memory layer</span>
+          </div>
+        </div>
+        <div className="grove-timeline">
+          {['Survey', 'Civil', 'Foundations', 'Homes', 'Handover'].map((step, index) => (
+            <div key={step} className={index <= phase + 1 ? 'active' : ''}>
+              <span>{index + 1}</span>
+              <strong>{step}</strong>
+            </div>
+          ))}
+        </div>
+        <article className="grove-insight">
+          <h3>AI interpretation</h3>
+          <p>Preserve the green corridors first, then let roads and utilities enter along contour-safe lines. The estate should appear to grow from the terrain, not overwrite it.</p>
+        </article>
+        <PageNumber value={4} />
+      </div>
+    </div>
+  );
+}
+
+function BudgetScalePage() {
+  const margin = PROJECTED_SALES - CAPEX_TOTAL;
+  return (
+    <div className="grove-page">
+      <div className="grove-page-inner grove-budget-scale-page">
+        <header className="grove-page-header">
+          <span>08 / Budget Scale</span>
+          <BarChart3 size={18} />
+        </header>
+        <h2>The balance favors value, if civil risk is contained.</h2>
+        <p className="grove-lede">The visual scale compares early capital exposure against projected sales capacity, with the surplus treated as a discipline buffer.</p>
+        <div className="grove-balance">
+          <div className="grove-balance-beam" />
+          <div className="grove-balance-pivot" />
+          <div className="grove-pan capex">
+            <span>Total CAPEX</span>
+            <strong>{fmtKES(CAPEX_TOTAL)}</strong>
+          </div>
+          <div className="grove-pan revenue">
+            <span>Projected sales</span>
+            <strong>{fmtKES(PROJECTED_SALES)}</strong>
+          </div>
+        </div>
+        <div className="grove-margin-card">
+          <span>Decision margin</span>
+          <strong>{fmtKES(margin)}</strong>
+          <p>Protect this upside with phase gates, presale evidence, and strict variation approvals.</p>
+        </div>
+        <BudgetBreakdown />
+        <PageNumber value={9} />
+      </div>
+    </div>
+  );
 }
 
 export default function GroveReport({ onClose }) {
@@ -40,113 +347,103 @@ export default function GroveReport({ onClose }) {
   const [fadeOut, setFadeOut] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [satPhase, setSatPhase] = useState(0);
-  const totalPages = 12;
 
-  // Rotate loading messages
-  useEffect(() => {
-    if (!loading) return;
-    const iv = setInterval(() => {
-      setMsgIndex((i) => (i + 1) % LOADING_MESSAGES.length);
-    }, 1200);
-    return () => clearInterval(iv);
-  }, [loading]);
-
-  // Loading timer
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setFadeOut(true);
-      setTimeout(() => setLoading(false), 800);
-    }, 4500);
-    return () => clearTimeout(t);
+  const pages = useMemo(() => {
+    return [
+      'cover',
+      reportPages[0],
+      reportPages[1],
+      'timelapse',
+      reportPages[2],
+      reportPages[3],
+      reportPages[4],
+      reportPages[5],
+      'budget-scale',
+      reportPages[6],
+      reportPages[7],
+      'back',
+    ];
   }, []);
 
-  // Satellite timelapse animation loop
   useEffect(() => {
-    if (loading) return;
-    const iv = setInterval(() => {
-      setSatPhase((prev) => (prev + 1) % 4);
-    }, 3000);
-    return () => clearInterval(iv);
+    if (!loading) return undefined;
+    const interval = window.setInterval(() => {
+      setMsgIndex((index) => (index + 1) % LOADING_MESSAGES.length);
+    }, 1150);
+    return () => window.clearInterval(interval);
   }, [loading]);
 
-  // Init page-flip
   useEffect(() => {
-    if (loading || !bookRef.current || flipRef.current) return;
+    const timer = window.setTimeout(() => {
+      setFadeOut(true);
+      window.setTimeout(() => setLoading(false), 650);
+    }, 4300);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-    const pf = new PageFlip(bookRef.current, {
-      width: 480,
-      height: 640,
+  useEffect(() => {
+    if (loading) return undefined;
+    const interval = window.setInterval(() => {
+      setSatPhase((phase) => (phase + 1) % 4);
+    }, 2400);
+    return () => window.clearInterval(interval);
+  }, [loading]);
+
+  useEffect(() => {
+    if (loading || !bookRef.current || flipRef.current) return undefined;
+
+    const flipBook = new PageFlip(bookRef.current, {
+      width: 500,
+      height: 660,
       size: 'stretch',
-      minWidth: 300,
-      maxWidth: 600,
-      minHeight: 420,
-      maxHeight: 800,
+      minWidth: 315,
+      maxWidth: 620,
+      minHeight: 430,
+      maxHeight: 780,
+      drawShadow: true,
+      maxShadowOpacity: 0.32,
       showCover: true,
-      maxShadowOpacity: 0.35,
       mobileScrollSupport: false,
-      flippingTime: 800,
       useMouseEvents: true,
+      flippingTime: 820,
     });
 
-    const pages = bookRef.current.querySelectorAll('.grove-page');
-    pf.loadFromHTML(pages);
-
-    pf.on('flip', (e) => {
-      setCurrentPage(e.data);
-      try {
-        const ac = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ac.createOscillator();
-        const gain = ac.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, ac.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(200, ac.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.04, ac.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.12);
-        osc.connect(gain).connect(ac.destination);
-        osc.start();
-        osc.stop(ac.currentTime + 0.12);
-      } catch (_) {}
+    flipBook.loadFromHTML(bookRef.current.querySelectorAll('.grove-page'));
+    flipBook.on('flip', (event) => {
+      setCurrentPage(event.data);
+      playFlipSound();
     });
-
-    flipRef.current = pf;
+    flipRef.current = flipBook;
 
     return () => {
-      if (flipRef.current) {
-        pf.destroy();
-        flipRef.current = null;
-      }
+      flipBook.destroy();
+      flipRef.current = null;
     };
   }, [loading]);
 
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (!flipRef.current) return;
-      if (e.key === 'ArrowRight') flipRef.current.flipNext();
-      if (e.key === 'ArrowLeft') flipRef.current.flipPrev();
-      if (e.key === 'Escape' && onClose) onClose();
-    },
-    [onClose]
-  );
+  const flipNext = useCallback(() => flipRef.current?.flipNext(), []);
+  const flipPrev = useCallback(() => flipRef.current?.flipPrev(), []);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+    const onKeyDown = (event) => {
+      if (event.key === 'ArrowRight') flipNext();
+      if (event.key === 'ArrowLeft') flipPrev();
+      if (event.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [flipNext, flipPrev, onClose]);
 
   if (loading) {
     return (
       <div className={`grove-loading-overlay ${fadeOut ? 'fade-out' : ''}`}>
-        <img src={loadingGif} alt="" className="grove-loading-gif" />
-        <div className="grove-loading-message" key={msgIndex}>
-          {LOADING_MESSAGES[msgIndex]}
-        </div>
-        <div className="grove-loading-bar-track">
-          <div
-            className="grove-loading-bar-fill"
-            style={{
-              width: `${Math.min(100, ((msgIndex + 1) / LOADING_MESSAGES.length) * 100)}%`,
-            }}
-          />
+        <div className="grove-loading-card">
+          <img src={loadingGif} alt="" />
+          <span>Terra Planner</span>
+          <strong key={msgIndex}>{LOADING_MESSAGES[msgIndex]}</strong>
+          <div className="grove-loading-progress">
+            <i style={{ width: `${((msgIndex + 1) / LOADING_MESSAGES.length) * 100}%` }} />
+          </div>
         </div>
       </div>
     );
@@ -154,455 +451,72 @@ export default function GroveReport({ onClose }) {
 
   return (
     <div className="grove-report-container">
-      <button className="grove-close-btn" onClick={onClose} title="Close report">
-        ✕
-      </button>
-
-      <div ref={bookRef} style={{ width: '90vw', maxWidth: 960, height: '80vh' }}>
-        {/* ── PAGE 1: Cover ── */}
-        <div className="grove-page" data-density="hard">
-          <div className="grove-page-inner grove-cover">
-            <div className="grove-cover-badge">✦ Terra AI Executive Report</div>
-            <h1>The Grove at Highlands of Limuru</h1>
-            <h2>Residential Estate Masterplan & Feasibility Intelligence</h2>
-            <div className="grove-cover-meta">
-              <span>📍 Tigoni, Kiambu County</span>
-              <span>📅 July 2026</span>
-              <span>🏗️ Terra Planner v2.4</span>
-            </div>
-            <div className="grove-cover-line" />
-          </div>
+      <div className="grove-report-chrome">
+        <div>
+          <span>Terra Planner Report</span>
+          <strong>The Grove at Highlands of Limuru</strong>
         </div>
+        <button type="button" onClick={onClose} aria-label="Close report">
+          <X size={18} />
+        </button>
+      </div>
 
-        {/* ── PAGE 2: Executive Summary ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">01 — Executive Summary</div>
-            <div className="grove-page-title">Project Overview & Verdict</div>
-            <div className="grove-page-subtitle">
-              Highlands of Limuru works best as a residential estate with generous landscape buffers, pitched roofs, and homes oriented toward hills.
-            </div>
-
-            <div className="grove-stats-row">
-              <div className="grove-stat-chip">
-                <span className="val">91%</span>
-                <span className="lbl">Health Score</span>
-              </div>
-              <div className="grove-stat-chip">
-                <span className="val">84/100</span>
-                <span className="lbl">Buildability</span>
-              </div>
-              <div className="grove-stat-chip">
-                <span className="val">Medium</span>
-                <span className="lbl">Drainage Risk</span>
-              </div>
-              <div className="grove-stat-chip">
-                <span className="val">High</span>
-                <span className="lbl">Road Access</span>
-              </div>
-            </div>
-
-            <div className="grove-card">
-              <h4>🎯 Development Thesis</h4>
-              <p>
-                The product should feel like a calm retreat close to Nairobi, not a city apartment transplanted into countryside. Plot clustering preserves shared green corridors while giving families privacy. Strongest value will come from views, clean air, lower noise, and disciplined infrastructure.
-              </p>
-            </div>
-
-            <div className="grove-card">
-              <h4>⚡ First Phase Decision</h4>
-              <p>
-                Start with the cleaner, more open parcel and reserve steeper or more exposed areas for landscape, amenity, or later expansion. That keeps early capital efficient and reduces foundation surprises.
-              </p>
-            </div>
-
-            <img src={overviewImg} alt="" className="grove-page-img" />
-            <div className="grove-page-num">2 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 3: Site Intelligence ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">02 — Site Intelligence</div>
-            <div className="grove-page-title">Land Reading & Backend Variables</div>
-            <div className="grove-page-subtitle">
-              Annotated spatial assessment integrating terrain movement, soil stability, and weather patterns.
-            </div>
-
-            <div className="grove-var-grid">
-              <div className="grove-var-item">
-                <div className="grove-var-label">Terrain Elevation</div>
-                <div className="grove-var-value">2,140m ASL</div>
-              </div>
-              <div className="grove-var-item warn">
-                <div className="grove-var-label">Slope Gradient</div>
-                <div className="grove-var-value">12.4% Avg</div>
-              </div>
-              <div className="grove-var-item info">
-                <div className="grove-var-label">Soil Type</div>
-                <div className="grove-var-value">Red Volcanic</div>
-              </div>
-              <div className="grove-var-item">
-                <div className="grove-var-label">Annual Rainfall</div>
-                <div className="grove-var-value">1,450 mm</div>
-              </div>
-            </div>
-
-            <div className="grove-card">
-              <h4>🌧️ Climate & Moisture Logic</h4>
-              <p>
-                Tigoni can feel cold and damp. Homes need warmth, daylight, dry circulation, and good roof performance. Large overhangs, covered entries, and protected walkways should be part of the architectural language.
-              </p>
-            </div>
-
-            <img src={siteImg} alt="" className="grove-page-img" />
-            <div className="grove-page-num">3 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 4: Land Timelapse ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">03 — Satellite Timelapse</div>
-            <div className="grove-page-title">Historical & Projected Transformation</div>
-            <div className="grove-page-subtitle">
-              Animated satellite spectrum tracking vegetation density, earthworks, and structural footprint growth over time.
-            </div>
-
-            <div className="grove-sat-container">
-              <div className={`grove-sat-layer l1 ${satPhase === 0 ? 'active' : ''}`} />
-              <div className={`grove-sat-layer l2 ${satPhase === 1 ? 'active' : ''}`} />
-              <div className={`grove-sat-layer l3 ${satPhase === 2 ? 'active' : ''}`} />
-              <div className={`grove-sat-layer l4 ${satPhase === 3 ? 'active' : ''}`} />
-              <div className="grove-sat-grid" />
-              <div className="grove-sat-scanline" />
-
-              <div className="grove-sat-overlay">
-                <div className="grove-sat-timeline">
-                  <div className={`grove-sat-pill ${satPhase === 0 ? 'active' : ''}`}>2024 Raw Parcel</div>
-                  <div className={`grove-sat-pill ${satPhase === 1 ? 'active' : ''}`}>2025 Earthworks</div>
-                  <div className={`grove-sat-pill ${satPhase === 2 ? 'active' : ''}`}>2026 Phase 1</div>
-                  <div className={`grove-sat-pill ${satPhase === 3 ? 'active' : ''}`}>2027 Full Estate</div>
+      <div className="grove-book-shell">
+        <div ref={bookRef} className="grove-book">
+          <div className="grove-page" data-density="hard">
+            <div className="grove-page-inner grove-cover">
+              <img src={terraPlannerImg} alt="" />
+              <div className="grove-cover-content">
+                <span>Terra AI Executive Report</span>
+                <h1>The Grove at Highlands of Limuru</h1>
+                <p>Residential Estate Masterplan and Feasibility Intelligence</p>
+                <div className="grove-cover-meta">
+                  <span><MapPin size={14} /> Tigoni, Kiambu County</span>
+                  <span><CalendarDays size={14} /> July 2026</span>
                 </div>
               </div>
             </div>
-
-            <div className="grove-timeline-row">
-              <div className="grove-timeline-step">
-                <div className="step-num">1</div>
-                <div className="step-label">Survey</div>
-              </div>
-              <div className="grove-timeline-step">
-                <div className="step-num">2</div>
-                <div className="step-label">Civil</div>
-              </div>
-              <div className="grove-timeline-step">
-                <div className="step-num">3</div>
-                <div className="step-label">Foundations</div>
-              </div>
-              <div className="grove-timeline-step">
-                <div className="step-num">4</div>
-                <div className="step-label">Superstructure</div>
-              </div>
-              <div className="grove-timeline-step">
-                <div className="step-num">5</div>
-                <div className="step-label">Handover</div>
-              </div>
-            </div>
-
-            <div className="grove-card">
-              <h4>🛰️ Satellite Engine Insights</h4>
-              <p>
-                Preserves 42% natural vegetation buffer while establishing contour access roads. Earthworks scheduled strictly within dry window (Jan-Mar).
-              </p>
-            </div>
-
-            <div className="grove-page-num">4 / 12</div>
           </div>
-        </div>
 
-        {/* ── PAGE 5: Terrain & Drainage ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">04 — Hydrology & Engineering</div>
-            <div className="grove-page-title">Terrain & Drainage Strategy</div>
-            <div className="grove-page-subtitle">
-              Preventing runoff erosion through bio-swales, underground storage tanks, and stepped foundation channels.
-            </div>
+          <StandardPage page={pages[1]} pageNumber={2} />
+          <StandardPage page={pages[2]} pageNumber={3} />
+          <TimelapsePage phase={satPhase} />
+          <StandardPage page={pages[4]} pageNumber={5} />
+          <StandardPage page={pages[5]} pageNumber={6} />
+          <StandardPage page={pages[6]} pageNumber={7} />
+          <StandardPage page={pages[7]} pageNumber={8} />
+          <BudgetScalePage />
+          <StandardPage page={pages[9]} pageNumber={10} />
+          <StandardPage page={pages[10]} pageNumber={11} />
 
-            <img src={overview2Img} alt="" className="grove-page-img" />
-
-            <div className="grove-card-grid">
-              <div className="grove-card">
-                <h4>🌊 Runoff Control</h4>
-                <p>Interceptor ditches direct stormwater toward planted retention ponds on the eastern boundary.</p>
-              </div>
-              <div className="grove-card">
-                <h4>📐 Contour Alignments</h4>
-                <p>Roads follow natural contours to minimize cut-and-fill work by 32% across the upper slope.</p>
-              </div>
-            </div>
-
-            <div className="grove-card">
-              <h4>🏗️ Retaining & Stabilization</h4>
-              <p>Gabion basket retaining walls preferred over hard concrete walls to maintain natural aesthetic and allow subsoil water discharge.</p>
-            </div>
-
-            <div className="grove-page-num">5 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 6: Planning Concept ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">05 — Planning Concept</div>
-            <div className="grove-page-title">Architectural & Masterplan Vision</div>
-            <div className="grove-page-subtitle">
-              Low-density luxury cluster living integrated with native Limuru flora and open sightlines.
-            </div>
-
-            <img src={planImg} alt="" className="grove-page-img" />
-
-            <div className="grove-card">
-              <h4>🏡 Cluster Organization</h4>
-              <p>4 distinct residential pods arranged around private central green courtyards to foster community safety and quiet pedestrian zones.</p>
-            </div>
-
-            <div className="grove-card">
-              <h4>☀️ Daylight & Solar Access</h4>
-              <p>Living rooms faced 15° East of South to maximize morning warmth while shading western afternoon glare in Tigoni’s cool climate.</p>
-            </div>
-
-            <div className="grove-page-num">6 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 7: Build Strategy ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">06 — Build Strategy</div>
-            <div className="grove-page-title">Construction Phasing & Milestone Roadmap</div>
-            <div className="grove-page-subtitle">
-              Disciplined delivery model prioritizing core access roads before structural mobilization.
-            </div>
-
-            <img src={buildImg} alt="" className="grove-page-img" />
-
-            <ul className="grove-checklist">
-              <li>
-                <span className="grove-check">✓</span> Phase 1: Site Clearance, Perimeter Fencing & Borehole Drilling
-              </li>
-              <li>
-                <span className="grove-check">✓</span> Phase 2: 600m Sub-base Tarmac Entry Road & Main Drainage Swales
-              </li>
-              <li>
-                <span className="grove-check">✓</span> Phase 3: 4 Model Show Homes (Stepped Raft Foundations)
-              </li>
-              <li>
-                <span className="grove-check">✓</span> Phase 4: Clubhouse, Swimming Pool & Solar Utility Reticulation
-              </li>
-            </ul>
-
-            <div className="grove-page-num">7 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 8: Resources ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">07 — Resources & Procurement</div>
-            <div className="grove-page-title">Supply Chain & Local Material Mapping</div>
-            <div className="grove-page-subtitle">
-              Sourcing high-durability highland building materials from verified regional suppliers.
-            </div>
-
-            <img src={resourcesImg} alt="" className="grove-page-img" />
-
-            <div className="grove-card-grid">
-              <div className="grove-card">
-                <h4>⛏️ Tigoni Stone Quarries</h4>
-                <p>Cut stone & high-density ballast sourced within 8km radius, reducing freight lead times.</p>
-              </div>
-              <div className="grove-card">
-                <h4>🌲 Cypress & Pine Timber</h4>
-                <p>Locally treated timber frames for pitched roof truss structures with high moisture resistance.</p>
-              </div>
-            </div>
-
-            <div className="grove-card">
-              <h4>👷 Certified Engineering Team</h4>
-              <p>Retaining BORAQS registered architects and NEMA certified environmental specialists for swift compliance approvals.</p>
-            </div>
-
-            <div className="grove-page-num">8 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 9: Budget Scale ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">08 — Financial Model</div>
-            <div className="grove-page-title">Visual Budget Scale & Balance</div>
-            <div className="grove-page-subtitle">
-              Capital expenditure vs anticipated gross revenue projection.
-            </div>
-
-            <div className="grove-scale-wrap">
-              <div className="grove-scale-beam">
-                <div className="grove-scale-fulcrum" />
-                <div className="grove-scale-pan left">
-                  <span className="grove-pan-value">KES 48.9M</span>
-                  <span className="grove-pan-label">Total CAPEX</span>
-                </div>
-                <div className="grove-scale-pan right">
-                  <span className="grove-pan-value">KES 78.5M</span>
-                  <span className="grove-pan-label">Projected Sales</span>
-                </div>
-              </div>
-
-              <div className="grove-budget-bars">
-                {BUDGET_DATA.map((b) => (
-                  <div className="grove-bar-row" key={b.label}>
-                    <div className="grove-bar-label">{b.label}</div>
-                    <div className="grove-bar-track">
-                      <div
-                        className="grove-bar-fill"
-                        style={{ width: `${b.pct}%`, background: b.color }}
-                      >
-                        {b.pct}%
-                      </div>
-                    </div>
-                    <div className="grove-bar-amount">{fmtKES(b.amount)}</div>
+          <div className="grove-page" data-density="hard">
+            <div className="grove-page-inner grove-back-cover">
+              <div className="grove-back-mark">T</div>
+              <span>Terra AI Engine</span>
+              <h2>Great projects begin with understanding.</h2>
+              <p>Raw land data becomes shared memory, defensible decisions, and a clearer path from concept to built reality.</p>
+              <div className="grove-back-grid">
+                {metrics.map(([label, value]) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="grove-page-num">9 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 10: Budget Breakdown ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">09 — Budget Breakdown</div>
-            <div className="grove-page-title">Itemized Line-Item Financials</div>
-            <div className="grove-page-subtitle">
-              Detailed construction, professional fees, and contingency allocations.
-            </div>
-
-            <table className="grove-table">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th>Scope / Item</th>
-                  <th>Est. Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="grove-phase-header">
-                  <td colSpan={3}>Phase 1: Civil Infrastructure</td>
-                </tr>
-                <tr>
-                  <td>Civil</td>
-                  <td>Roads, Drainage & Borehole</td>
-                  <td>KES 14,780,000</td>
-                </tr>
-                <tr className="grove-phase-header">
-                  <td colSpan={3}>Phase 2: Residential Structures</td>
-                </tr>
-                <tr>
-                  <td>Build</td>
-                  <td>4 Show Homes Superstructure</td>
-                  <td>KES 17,450,000</td>
-                </tr>
-                <tr className="grove-phase-header">
-                  <td colSpan={3}>Phase 3: Amenities & Security</td>
-                </tr>
-                <tr>
-                  <td>Amenities</td>
-                  <td>Clubhouse, Perimeter & Gate</td>
-                  <td>KES 11,580,000</td>
-                </tr>
-                <tr className="grove-phase-header">
-                  <td colSpan={3}>Phase 4: Fees & Risk Buffer</td>
-                </tr>
-                <tr>
-                  <td>Fees</td>
-                  <td>BORAQS Fees + 10% Contingency</td>
-                  <td>KES 5,120,000</td>
-                </tr>
-                <tr className="grove-table-total">
-                  <td colSpan={2}>Grand Total CAPEX</td>
-                  <td>KES 48,930,000</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div className="grove-page-num">10 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 11: Risk & AI Recommendations ── */}
-        <div className="grove-page">
-          <div className="grove-page-inner">
-            <div className="grove-section-tag">10 — Intelligence Safeguards</div>
-            <div className="grove-page-title">Risk Matrix & Terra AI Mitigations</div>
-            <div className="grove-page-subtitle">
-              Continuous monitoring parameters to keep the project on time and within budget.
-            </div>
-
-            <div className="grove-risk-item">
-              <div className="grove-risk-icon warn">⚠️</div>
-              <div className="grove-risk-text">
-                <h5>Rain Season Earthwork Delay</h5>
-                <p>Heavy Limuru rainfall between April-May can halt excavation. Complete earthworks by March 15th.</p>
-              </div>
-            </div>
-
-            <div className="grove-risk-item">
-              <div className="grove-risk-icon warn">⚠️</div>
-              <div className="grove-risk-text">
-                <h5>Soil Moisture Volatility</h5>
-                <p>Conduct triaxial shear testing on lower slope before pouring foundation footings.</p>
-              </div>
-            </div>
-
-            <div className="grove-risk-item">
-              <div className="grove-risk-icon good">✅</div>
-              <div className="grove-risk-text">
-                <h5>Optimal Phased Cash Flow</h5>
-                <p>Release Phase 2 funding only after 50% presales achieved on Phase 1 units.</p>
-              </div>
-            </div>
-
-            <div className="grove-page-num">11 / 12</div>
-          </div>
-        </div>
-
-        {/* ── PAGE 12: Back Cover ── */}
-        <div className="grove-page" data-density="hard">
-          <div className="grove-page-inner grove-back-cover">
-            <div className="grove-back-logo">T</div>
-            <h2>Terra AI Engine</h2>
-            <p>
-              Transforming raw land data into intelligent, actionable physical reality.
-            </p>
-            <div style={{ marginTop: 32, fontSize: 10, color: '#475569' }}>
-              Highlands of Limuru Project Report · Confidential
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="grove-page-indicator">
-        {Array.from({ length: totalPages }).map((_, i) => (
-          <div key={i} className={`grove-page-dot ${currentPage === i ? 'active' : ''}`} />
-        ))}
+      <div className="grove-report-controls">
+        <button type="button" onClick={flipPrev} aria-label="Previous page"><ArrowLeft size={17} /></button>
+        <div className="grove-page-dots" aria-label={`Page ${currentPage + 1} of ${TOTAL_PAGES}`}>
+          {Array.from({ length: TOTAL_PAGES }).map((_, index) => (
+            <span key={index} className={currentPage === index ? 'active' : ''} />
+          ))}
+        </div>
+        <button type="button" onClick={flipNext} aria-label="Next page"><ArrowRight size={17} /></button>
       </div>
-
-      <div className="grove-nav-hint">← → arrows or drag to flip pages</div>
     </div>
   );
 }
