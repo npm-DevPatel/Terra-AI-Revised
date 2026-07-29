@@ -24,7 +24,6 @@ import site2Img from '../../../presentation_mode/planner_images/site_2.jpeg';
 import planImg from '../../../presentation_mode/planner_images/plan.jpeg';
 import buildImg from '../../../presentation_mode/planner_images/build_2.jpeg';
 import resourcesImg from '../../../presentation_mode/planner_images/resources.jpeg';
-import budgetImg from '../../../presentation_mode/planner_images/budget.jpeg';
 import budget2Img from '../../../presentation_mode/planner_images/budget_2.jpeg';
 import terraPlannerImg from '../../assets/terra_planner.jpeg';
 
