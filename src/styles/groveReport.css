@@ -10,8 +10,9 @@
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 50% 36%, rgba(16, 185, 129, 0.22), transparent 34%),
-    linear-gradient(135deg, #07110f 0%, #101820 50%, #edf7f2 220%);
+    radial-gradient(circle at 50% 36%, rgba(16, 185, 129, 0.24), transparent 34%),
+    radial-gradient(circle at 18% 18%, rgba(96, 165, 250, 0.16), transparent 30%),
+    linear-gradient(135deg, #030712 0%, #08111f 52%, #0f172a 100%);
   transition: opacity 0.65s ease;
 }
 
@@ -29,7 +30,7 @@
   justify-content: center;
   border: 1px solid rgba(209, 250, 229, 0.18);
   border-radius: 8px;
-  background: rgba(9, 20, 17, 0.76);
+  background: rgba(7, 15, 28, 0.78);
   box-shadow: 0 34px 120px rgba(0, 0, 0, 0.44);
   backdrop-filter: blur(22px);
   color: #ecfdf5;
@@ -39,9 +40,10 @@
 .grove-loading-card img {
   width: 118px;
   height: 118px;
-  border-radius: 8px;
-  object-fit: cover;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 58px rgba(16, 185, 129, 0.28);
+  border-radius: 0;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: none;
 }
 
 .grove-loading-card span,

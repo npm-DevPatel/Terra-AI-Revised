@@ -640,6 +640,13 @@ export default function PlannerWorkspace() {
   const [active, setActive] = useState('overview');
   const [showReport, setShowReport] = useState(false);
   const [selectionMenu, setSelectionMenu] = useState(null);
+  const [aiContextMessages, setAiContextMessages] = useState([
+    {
+      role: 'ai',
+      title: 'Terra AI Context',
+      response: 'Highlight planning text and press AI context. I will load the prebuilt demo intelligence here.',
+    },
+  ]);
   const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === active), [active]);
   const [projectName, setProjectName] = useState(PROJECT_NAME);
 
@@ -686,7 +693,20 @@ export default function PlannerWorkspace() {
     setActive(item.id);
   };
 
-
+  const handleAIContext = () => {
+    if (!selectionMenu?.text) return;
+    const hit = getHighlightResponse(selectionMenu.text) || {
+      title: 'Terra AI Context',
+      response: 'This phrase is a decision point for design, cost, risk, or coordination. Highlight one of the specific passages in Overview or Site to see preloaded Terra intelligence.',
+    };
+    setAiContextMessages((current) => [
+      ...current,
+      { role: 'user', title: 'Highlighted text', response: selectionMenu.text },
+      { role: 'ai', title: hit.title, response: hit.response },
+    ]);
+    setSelectionMenu(null);
+    window.getSelection()?.removeAllRanges();
+  };
 
   return (
     <div className="planner-screen">
@@ -696,33 +716,12 @@ export default function PlannerWorkspace() {
           className="planner-selection-capsule"
           style={{ left: selectionMenu.x, top: selectionMenu.y }}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setSelectionMenu({ ...selectionMenu, opened: true })}
+          onClick={handleAIContext}
         >
           <Sparkles size={13} />
           AI context
         </button>
       )}
-      {selectionMenu?.opened && (() => {
-        const hit = getHighlightResponse(selectionMenu.text);
-        return (
-          <div className="planner-context-popover" style={{ left: Math.min(selectionMenu.x, window.innerWidth - 360), top: selectionMenu.y + 38 }}>
-            {hit ? (
-              <>
-                <strong>{hit.title}</strong>
-                {hit.response.split('\n').map((line, i) => {
-                  if (line.startsWith('**') && line.endsWith('**')) return <p key={i} style={{fontWeight:800,color:'#0f172a',marginBottom:4}}>{line.replace(/\*\*/g,'')}</p>;
-                  return line ? <p key={i}>{line}</p> : <br key={i} />;
-                })}
-              </>
-            ) : (
-              <>
-                <strong>Terra AI Context</strong>
-                <p>This phrase is a decision point for design, cost, risk, or coordination. Highlight one of the specific passages in Overview or Site to see preloaded Terra intelligence.</p>
-              </>
-            )}
-          </div>
-        );
-      })()}
       <aside className="planner-vertical-menu">
         <div className="planner-brand">
           <div className="planner-brand-mark">T</div>
@@ -771,6 +770,26 @@ export default function PlannerWorkspace() {
           <PlannerView active={active} />
         </motion.div>
       </main>
+      <aside className="planner-context-panel">
+        <div className="planner-context-panel-head">
+          <div className="planner-context-orb"><Sparkles size={15} /></div>
+          <div>
+            <span>Sidechat Panel</span>
+            <strong>AI Context</strong>
+          </div>
+        </div>
+        <div className="planner-context-thread">
+          {aiContextMessages.map((message, index) => (
+            <article key={`${message.role}-${index}`} className={`planner-context-message ${message.role}`}>
+              <strong>{message.title}</strong>
+              {message.response.split('\n').map((line, i) => {
+                if (line.startsWith('**') && line.endsWith('**')) return <p key={i} className="planner-context-section-title">{line.replace(/\*\*/g,'')}</p>;
+                return line ? <p key={i}>{line}</p> : <br key={i} />;
+              })}
+            </article>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }

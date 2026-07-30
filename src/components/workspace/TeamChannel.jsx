@@ -14,9 +14,9 @@ import bekelePhoto from '../../assets/invite/Bekele_Tesfaye(site-agent).jpeg';
 import '../../styles/workspace.css';
 
 const TEAM_MEMBERS = [
-  { id: 'imani',     name: 'Imani Wafula',      role: 'Surveyor',            photo: imaniPhoto,     accent: '#10b981', emoji: '📐' },
-  { id: 'alexander', name: 'Alexander Whitfield', role: 'Structural Engineer', photo: alexanderPhoto, accent: '#3b82f6', emoji: '🏗️' },
-  { id: 'bekele',    name: 'Bekele Tesfaye',      role: 'Site Agent',          photo: bekelePhoto,    accent: '#d6a331', emoji: '⛏️' },
+  { id: 'imani',     name: 'Imani Wafula',      handle: 'Imani_Wafula', role: 'Surveyor',            photo: imaniPhoto,     accent: '#10b981', emoji: 'IM' },
+  { id: 'alexander', name: 'Alexander Whitfield', handle: 'Alexander_Whitfield', role: 'Structural Engineer', photo: alexanderPhoto, accent: '#3b82f6', emoji: 'AW' },
+  { id: 'bekele',    name: 'Bekele Tesfaye',      handle: 'Bekele_Tesfaye', role: 'Site Agent',          photo: bekelePhoto,    accent: '#d6a331', emoji: 'BT' },
 ];
 
 const TERRA_INVITE_RECOMMENDATION = {
@@ -36,9 +36,9 @@ const TERRA_INVITE_RECOMMENDATION = {
 • Coordinates native planting selection for natural slope stabilization and shared green corridors.
 
 **Active Workspace Collaborators:**
-• 📐 Imani Wafula — Surveyor
-• 🏗️ Alexander Whitfield — Structural Engineer
-• ⛏️ Bekele Tesfaye — Site Agent`,
+• Imani Wafula — Surveyor
+• Alexander Whitfield — Structural Engineer
+• Bekele Tesfaye — Site Agent`,
   createdAt: new Date().toISOString(),
 };
 
@@ -46,13 +46,13 @@ const TERRA_AI_SUMMARY = {
   memberId: 'terra',
   content: `Here is Terra AI's structured summary for **The Grove at Highlands of Limuru**:
 
-**🗺️ Survey — Imani Wafula**
+**Survey — Imani Wafula**
 Identified the upper open parcel as Phase 1 cluster zone. Flagged entrance geometry and drainage corridors.
 
-**⛏️ Site Operations — Bekele Tesfaye**
+**Site Operations — Bekele Tesfaye**
 Prioritized temporary culverts, site perimeter fencing, and access track stabilization before heavy machine mobilization.
 
-**🏗️ Structural Engineering — Alexander Whitfield**
+**Structural Engineering — Alexander Whitfield**
 Requested geotech test pits on sloped pads to customize stepped foundations for hillside stability.
 
 **📌 Recommended Actions:**
@@ -167,7 +167,13 @@ export default function TeamChannel({ projectName }) {
     const val = e.target.value;
     setDraft(val);
     const lower = val.toLowerCase();
-    setShowMention(lower.includes('@terra') || lower.includes('@terra_ai') || lower.includes('@terra ai'));
+    setShowMention(val.includes('@') || lower.includes('@terra') || lower.includes('@terra_ai') || lower.includes('@terra ai'));
+  }
+
+  function chooseMention(value) {
+    setDraft(value);
+    setShowMention(false);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
   }
 
   function sendMessage() {
@@ -203,6 +209,23 @@ export default function TeamChannel({ projectName }) {
         <div className="tc-sidebar-head">
           <span className="tc-sidebar-label">Invited Team</span>
           <span className="tc-sidebar-count">{TEAM_MEMBERS.length} active</span>
+        </div>
+        <div className="tc-invite-card">
+          <div className="tc-invite-copy">
+            <strong>Invite Members</strong>
+            <span>The Grove demo team</span>
+          </div>
+          <div className="tc-invite-stack">
+            {TEAM_MEMBERS.map((member) => (
+              <img key={member.id} src={member.photo} alt={member.name} />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => chooseMention('@Terra_AI Who should we invite to this workspace at this stage of construction?')}
+          >
+            <UserPlus size={14} /> Ask Terra_AI
+          </button>
         </div>
         <div className="tc-members-grid">
           {TEAM_MEMBERS.map((m) => <MemberCard key={m.id} member={m} />)}
@@ -245,21 +268,36 @@ export default function TeamChannel({ projectName }) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* @Terra AI suggestion chip */}
+        {/* Invite and @Terra_AI suggestion card */}
         <AnimatePresence>
           {showMention && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
-              className="tc-mention-chip"
-              onClick={() => {
-                setDraft('@Terra AI Who should we invite to this workspace at this stage of construction?');
-                textareaRef.current?.focus();
-              }}
+              className="tc-mention-card"
             >
-              <UserPlus size={14} />
-              <span><strong>@Terra AI</strong> — "Who should we invite to this workspace at this stage of construction?"</span>
+              <button
+                type="button"
+                className="tc-mention-ai-row"
+                onClick={() => chooseMention('@Terra_AI Who should we invite to this workspace at this stage of construction?')}
+              >
+                <div className="tc-mention-ai-icon"><Sparkles size={15} /></div>
+                <span><strong>@Terra_AI</strong><small>Ask who to invite into this workspace</small></span>
+                <UserPlus size={14} />
+              </button>
+              <div className="tc-mention-members">
+                {TEAM_MEMBERS.map((member) => (
+                  <button
+                    type="button"
+                    key={member.id}
+                    onClick={() => chooseMention(`@${member.handle} `)}
+                  >
+                    <img src={member.photo} alt="" />
+                    <span><strong>@{member.handle}</strong><small>{member.role}</small></span>
+                  </button>
+                ))}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

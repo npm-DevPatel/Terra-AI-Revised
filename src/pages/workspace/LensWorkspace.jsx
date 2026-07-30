@@ -33,7 +33,8 @@ import demoAnnotations from '../../../presentation_mode/annotations.json';
 import { lensDemoResponses, plannerGeneration } from '../../../presentation_mode/demoContent';
 import aiIcon from '../../assets/ai_chat/ai_icon.png';
 import attachmentIcon from '../../assets/ai_chat/attachment_icon.png';
-import micIcon from '../../assets/ai_chat/mic.png';
+import micIcon from '../../assets/ai_chat/mic_icon.png';
+import voiceListeningGif from '../../assets/ai_chat/voice_listening.gif';
 import sendIcon from '../../assets/ai_chat/send.png';
 import thinkingGif from '../../assets/made_projects/4_word_loading.gif';
 
@@ -59,6 +60,11 @@ const DEMO_LOCATION_SUGGESTIONS = [
   { place_id: 'demo-kiambu', description: 'Kiambu County, Kenya', label: 'Kiambu County, Kenya', lat: -1.0314, lng: 36.8681 },
 ];
 const LOADING_WORDS = ['synthesizing', 'pondering', 'crafting', 'composing'];
+const DRAW_VOICE_QUESTIONS = {
+  '#ef4444': 'Based on what you can see and I have drawn, should we build facing towards the hill or away from it?',
+  '#10b981': 'Based on the dark clouds on the sky, does Tigoni rain a lot?',
+  '#ffffff': 'I have circled two parcels of land, between the two which one looks buildable?',
+};
 
 function buildDemoLensResult(image, location, title) {
   const objects = image?.isKilgoris
@@ -715,23 +721,41 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
     }, 2000);
   };
 
-  const handleCopilotMicClick = () => {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) {
-      setChatInput((value) => value || 'Voice input is not supported in this browser.');
-      return;
-    }
-    const recognition = new Recognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.onstart = () => setCopilotListening(true);
-    recognition.onend = () => setCopilotListening(false);
-    recognition.onerror = () => setCopilotListening(false);
-    recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript;
-      if (transcript) setChatInput((value) => `${value}${value ? ' ' : ''}${transcript}`);
-    };
-    recognition.start();
+  const runDrawVoiceDemo = () => {
+    if (chatLoading || copilotListening) return;
+    const question = DRAW_VOICE_QUESTIONS[drawColor] || DRAW_VOICE_QUESTIONS['#ef4444'];
+    const colorKey = {
+      '#ffffff': 'land',
+      '#ef4444': 'hillside',
+      '#10b981': 'sky',
+    }[drawColor] || 'hillside';
+
+    setCopilotOpen(true);
+    setCopilotListening(true);
+    setChatInput('');
+
+    window.setTimeout(() => {
+      setChatInput(question);
+    }, 520);
+
+    window.setTimeout(() => {
+      setCopilotListening(false);
+      setChatInput('');
+      setChatMsgs(prev => [
+        ...prev,
+        { role: 'user', text: `[Drawing Inquiry] ${question}` },
+      ]);
+      setChatLoading(true);
+      setChatLoadingMode('thinking');
+    }, 1050);
+
+    window.setTimeout(() => {
+      setChatMsgs(prev => [
+        ...prev,
+        { role: 'ai', text: responseForLensQuestion(question, colorKey) },
+      ]);
+      setChatLoading(false);
+    }, 2600);
   };
 
   const DrawIcon = ({ size }) => (
@@ -1075,14 +1099,19 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                 <button onClick={() => copilotFileRef.current?.click()} aria-label="Attach file" style={{ width: 28, height: 28, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
                   <img src={attachmentIcon} alt="" style={{ width: 19, height: 19 }} />
                 </button>
-                <button onClick={handleCopilotMicClick} aria-label="Use voice" style={{ width: 28, height: 28, border: 'none', borderRadius: 8, background: copilotListening ? '#dcfce7' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                <button onClick={runDrawVoiceDemo} aria-label="Use voice" style={{ width: 28, height: 28, border: 'none', borderRadius: 8, background: copilotListening ? '#dcfce7' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
                   <img src={micIcon} alt="" style={{ width: 19, height: 19 }} />
                 </button>
-                <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCopilotSend()}
-                  placeholder="Message Terra..."
-                  style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none',
-                    padding: '7px 4px', color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+                  {copilotListening && (
+                    <img src={voiceListeningGif} alt="" style={{ width: 30, height: 30, objectFit: 'contain', marginRight: 6 }} />
+                  )}
+                  <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleCopilotSend()}
+                    placeholder={copilotListening ? 'Listening...' : 'Message Terra...'}
+                    style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none',
+                      padding: '7px 4px', color: '#0f172a', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                </div>
                 <button onClick={handleCopilotSend} disabled={!chatInput.trim() || chatLoading}
                   style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0,
                     background: chatInput.trim() ? '#10b981' : '#e2e8f0', border: 'none',

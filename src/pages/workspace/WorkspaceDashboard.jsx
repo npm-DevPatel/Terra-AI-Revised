@@ -147,8 +147,8 @@ function ProjectCard({ project, onClick, onDelete, deleting }) {
 }
 
 function CreateProjectModal({ onClose, onCreated }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState('The Grove at the Highlands of Limuru');
+  const [description, setDescription] = useState('Write the description');
   const [product, setProduct] = useState('full');
   const [loading, setLoading] = useState(false);
   const { user } = useTerraStore();
@@ -217,7 +217,7 @@ function CreateProjectModal({ onClose, onCreated }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input
-            placeholder="Project name — e.g. Patel's Apartment Project"
+            placeholder="Project name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{
@@ -228,7 +228,7 @@ function CreateProjectModal({ onClose, onCreated }) {
             autoFocus
           />
           <textarea
-            placeholder="Short description (optional)"
+            placeholder="Project Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}

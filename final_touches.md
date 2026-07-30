@@ -1,11 +1,53 @@
-in the terra workspace where you text and invite team members have the pictures in [invite](src/assets/invite/) and their names and roles as well(found in how they are named). Remove all the other stuff, just have beautiful images and the roles those people do, finally ensure that texting works where if I submit a text it appears in the message bubble but as of now, just have preloaded messages between the 3 members and I will add a text to aid the conversation but keep the AI Mentioning with the following: I will ask this in the chat "@Terra_AI(auto-suggested) would you summarize messages in the chat so far?" then Terra AI summarizes the preloaded texts between the 3 members and me beautifully
+(i) I want us to make the following changes: 
+(a)Have the create project card ready with the folllowing text: 
 
-2. In Terra planner, where we highlight and you give the AI context, I want you to preload the responses when I highlight the following sentences: 
+(1) Project name - The Grove at the Highlands of Limuru
+(2) Project Description - Write the description
 
-(a)"The strongest opportunity is to create a community that feels anchored in Tigoni and Limuru rather than generic suburbia. The hills can shape arrival roads, walking loops, shared gardens, and clubhouse placement. Rain and cool weather can support lush planting, water harvesting, and a strong wellness narrative. The estate can target families, remote workers, and hospitality-minded buyers who want space without losing Nairobi access. A phased plan lets the developer prove demand before building everything. The land story is good; the execution has to be equally careful."
+Note: This is just there I can edit it if I want, its just here to save time for me during the demo. The cursor can blink as well
 
-(b)"Buildability Zones
-The best buildability zones are the parcels that combine views, manageable slope, and simple access. More exposed or complicated pieces should become landscape buffers, amenities, or later phases. This prevents the project from spending too much money solving the hardest land first. Terra would map each zone by foundation complexity, drainage exposure, view quality, and infrastructure reach. The first phase should be technically easy and commercially beautiful. That gives the development momentum."
+(ii) On the Terra Lens draw mode where I ask questions have the ![alt text](src/assets/ai_chat/mic_icon.png)  on that card, when I press it include ![alt text](src/assets/ai_chat/voice_listening.gif) in the chat box to illustrate a fake listening sequence.
 
-(c)"KES 56,472,500" like breakdown how you arrived at that figure in detail 
+So here is the flow I want:
 
+i. I press the mic icon
+ii. The voice listening icon gif appears  in the text bar to fake listen
+
+Q(red arrow) - Based on what you can see and I have drawn, should we build facing towards the hill or away from it?
+
+Q(green) - Based on the dark clouds on the sky, does Tigoni rain a lot?
+
+Q(white circles) - I have circled two parcels of land, between the two which one looks buildable? 
+
+This is roughly what I will say:
+
+iii. So despite how I say it, when I press and release it load that question on the sidechat panel and answer it. 
+
+All this is to help us save time during the demo rather than type all the time?
+
+The rest of the sequence remains the same 
+
+(b) Terra Planner
+
+The preloaded AI contexts appear over the text rather than on the sidechat panel
+
+so flow is:
+
+i. I highlight text
+ii. I press AI context
+iii. The response is loaded as a beautiful answer on the sidechat panel
+
+Everything else remains the same
+
+(c) Terra Report
+
+Here The page that appears with stuff like "Capturing the Journey" appears on a black/dark-blue page rather than a plain white page beautiful loading state so fix this, even the icon needs to lie on the white bg with no boundaries.
+
+(d) Terra Workspace
+
+It lacks the invite card to invite members into your workspace beautifully. Use the members in [text](src/assets/invite) with their profiles, etc.
+
+Here the preloaded demo, have the auto-suggest "@Terra_AI" appear quickly the minute I press the "@" have all the 3 members in the [text](src/assets/invite)appear with @Terra_ai. It takes so long to auto-suggest, have all members appear when I press the @symbol, i.e all in the invite card and terra_ai to do the preloaded task of answering who to invite into the workpace. 
+
+
+## All this is with the goal of saving time and typing during the demo
