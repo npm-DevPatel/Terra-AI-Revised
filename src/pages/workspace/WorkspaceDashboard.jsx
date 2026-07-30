@@ -148,7 +148,7 @@ function ProjectCard({ project, onClick, onDelete, deleting }) {
 
 function CreateProjectModal({ onClose, onCreated }) {
   const [name, setName] = useState('The Grove at the Highlands of Limuru');
-  const [description, setDescription] = useState('Write the description');
+  const [description, setDescription] = useState('The Grove at the Highlands of Limuru is a residential development concept set within Tigoni’s cool highland landscape, shaped around views, greenery, and a quiet low-density living experience. The project explores buildable parcels, access, drainage, and site orientation so the homes can sit comfortably within the terrain rather than fight it. It is designed as a refined countryside community for families who want privacy, fresh air, and strong long-term land value close to Nairobi.');
   const [product, setProduct] = useState('full');
   const [loading, setLoading] = useState(false);
   const { user } = useTerraStore();

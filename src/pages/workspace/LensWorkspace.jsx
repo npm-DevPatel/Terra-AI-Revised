@@ -733,14 +733,17 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
     setCopilotOpen(true);
     setCopilotListening(true);
     setChatInput('');
+    setDrawQuestion('');
 
     window.setTimeout(() => {
       setChatInput(question);
+      setDrawQuestion(question);
     }, 520);
 
     window.setTimeout(() => {
       setCopilotListening(false);
       setChatInput('');
+      setDrawQuestion('');
       setChatMsgs(prev => [
         ...prev,
         { role: 'user', text: `[Drawing Inquiry] ${question}` },
@@ -968,22 +971,38 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
                   >
                     <img src={micIcon} alt="" style={{ width: 18, height: 18 }} />
                   </button>
-                  <input
-                    value={drawQuestion}
-                    onChange={e => setDrawQuestion(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleDrawAsk(); }}
-                    placeholder="e.g. Is this soil stable?"
+                  <div
                     style={{
                       flex: 1,
+                      minWidth: 0,
+                      display: 'flex',
+                      alignItems: 'center',
                       background: '#f8fafc',
                       border: '1px solid #e2e8f0',
                       borderRadius: 8,
-                      padding: '6px 10px',
-                      color: '#0f172a',
-                      fontSize: 12,
-                      outline: 'none',
+                      padding: '0 8px',
                     }}
-                  />
+                  >
+                    {copilotListening && (
+                      <img src={voiceListeningGif} alt="" style={{ width: 26, height: 26, objectFit: 'contain', marginRight: 5 }} />
+                    )}
+                    <input
+                      value={drawQuestion}
+                      onChange={e => setDrawQuestion(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleDrawAsk(); }}
+                      placeholder={copilotListening ? 'Listening...' : 'e.g. Is this soil stable?'}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '6px 2px',
+                        color: '#0f172a',
+                        fontSize: 12,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
                   <button
                     onClick={handleDrawAsk}
                     disabled={!drawQuestion.trim()}
