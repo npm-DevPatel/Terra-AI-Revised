@@ -2068,6 +2068,11 @@
   46%, 100% { opacity: 0; }
 }
 
+@keyframes plannerDot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50%       { opacity: 1;    transform: translateY(-4px); }
+}
+
 .planner-view,
 .planner-content-grid {
   display: flex;

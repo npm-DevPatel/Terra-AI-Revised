@@ -183,7 +183,8 @@ function ThinkingState({ lines = 4 }) {
 function InsightCard({ title, body, activeKey, tone = 'mint' }) {
   const [thinking, setThinking] = useState(true);
   useEffect(() => {
-    const timer = window.setTimeout(() => setThinking(false), 3000);
+    // 4.2 s thinking phase before typewriter starts — feels deliberate, not instant
+    const timer = window.setTimeout(() => setThinking(false), 4200);
     return () => window.clearTimeout(timer);
   }, [activeKey]);
   return (
@@ -647,8 +648,12 @@ export default function PlannerWorkspace() {
       response: 'Highlight planning text and press AI context. I will load the prebuilt demo intelligence here.',
     },
   ]);
+  // Tracks whether the sidechat AI is mid-thinking (shows animated dots while waiting)
+  const [sidechatThinking, setSidechatThinking] = useState(false);
   const activeItem = useMemo(() => NAV_ITEMS.find((item) => item.id === active), [active]);
   const [projectName, setProjectName] = useState(PROJECT_NAME);
+  // Ref for the scrollable main content pane
+  const mainRef = useRef(null);
 
   // Fetch project name
   useEffect(() => {
@@ -662,6 +667,48 @@ export default function PlannerWorkspace() {
         if (data?.name) setProjectName(data.name);
       });
   }, [projectId]);
+
+  // Arrow-key scrolling for the main content pane
+  useEffect(() => {
+    const SCROLL_STEP = 120;  // px per arrow press
+    const handleKey = (e) => {
+      // Don't hijack when user is typing in an input / textarea / contenteditable
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+
+      const el = mainRef.current;
+      if (!el) return;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          el.scrollBy({ top: SCROLL_STEP, behavior: 'smooth' });
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          el.scrollBy({ top: -SCROLL_STEP, behavior: 'smooth' });
+          break;
+        case 'PageDown':
+          e.preventDefault();
+          el.scrollBy({ top: el.clientHeight * 0.85, behavior: 'smooth' });
+          break;
+        case 'PageUp':
+          e.preventDefault();
+          el.scrollBy({ top: -el.clientHeight * 0.85, behavior: 'smooth' });
+          break;
+        case 'Home':
+          if (e.ctrlKey) { e.preventDefault(); el.scrollTo({ top: 0, behavior: 'smooth' }); }
+          break;
+        case 'End':
+          if (e.ctrlKey) { e.preventDefault(); el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   useEffect(() => {
     const handleSelection = () => {
@@ -699,13 +746,21 @@ export default function PlannerWorkspace() {
       title: 'Terra AI Context',
       response: 'This phrase is a decision point for design, cost, risk, or coordination. Highlight one of the specific passages in Overview or Site to see preloaded Terra intelligence.',
     };
-    setAiContextMessages((current) => [
-      ...current,
-      { role: 'user', title: 'Highlighted text', response: selectionMenu.text },
-      { role: 'ai', title: hit.title, response: hit.response },
-    ]);
+    const userMsg = { role: 'user', title: 'Highlighted text', response: selectionMenu.text };
+    // 1. Append user message immediately
+    setAiContextMessages((current) => [...current, userMsg]);
     setSelectionMenu(null);
     window.getSelection()?.removeAllRanges();
+    // 2. Show thinking state in the panel
+    setSidechatThinking(true);
+    // 3. After 1.6 s lag, append the AI answer
+    window.setTimeout(() => {
+      setSidechatThinking(false);
+      setAiContextMessages((current) => [
+        ...current,
+        { role: 'ai', title: hit.title, response: hit.response },
+      ]);
+    }, 1600);
   };
 
   return (
@@ -745,7 +800,7 @@ export default function PlannerWorkspace() {
         </nav>
       </aside>
 
-      <main className="planner-main">
+      <main className="planner-main" ref={mainRef} tabIndex={-1}>
         {active !== 'workspace' && (
           <header className="planner-top">
             <div className="planner-section-header">
@@ -788,6 +843,25 @@ export default function PlannerWorkspace() {
               })}
             </article>
           ))}
+          {/* Thinking dots while AI is processing the highlighted text */}
+          {sidechatThinking && (
+            <article className="planner-context-message ai">
+              <strong>Terra AI Context</strong>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center', paddingTop: 4 }}>
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: '#10b981',
+                      display: 'inline-block',
+                      animation: `plannerDot 0.9s ${i * 0.18}s ease-in-out infinite`,
+                    }}
+                  />
+                ))}
+              </div>
+            </article>
+          )}
         </div>
       </aside>
     </div>
