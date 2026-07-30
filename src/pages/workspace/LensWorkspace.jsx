@@ -61,9 +61,9 @@ const DEMO_LOCATION_SUGGESTIONS = [
 ];
 const LOADING_WORDS = ['synthesizing', 'pondering', 'crafting', 'composing'];
 const DRAW_VOICE_QUESTIONS = {
-  '#ef4444': 'Based on what you can see and I have drawn, should we build facing towards the hill or away from it?',
-  '#10b981': 'Based on the dark clouds on the sky, does Tigoni rain a lot?',
-  '#ffffff': 'I have circled two parcels of land, between the two which one looks buildable?',
+  '#ef4444': 'Based on the slope, view corridor, and the section I marked, should the development face toward the hill or orient away from it?',
+  '#10b981': 'Based on the visible cloud cover and Tigoni microclimate, should we assume high rainfall in the drainage strategy?',
+  '#ffffff': 'I have circled two land parcels; from a buildability and access standpoint, which one is the stronger candidate?',
 };
 
 function buildDemoLensResult(image, location, title) {
@@ -948,6 +948,26 @@ function AnnotatedViewer({ image, result, projectName, projectId, analysisId, on
               <div style={{ width: '100%', borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>Ask Terra about the marked area:</span>
                 <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={runDrawVoiceDemo}
+                    disabled={chatLoading || copilotListening}
+                    aria-label="Use voice"
+                    style={{
+                      width: 30,
+                      height: 30,
+                      flexShrink: 0,
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      background: copilotListening ? '#dcfce7' : '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: chatLoading || copilotListening ? 'default' : 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    <img src={micIcon} alt="" style={{ width: 18, height: 18 }} />
+                  </button>
                   <input
                     value={drawQuestion}
                     onChange={e => setDrawQuestion(e.target.value)}

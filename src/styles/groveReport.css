@@ -9,10 +9,7 @@
 .grove-loading-overlay {
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 50% 36%, rgba(16, 185, 129, 0.24), transparent 34%),
-    radial-gradient(circle at 18% 18%, rgba(96, 165, 250, 0.16), transparent 30%),
-    linear-gradient(135deg, #030712 0%, #08111f 52%, #0f172a 100%);
+  background: #ffffff;
   transition: opacity 0.65s ease;
 }
 
@@ -28,12 +25,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(209, 250, 229, 0.18);
+  border: none;
   border-radius: 8px;
-  background: rgba(7, 15, 28, 0.78);
-  box-shadow: 0 34px 120px rgba(0, 0, 0, 0.44);
-  backdrop-filter: blur(22px);
-  color: #ecfdf5;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: #0f172a;
   padding: 30px;
 }
 
@@ -60,13 +57,13 @@
 
 .grove-loading-card span {
   margin-top: 28px;
-  color: #6ee7b7;
+  color: #0f766e;
 }
 
 .grove-loading-card strong {
   min-height: 32px;
   margin-top: 8px;
-  color: #f8fafc;
+  color: #0f172a;
   font-size: clamp(20px, 5vw, 28px);
   line-height: 1.1;
   text-align: center;
@@ -84,7 +81,7 @@
   margin-top: 26px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: #e2e8f0;
 }
 
 .grove-loading-progress i {
